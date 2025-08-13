@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.env
+.env
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test, coverage, and build
+htmlcov/
+.coverage
+.tox/
+dist/
+build/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+*.db
+pgdata/
+
+# Zip and temp
+*.zip
+*.tar.gz
+*.tmp
+
+# Ignore database and redis volumes
+pgdata/
+
+# Misc
+*.sqlite3
