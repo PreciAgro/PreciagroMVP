@@ -3,6 +3,13 @@ import os
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
+from sqlalchemy import text
+
+# If the URL references an async dialect (eg. postgresql+asyncpg) we will
+# create an async engine and run migrations in an async context. This avoids
+# "greenlet_spawn has not been called" errors when alembic tries to connect.
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -32,17 +39,41 @@ def run_migrations_offline():
 
 
 def run_migrations_online():
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    """Run migrations in 'online' mode.
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection,
-                          target_metadata=target_metadata)
-        with context.begin_transaction():
-            context.run_migrations()
+    If the configured URL uses an async dialect (for example postgresql+asyncpg)
+    create an async engine and run migrations inside an asyncio event loop
+    using a synchronous run_sync wrapper for Alembic's migration context.
+    """
+    url = config.get_main_option("sqlalchemy.url")
+    parsed = make_url(url)
+
+    if parsed.drivername and parsed.drivername.endswith("+asyncpg") or \
+       "+asyncpg" in str(parsed):
+        # async path
+        async_engine = create_async_engine(url, poolclass=pool.NullPool)
+
+        async def do_run():
+            async with async_engine.connect() as conn:
+                await conn.run_sync(lambda connection: context.configure(connection=connection, target_metadata=target_metadata))
+                async with conn.begin():
+                    await conn.run_sync(lambda connection: context.run_migrations())
+
+        import asyncio as _asyncio
+        _asyncio.run(do_run())
+    else:
+        # sync path
+        connectable = engine_from_config(
+            config.get_section(config.config_ini_section),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
+
+        with connectable.connect() as connection:
+            context.configure(connection=connection,
+                              target_metadata=target_metadata)
+            with context.begin_transaction():
+                context.run_migrations()
 
 
 if context.is_offline_mode():
