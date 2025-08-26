@@ -94,7 +94,8 @@ def healthz():
     try:
         try:
             import redis.asyncio as _redis_ai
-            r = _redis_ai.from_url(_os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+            r = _redis_ai.from_url(_os.getenv(
+                "REDIS_URL", "redis://localhost:6379/0"))
             loop = asyncio.new_event_loop()
             try:
                 pong = loop.run_until_complete(r.ping())
@@ -104,7 +105,8 @@ def healthz():
         except Exception:
             try:
                 import redis as _redis_sync
-                r = _redis_sync.from_url(_os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+                r = _redis_sync.from_url(_os.getenv(
+                    "REDIS_URL", "redis://localhost:6379/0"))
                 redis_ok = bool(r.ping())
             except Exception:
                 redis_ok = False

@@ -34,10 +34,14 @@ logger = logging.getLogger("preciagro.data_integration.orchestrator")
 _SEMAPHORES: Dict[str, asyncio.Semaphore] = {}
 
 # Prometheus metrics
-_UPsert_SUCC = Counter('preciagro_upsert_success_total', 'Successful DB upserts', ['source'])
-_UPsert_FAIL = Counter('preciagro_upsert_fail_total', 'Failed DB upserts', ['source'])
-_PUBLISH_SUCC = Counter('preciagro_publish_success_total', 'Successful publish events', ['source'])
-_PUBLISH_FAIL = Counter('preciagro_publish_fail_total', 'Failed publish events', ['source'])
+_UPsert_SUCC = Counter('preciagro_upsert_success_total',
+                       'Successful DB upserts', ['source'])
+_UPsert_FAIL = Counter('preciagro_upsert_fail_total',
+                       'Failed DB upserts', ['source'])
+_PUBLISH_SUCC = Counter('preciagro_publish_success_total',
+                        'Successful publish events', ['source'])
+_PUBLISH_FAIL = Counter('preciagro_publish_fail_total',
+                        'Failed publish events', ['source'])
 
 
 # --- Simple cache layer: try Redis, otherwise in-memory TTL cache ---
