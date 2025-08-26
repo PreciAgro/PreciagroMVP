@@ -8,8 +8,15 @@ from typing import Dict, Any, Iterable, Literal
 
 
 class OpenWeatherClient:
-    """
-    Real OpenWeather client using httpx to call the One Call API.
+    """Client wrapper for OpenWeather One Call API.
+
+    This class encapsulates a synchronous httpx client call. If you need to
+    perform many concurrent requests consider adding an async variant or
+    reusing a long-lived `httpx.Client` instance.
+
+    TODOs:
+    - Support retries/backoff for transient HTTP errors.
+    - Consider swapping to `httpx.AsyncClient` for async orchestration.
     """
 
     def __init__(self, api_key: str):
@@ -31,16 +38,22 @@ class OpenWeatherClient:
 
 
 class OpenWeatherConnector(IngestConnector):
-    """
-    Wraps an OpenWeather client and yields raw weather records in a flat form
-    for normalization downstream. Supports current, hourly, and daily scopes.
+    """Connector exposing OpenWeather OneCall records as flat dicts.
+
+    The connector accepts a client (above) and yields flattened records which
+    the normalizer can convert into `NormalizedItem`. Keeping connectors and
+    normalizers separate simplifies testing and reuse.
+
+    TODOs:
+    - Provide an async fetch variant.
+    - Add rate-limiting / circuit-breaker integration to protect API usage.
     """
 
     def __init__(self, client: OpenWeatherClient, *, name: str = "openweather.onecall"):
-        """
-        Args:
-            client: An instance of your OpenWeather client.
-            name: Optional name for the connector/source.
+        """Create connector instance.
+
+        Keep the connector minimal: it only calls the client and yields raw
+        payloads. The orchestrator controls retries, caching and persistence.
         """
         self.client = client
         self.name = name
@@ -55,16 +68,10 @@ class OpenWeatherConnector(IngestConnector):
         units: str = "metric",
         exclude: str = ""  # e.g., "minutely,alerts"
     ) -> Iterable[Dict[str, Any]]:
-        """
-        Fetch weather data from OpenWeather API and yield records for normalization.
-        Args:
-            cursor: Optional sync cursor (unused here).
-            lat, lon: Coordinates for weather data.
-            scope: "current", "hourly", or "daily".
-            units: Units for temperature (default: metric).
-            exclude: Comma-separated blocks to exclude from response.
-        Yields:
-            Dict[str, Any]: Raw weather records with coordinates and source name.
+        """Fetch weather data and yield raw records for normalization.
+
+        The output shape varies by scope; normalizers must handle these
+        differences (see `pipeline/normalize_openweather.py`).
         """
         # Call the OpenWeather client
         resp = self.client.one_call(

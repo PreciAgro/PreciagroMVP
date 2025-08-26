@@ -5,6 +5,17 @@ from .base import IngestConnector
 
 
 class HttpJsonConnector(IngestConnector):
+    """Simple connector for HTTP JSON endpoints.
+
+    This is useful for REST APIs that return JSON arrays or objects. It is
+    intentionally synchronous; if you need high throughput consider an async
+    variant that uses `httpx.AsyncClient`.
+
+    TODOs:
+    - Add optional pagination handling.
+    - Add configurable retry/backoff using `tenacity` or httpx built-in retry.
+    """
+
     def __init__(self, name, url, params=None, headers=None):
         self.name, self.url = name, url
         self.params, self.headers = params or {}, headers or {}
@@ -19,4 +30,6 @@ class HttpJsonConnector(IngestConnector):
                 data, list) else data.get("results", [data])
             for it in items:
                 yield it
-        time.sleep(0.05)  # tiny throttle
+        # Small throttle to avoid hammering endpoints. Replace with smarter
+        # backoff/pacing if needed.
+        time.sleep(0.05)

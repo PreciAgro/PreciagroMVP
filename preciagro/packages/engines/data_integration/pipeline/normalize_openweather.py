@@ -8,12 +8,22 @@ from ..contracts.v1.normalized_item import NormalizedItem, Location
 
 
 def _ts(dt_unix: int | None):
+    """Convert Unix timestamp (seconds) to UTC datetime or return None.
+
+    TODO: handle millisecond timestamps if we start ingesting other providers.
+    """
     if dt_unix is None:
         return None
     return datetime.fromtimestamp(dt_unix, tz=timezone.utc)
 
 
 def _hash(raw: Dict[str, Any]) -> str:
+    """Compute a stable SHA-256 hex digest for the given raw dict.
+
+    We JSON-serialize with sort_keys=True to ensure deterministic ordering. The
+    default=str is used to avoid serialization errors for unexpected types;
+    if you need strictness, validate upstream and remove default=str.
+    """
     raw_bytes = json.dumps(raw, sort_keys=True, default=str).encode()
     return hashlib.sha256(raw_bytes).hexdigest()
 
@@ -22,11 +32,20 @@ def normalize_openweather(
     raw: Dict[str, Any],
     *,
     source_id: str,
-    kind: Literal["weather.observation", "weather.forecast"]
+    kind: Literal["weather.observation", "weather.forecast"],
 ) -> NormalizedItem:
+    """Normalize OpenWeather raw record into `NormalizedItem`.
+
+    The normalizer hides provider-specific field names and shapes and returns a
+    stable contract for downstream engines to consume. It must set
+    `content_hash` so de-duplication is deterministic.
+
+    TODOs:
+    - Add mapping for additional providers and a registry to choose mapper by
+      provider id.
+    - Consider a richer payload schema (units, confidence, etc.).
     """
-    Works for current/hourly/daily. Figures out temp/humidity regardless of shape.
-    """
+
     # coordinates
     lat = raw.get("lat")
     lon = raw.get("lon")

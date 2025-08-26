@@ -1,11 +1,23 @@
 # storage/db.py  (async simplified)
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
-import os
+from ..config import settings
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/preciagro")
-engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+# Defer creation of the async engine until it's actually needed. This avoids
+# importing DB driver packages (psycopg/asyncpg) at module import time which
+# simplifies test runs and environments that don't want to install DB drivers.
+DATABASE_URL = settings.DATABASE_URL
+
+_engine = None
+
+
+def _get_engine():
+    global _engine
+    if _engine is None:
+        # local import so missing DB driver won't fail at import time
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    return _engine
 
 
 async def upsert_normalized(item):
@@ -16,6 +28,7 @@ async def upsert_normalized(item):
             CAST(:location AS JSONB), :tags, CAST(:payload AS JSONB), :raw_ref, :content_hash)
     ON CONFLICT (source_id, content_hash) DO NOTHING
     """)
+    engine = _get_engine()
     async with engine.begin() as conn:
         await conn.execute(q, {
             "item_id": item.item_id,
@@ -28,4 +41,51 @@ async def upsert_normalized(item):
             "payload": item.payload,
             "raw_ref": item.raw_ref,
             "content_hash": item.content_hash
+        })
+
+
+async def get_items(kind: str | None = None, limit: int = 50):
+    """Return a list of normalized items for basic browse/debug API.
+
+    This returns the raw rows as JSON objects; consumers can map to Pydantic
+    models as needed.
+    """
+    where = "WHERE kind = :kind" if kind else ""
+    q = text(
+        f"SELECT item_id, source_id, collected_at, observed_at, kind, location, tags, payload, content_hash FROM normalized_items {where} ORDER BY collected_at DESC LIMIT :limit")
+    engine = _get_engine()
+    async with engine.begin() as conn:
+        params = {"limit": limit}
+        if kind:
+            params["kind"] = kind
+        cur = await conn.execute(q, params)
+        rows = cur.fetchall()
+        # sqlalchemy Row -> dict
+        return [dict(r._mapping) for r in rows]
+
+
+async def get_cursor(source_id: str):
+    q = text("SELECT source_id, last_observed_at, last_content_hash, updated_at FROM sync_cursors WHERE source_id = :source_id")
+    engine = _get_engine()
+    async with engine.begin() as conn:
+        cur = await conn.execute(q, {"source_id": source_id})
+        row = cur.fetchone()
+        return dict(row._mapping) if row else None
+
+
+async def set_cursor(source_id: str, last_observed_at=None, last_content_hash=None):
+    q = text("""
+    INSERT INTO sync_cursors (source_id, last_observed_at, last_content_hash, updated_at)
+    VALUES (:source_id, :last_observed_at, :last_content_hash, now())
+    ON CONFLICT (source_id) DO UPDATE SET
+      last_observed_at = EXCLUDED.last_observed_at,
+      last_content_hash = EXCLUDED.last_content_hash,
+      updated_at = now();
+    """)
+    engine = _get_engine()
+    async with engine.begin() as conn:
+        await conn.execute(q, {
+            "source_id": source_id,
+            "last_observed_at": last_observed_at,
+            "last_content_hash": last_content_hash,
         })
