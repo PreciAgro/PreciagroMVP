@@ -89,3 +89,15 @@ async def set_cursor(source_id: str, last_observed_at=None, last_content_hash=No
             "last_observed_at": last_observed_at,
             "last_content_hash": last_content_hash,
         })
+
+
+async def ping_db(timeout_seconds: int = 2) -> bool:
+    """Quick liveness probe for the DB. Returns True on success, False otherwise."""
+    engine = _get_engine()
+    try:
+        # execute a lightweight query
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False

@@ -12,18 +12,32 @@ It deliberately keeps integration points small so other engines can consume the
 published events without this file needing to depend on them.
 """
 
+from ..connectors.mock_connector import MockConnector
 from typing import Literal, Callable, Dict, Any, Optional
 import logging
 import os
 import json
 import time
 import asyncio
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from ..storage.db import upsert_normalized
+from ..storage.db import upsert_normalized, get_cursor, set_cursor
 from ..bus.publisher import publish_ingest_created
 from .normalize_openweather import normalize_openweather
+from ..config import settings
+from prometheus_client import Counter
 
 logger = logging.getLogger("preciagro.data_integration.orchestrator")
+
+
+# per-source semaphores for simple rate-limiting/pacing
+_SEMAPHORES: Dict[str, asyncio.Semaphore] = {}
+
+# Prometheus metrics
+_UPsert_SUCC = Counter('preciagro_upsert_success_total', 'Successful DB upserts', ['source'])
+_UPsert_FAIL = Counter('preciagro_upsert_fail_total', 'Failed DB upserts', ['source'])
+_PUBLISH_SUCC = Counter('preciagro_publish_success_total', 'Successful publish events', ['source'])
+_PUBLISH_FAIL = Counter('preciagro_publish_fail_total', 'Failed publish events', ['source'])
 
 
 # --- Simple cache layer: try Redis, otherwise in-memory TTL cache ---
@@ -126,8 +140,22 @@ async def run_job(
     """
 
     kind = "weather.observation" if scope == "current" else "weather.forecast"
+    # simple per-source rate limiter (1 concurrent permit maps to INGEST_RATE_LIMIT_QPS pacing)
+    _semaphore = _SEMAPHORES.setdefault(
+        source_id, asyncio.Semaphore(max(1, settings.INGEST_RATE_LIMIT_QPS)))
+
+    # load last cursor so connectors can resume if they support cursors
+    last_cursor = None
     try:
-        for raw in connector.fetch(cursor=None, lat=lat, lon=lon, scope=scope, units=units):
+        cur = await get_cursor(source_id)
+        if cur:
+            last_cursor = cur.get('last_content_hash') or None
+    except Exception:
+        logger.debug('Failed to load cursor for %s', source_id, exc_info=True)
+
+    try:
+        # connectors may accept a 'cursor' kwarg; if they don't, they can ignore it.
+        for raw in connector.fetch(cursor=last_cursor, lat=lat, lon=lon, scope=scope, units=units):
             try:
                 item = normalizer(raw, source_id=source_id, kind=kind)
             except TypeError:
@@ -150,21 +178,44 @@ async def run_job(
                         "Skipping upsert; cached normalized item found for %s", item.item_id)
                     continue
 
-            # persist (de-dupe enforced by DB unique constraint)
-            await upsert_normalized(item)
+            # persist with retry/backoff (DB sometimes transiently fails)
+            @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, max=5), retry=retry_if_exception_type(Exception))
+            async def _safe_upsert(i):
+                await upsert_normalized(i)
+
+            await _semaphore.acquire()
+            try:
+                await _safe_upsert(item)
+                try:
+                    _UPsert_SUCC.labels(source=source_id).inc()
+                except Exception:
+                    pass
+            finally:
+                _semaphore.release()
 
             # publish event for downstream engines (async-aware)
             # Call the publisher once. If it returns a coroutine or Future,
             # await it; otherwise assume it already executed synchronously.
-            try:
-                maybe_awaitable = publish_ingest_created(item)
-                # If publisher returned a coroutine/future, await it so
-                # exceptions are propagated here and can be observed.
+            # publish with retry/backoff
+            @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, max=5), retry=retry_if_exception_type(Exception))
+            async def _safe_publish(i):
+                maybe_awaitable = publish_ingest_created(i)
                 if asyncio.iscoroutine(maybe_awaitable) or isinstance(maybe_awaitable, asyncio.Future):
                     await maybe_awaitable
+
+            try:
+                await _safe_publish(item)
+                try:
+                    _PUBLISH_SUCC.labels(source=source_id).inc()
+                except Exception:
+                    pass
             except Exception:
                 logger.exception(
                     "Failed to publish ingest event for item=%s", getattr(item, "item_id", "-"))
+                try:
+                    _PUBLISH_FAIL.labels(source=source_id).inc()
+                except Exception:
+                    pass
 
             # cache the serialized item to avoid reprocessing for some TTL
             if content_hash:
@@ -175,6 +226,12 @@ async def run_job(
                                  item.item_id, exc_info=True)
 
             logger.info("Ingested item %s (%s)", item.item_id, kind)
+            # advance cursor after successful processing of this item
+            try:
+                await set_cursor(source_id, last_observed_at=item.observed_at, last_content_hash=getattr(item, 'content_hash', None))
+            except Exception:
+                logger.debug('Failed to set cursor for %s',
+                             source_id, exc_info=True)
 
     except Exception:
         logger.exception(
@@ -189,6 +246,10 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "OpenWeather OneCall (current/hourly/daily)",
     }
 }
+
+# add a mocked demo source
+REGISTRY["mock.source"] = {
+    "normalizer": normalize_openweather, "description": "Mock demo source"}
 
 
 async def run_registered_source(source_name: str, connector, **kwargs):

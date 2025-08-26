@@ -17,7 +17,11 @@ class Settings(BaseSettings):
     INGEST_RATE_LIMIT_QPS: int = Field(5, description="Default QPS per source")
 
     class Config:
-        env_file = ".env"
+        # Load only from real environment variables in production.
+        # Do not read a .env file here to avoid committing secrets or
+        # accidentally loading local files in CI. Developers may still use
+        # their own env var loading when running locally.
+        env_file = None
 
 
 settings = Settings()
