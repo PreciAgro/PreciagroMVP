@@ -1,5 +1,6 @@
 # storage/db.py  (async simplified)
 from sqlalchemy import text
+import json
 from ..config import settings
 
 # Defer creation of the async engine until it's actually needed. This avoids
@@ -16,7 +17,13 @@ def _get_engine():
         # local import so missing DB driver won't fail at import time
         from sqlalchemy.ext.asyncio import create_async_engine
 
-        _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+        # Convert DATABASE_URL to use asyncpg driver for async operations
+        async_url = DATABASE_URL
+        if async_url.startswith("postgresql://"):
+            async_url = async_url.replace(
+                "postgresql://", "postgresql+asyncpg://", 1)
+
+        _engine = create_async_engine(async_url, pool_pre_ping=True)
     return _engine
 
 
@@ -25,7 +32,7 @@ async def upsert_normalized(item):
     INSERT INTO normalized_items
     (item_id,source_id,collected_at,observed_at,kind,location,tags,payload,raw_ref,content_hash)
     VALUES (:item_id,:source_id,:collected_at,:observed_at,:kind,
-            CAST(:location AS JSONB), :tags, CAST(:payload AS JSONB), :raw_ref, :content_hash)
+            CAST(:location AS JSONB), CAST(:tags AS JSONB), CAST(:payload AS JSONB), :raw_ref, :content_hash)
     ON CONFLICT (source_id, content_hash) DO NOTHING
     """)
     engine = _get_engine()
@@ -37,8 +44,8 @@ async def upsert_normalized(item):
             "observed_at": item.observed_at,
             "kind": item.kind,
             "location": item.location.model_dump_json() if item.location else None,
-            "tags": item.tags,
-            "payload": item.payload,
+            "tags": json.dumps(item.tags) if item.tags else None,
+            "payload": item.payload.model_dump_json() if hasattr(item.payload, 'model_dump_json') else json.dumps(item.payload) if item.payload else None,
             "raw_ref": item.raw_ref,
             "content_hash": item.content_hash
         })

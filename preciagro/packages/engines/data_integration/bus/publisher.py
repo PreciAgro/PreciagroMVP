@@ -8,6 +8,7 @@ import datetime
 import logging
 import asyncio
 from typing import Any
+from decimal import Decimal
 
 logger = logging.getLogger("preciagro.data_integration.publisher")
 
@@ -43,6 +44,16 @@ def _build_event(item: Any) -> dict:
     }
 
 
+def _json_serializer(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    elif isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(
+        f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+
 async def publish_ingest_created(item: Any):
     """Publish an ingest.created event asynchronously.
 
@@ -51,7 +62,7 @@ async def publish_ingest_created(item: Any):
     If no redis client is available we log the event and return.
     """
     event = _build_event(item)
-    payload = json.dumps(event)
+    payload = json.dumps(event, default=_json_serializer)
 
     if _redis_async:
         try:

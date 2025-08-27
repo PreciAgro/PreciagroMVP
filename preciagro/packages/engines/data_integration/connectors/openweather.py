@@ -21,7 +21,8 @@ class OpenWeatherClient:
 
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.base_url = "https://api.openweathermap.org/data/2.5/onecall"
+        # Updated to One Call API 3.0 endpoint
+        self.base_url = "https://api.openweathermap.org/data/3.0/onecall"
 
     def one_call(self, lat, lon, units="metric", exclude=""):
         params = {
