@@ -1,3 +1,18 @@
 fastapi
 uvicorn
 pydantic>=2
+
+# runtime
+httpx
+redis
+SQLAlchemy>=1.4
+asyncpg
+
+# testing
+pytest
+pytest-asyncio
+alembic
+tenacity
+prometheus_client
+python-dotenv
+pydantic-settings
