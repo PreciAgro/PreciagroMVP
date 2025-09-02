@@ -2,7 +2,7 @@
 import os
 from twilio.rest import Client
 from .base import ChannelSender
-from ..config import TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+from ..config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
 
 
 class TwilioSMSSender(ChannelSender):
@@ -11,13 +11,13 @@ class TwilioSMSSender(ChannelSender):
 
     async def send(self, to, payload):
         """Send SMS via Twilio."""
-        if not (TWILIO_SID and TWILIO_TOKEN and TWILIO_FROM):
+        if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
             return {"mock": True, "status": "sent"}  # dev mode
 
-        client = Client(TWILIO_SID, TWILIO_TOKEN)
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         message = client.messages.create(
             body=payload["short_text"][:1600],
-            from_=TWILIO_FROM,
+            from_=TWILIO_FROM_NUMBER,
             to=to["phone_e164"]
         )
 

@@ -76,8 +76,6 @@ class Rule(BaseModel):
 
 
 class TaskOutcomePost(BaseModel):
-    task_id: str
-    user_id: str
     outcome: Literal["done", "skipped"]
-    timestamp: Optional[datetime] = None
-    metadata: Optional[Dict[str, Any]] = None
+    note: Optional[str] = None
+    evidence_url: Optional[str] = None

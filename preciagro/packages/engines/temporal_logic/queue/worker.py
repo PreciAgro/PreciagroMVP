@@ -24,11 +24,12 @@ CHANNELS = {
     "sms": TwilioSMSSender()
 }
 
+
 async def process_due_notifications(ctx):
     """Process notifications that are due."""
     async with async_session() as session:
         now = datetime.now(timezone.utc)
-        
+
         # Get due notifications
         stmt = select(ScheduleItem).where(
             and_(
@@ -36,10 +37,10 @@ async def process_due_notifications(ctx):
                 ScheduleItem.status == "pending"
             )
         )
-        
+
         result = await session.execute(stmt)
         due_items = result.scalars().all()
-        
+
         for item in due_items:
             try:
                 await process_notification_item(session, item)
@@ -48,24 +49,26 @@ async def process_due_notifications(ctx):
                 item.status = "failed"
                 await session.commit()
 
+
 async def process_notification_item(session: AsyncSession, item: ScheduleItem):
     """Process a single notification item."""
     start_time = datetime.now(timezone.utc)
-    
+
     # Check quiet hours
     if is_quiet_hours(item.target.get("timezone", "UTC")):
         # Reschedule for tomorrow at 8am
-        tomorrow_8am = (datetime.now(timezone.utc) + timedelta(days=1)).replace(hour=8, minute=0, second=0)
+        tomorrow_8am = (datetime.now(timezone.utc) +
+                        timedelta(days=1)).replace(hour=8, minute=0, second=0)
         item.schedule_time = tomorrow_8am
         await session.commit()
         return
-    
+
     # Check rate limits
     if await should_rate_limit(session, item.user_id, item.payload["channel"]):
         item.status = "rate_limited"
         await session.commit()
         return
-    
+
     # Get channel
     channel_name = item.payload["channel"]
     channel = CHANNELS.get(channel_name)
@@ -74,7 +77,7 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
         item.status = "failed"
         await session.commit()
         return
-    
+
     # Create notification job
     job = NotificationJob(
         schedule_item_id=item.id,
@@ -85,32 +88,34 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
     )
     session.add(job)
     await session.flush()
-    
+
     # Send notification
     notification_attempts.labels(channel=channel_name).inc()
-    
+
     try:
         result = await channel.send(item.target, item.payload)
-        
+
         job.status = "sent"
         job.result = result
         item.status = "completed"
-        
-        notification_results.labels(channel=channel_name, result="success").inc()
-        
+
+        notification_results.labels(
+            channel=channel_name, result="success").inc()
+
     except Exception as e:
         logger.error(f"Failed to send via {channel_name}: {e}")
-        job.status = "failed" 
+        job.status = "failed"
         job.error = str(e)
         item.status = "failed"
-        
+
         notification_results.labels(channel=channel_name, result="error").inc()
-    
+
     # Record timing
     duration = (datetime.now(timezone.utc) - start_time).total_seconds()
     notification_latency.labels(channel=channel_name).observe(duration)
-    
+
     await session.commit()
+
 
 class WorkerSettings:
     """ARQ worker settings."""

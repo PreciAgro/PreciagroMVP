@@ -9,7 +9,3 @@ def in_quiet_hours(now_utc, quiet_window=("21:00", "06:00"), tz="Africa/Harare")
     end = time.fromisoformat(quiet_window[1])
     local = now_utc.astimezone(ZoneInfo(tz)).time()
     return (local >= start) or (local < end)  # window crossing midnight
-
-
-# Alias for backwards compatibility
-is_quiet_hours = in_quiet_hours

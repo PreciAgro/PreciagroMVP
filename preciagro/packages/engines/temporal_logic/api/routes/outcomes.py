@@ -39,18 +39,18 @@ async def record_task_outcome(
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"], 
+            current_user["user_id"],
             Permission.UPDATE_TASKS
         )
-        
+
         # Validate task exists
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
         task_result = await db.execute(task_stmt)
         task = task_result.scalar_one_or_none()
-        
+
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        
+
         # Create outcome
         outcome = TaskOutcome(
             task_id=task_id,
@@ -58,13 +58,14 @@ async def record_task_outcome(
             outcome_data=outcome_data.outcome_data,
             source=outcome_data.source
         )
-        
+
         db.add(outcome)
         await db.commit()
         await db.refresh(outcome)
-        
-        logger.info(f"Recorded outcome for task {task_id}: {outcome_data.outcome_type}")
-        
+
+        logger.info(
+            f"Recorded outcome for task {task_id}: {outcome_data.outcome_type}")
+
         return OutcomeResponse(
             id=outcome.id,
             task_id=outcome.task_id,
@@ -73,7 +74,7 @@ async def record_task_outcome(
             recorded_at=outcome.recorded_at,
             source=outcome.source
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -91,26 +92,26 @@ async def get_task_outcomes(
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"], 
+            current_user["user_id"],
             Permission.READ_TASKS
         )
-        
+
         # Validate task exists
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
         task_result = await db.execute(task_stmt)
         task = task_result.scalar_one_or_none()
-        
+
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        
+
         # Get outcomes
         stmt = select(TaskOutcome).where(
             TaskOutcome.task_id == task_id
         ).order_by(desc(TaskOutcome.recorded_at))
-        
+
         result = await db.execute(stmt)
         outcomes = result.scalars().all()
-        
+
         return [
             OutcomeResponse(
                 id=outcome.id,
@@ -122,7 +123,7 @@ async def get_task_outcomes(
             )
             for outcome in outcomes
         ]
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -134,11 +135,14 @@ async def get_task_outcomes(
 async def get_outcomes(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
-    outcome_type: Optional[str] = Query(None, description="Filter by outcome type"),
+    outcome_type: Optional[str] = Query(
+        None, description="Filter by outcome type"),
     task_id: Optional[int] = Query(None, description="Filter by task ID"),
     source: Optional[str] = Query(None, description="Filter by source"),
-    recorded_after: Optional[datetime] = Query(None, description="Filter outcomes recorded after this date"),
-    recorded_before: Optional[datetime] = Query(None, description="Filter outcomes recorded before this date"),
+    recorded_after: Optional[datetime] = Query(
+        None, description="Filter outcomes recorded after this date"),
+    recorded_before: Optional[datetime] = Query(
+        None, description="Filter outcomes recorded before this date"),
     db: AsyncSession = Depends(get_db_session),
     current_user: Dict[str, Any] = Depends(authenticate_user)
 ):
@@ -146,44 +150,45 @@ async def get_outcomes(
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"], 
+            current_user["user_id"],
             Permission.READ_TASKS
         )
-        
+
         # Build query
         query = select(TaskOutcome)
         conditions = []
-        
+
         if outcome_type:
             conditions.append(TaskOutcome.outcome_type == outcome_type)
-        
+
         if task_id:
             conditions.append(TaskOutcome.task_id == task_id)
-        
+
         if source:
             conditions.append(TaskOutcome.source == source)
-        
+
         if recorded_after:
             conditions.append(TaskOutcome.recorded_at >= recorded_after)
-        
+
         if recorded_before:
             conditions.append(TaskOutcome.recorded_at <= recorded_before)
-        
+
         if conditions:
             query = query.where(and_(*conditions))
-        
+
         # Count total
-        count_query = select(TaskOutcome.id).select_from(query.alias().subquery())
+        count_query = select(TaskOutcome.id).select_from(
+            query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
-        
+
         # Apply pagination
         query = query.order_by(desc(TaskOutcome.recorded_at))
         query = query.offset((page - 1) * size).limit(size)
-        
+
         result = await db.execute(query)
         outcomes = result.scalars().all()
-        
+
         # Convert to response objects
         outcome_responses = [
             OutcomeResponse(
@@ -196,7 +201,7 @@ async def get_outcomes(
             )
             for outcome in outcomes
         ]
-        
+
         return PaginatedResponse(
             items=outcome_responses,
             total=total,
@@ -204,7 +209,7 @@ async def get_outcomes(
             size=size,
             pages=(total + size - 1) // size
         )
-    
+
     except Exception as e:
         logger.error(f"Error getting outcomes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -220,18 +225,18 @@ async def get_outcome(
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"], 
+            current_user["user_id"],
             Permission.READ_TASKS
         )
-        
+
         # Get outcome
         stmt = select(TaskOutcome).where(TaskOutcome.id == outcome_id)
         result = await db.execute(stmt)
         outcome = result.scalar_one_or_none()
-        
+
         if not outcome:
             raise HTTPException(status_code=404, detail="Outcome not found")
-        
+
         return OutcomeResponse(
             id=outcome.id,
             task_id=outcome.task_id,
@@ -240,7 +245,7 @@ async def get_outcome(
             recorded_at=outcome.recorded_at,
             source=outcome.source
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -263,18 +268,18 @@ async def record_user_response(
         # Check permissions - allow users to record their own responses
         if current_user["user_id"] != user_id:
             security_middleware.authorize_request(
-                current_user["user_id"], 
+                current_user["user_id"],
                 Permission.UPDATE_TASKS
             )
-        
+
         # Validate task exists
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
         task_result = await db.execute(task_stmt)
         task = task_result.scalar_one_or_none()
-        
+
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        
+
         # Create outcome for user response
         outcome = TaskOutcome(
             task_id=task_id,
@@ -288,16 +293,17 @@ async def record_user_response(
             },
             source=f"user_response_{channel}"
         )
-        
+
         db.add(outcome)
         await db.commit()
         await db.refresh(outcome)
-        
+
         # Record metrics
         engine_metrics.message_delivery_status(channel, "responded")
-        
-        logger.info(f"Recorded user response for task {task_id} from user {user_id}")
-        
+
+        logger.info(
+            f"Recorded user response for task {task_id} from user {user_id}")
+
         return {
             "outcome_id": outcome.id,
             "task_id": task_id,
@@ -305,7 +311,7 @@ async def record_user_response(
             "response_type": response_type,
             "recorded_at": outcome.recorded_at.isoformat()
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -323,47 +329,50 @@ async def get_outcomes_summary(
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"], 
+            current_user["user_id"],
             Permission.READ_TASKS
         )
-        
+
         start_date = datetime.utcnow() - timedelta(days=days)
-        
+
         # Get outcomes from the last N days
         stmt = select(TaskOutcome).where(
             TaskOutcome.recorded_at >= start_date
         )
-        
+
         result = await db.execute(stmt)
         outcomes = result.scalars().all()
-        
+
         # Aggregate statistics
         outcome_type_counts = {}
         source_counts = {}
         daily_counts = {}
-        
+
         for outcome in outcomes:
             # Outcome type counts
             if outcome.outcome_type not in outcome_type_counts:
                 outcome_type_counts[outcome.outcome_type] = 0
             outcome_type_counts[outcome.outcome_type] += 1
-            
+
             # Source counts
             if outcome.source not in source_counts:
                 source_counts[outcome.source] = 0
             source_counts[outcome.source] += 1
-            
+
             # Daily counts
             day_key = outcome.recorded_at.date().isoformat()
             if day_key not in daily_counts:
                 daily_counts[day_key] = 0
             daily_counts[day_key] += 1
-        
+
         # Calculate response rates
-        user_responses = [o for o in outcomes if o.outcome_type == "user_response"]
-        total_messages = len([o for o in outcomes if "message" in o.source.lower()])
-        response_rate = len(user_responses) / total_messages if total_messages > 0 else 0
-        
+        user_responses = [
+            o for o in outcomes if o.outcome_type == "user_response"]
+        total_messages = len(
+            [o for o in outcomes if "message" in o.source.lower()])
+        response_rate = len(user_responses) / \
+            total_messages if total_messages > 0 else 0
+
         return {
             "period_days": days,
             "total_outcomes": len(outcomes),
@@ -375,7 +384,7 @@ async def get_outcomes_summary(
             "start_date": start_date.isoformat(),
             "end_date": datetime.utcnow().isoformat()
         }
-    
+
     except Exception as e:
         logger.error(f"Error getting outcomes summary: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -391,29 +400,29 @@ async def get_task_conversation(
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"], 
+            current_user["user_id"],
             Permission.READ_TASKS
         )
-        
+
         # Get task
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
         task_result = await db.execute(task_stmt)
         task = task_result.scalar_one_or_none()
-        
+
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        
+
         # Get outcomes
         outcomes_stmt = select(TaskOutcome).where(
             TaskOutcome.task_id == task_id
         ).order_by(TaskOutcome.recorded_at)
-        
+
         outcomes_result = await db.execute(outcomes_stmt)
         outcomes = outcomes_result.scalars().all()
-        
+
         # Build conversation thread
         conversation = []
-        
+
         # Add initial task/message
         conversation.append({
             "type": "task",
@@ -424,7 +433,7 @@ async def get_task_conversation(
                 "status": task.status
             }
         })
-        
+
         # Add execution event if executed
         if task.executed_at:
             conversation.append({
@@ -435,7 +444,7 @@ async def get_task_conversation(
                     "attempt": task.attempts
                 }
             })
-        
+
         # Add outcomes
         for outcome in outcomes:
             conversation.append({
@@ -447,7 +456,7 @@ async def get_task_conversation(
                     "source": outcome.source
                 }
             })
-        
+
         return {
             "task_id": task_id,
             "conversation": conversation,
@@ -458,7 +467,7 @@ async def get_task_conversation(
                 "outcomes_count": len(outcomes)
             }
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
