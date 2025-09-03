@@ -10,7 +10,8 @@ import asyncio
 import sys
 import os
 import logging
-sys.path.insert(0, os.path.abspath('.'))
+# Go up one level to find preciagro module
+sys.path.insert(0, os.path.abspath('..'))
 
 
 # Set up logging

@@ -10,7 +10,8 @@ from preciagro.packages.engines.temporal_logic.dispatcher_minimal import engine
 import asyncio
 import sys
 import os
-sys.path.insert(0, os.path.abspath('.'))
+# Go up one level to find preciagro module
+sys.path.insert(0, os.path.abspath('..'))
 
 
 # Set up logging

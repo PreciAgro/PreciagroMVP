@@ -1,16 +1,18 @@
 """Test all 3 temporal logic rules."""
-import logging
-from datetime import datetime
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy import text
-from preciagro.packages.engines.temporal_logic.models import ScheduleItem, Base
-from preciagro.packages.engines.temporal_logic.contracts import EngineEvent
-from preciagro.packages.engines.temporal_logic.dispatcher_minimal import TemporalLogicEngine
 import asyncio
+from preciagro.packages.engines.temporal_logic.dispatcher_minimal import TemporalLogicEngine
+from preciagro.packages.engines.temporal_logic.contracts import EngineEvent
+from preciagro.packages.engines.temporal_logic.models import ScheduleItem, Base
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+import logging
 import sys
 import os
-sys.path.insert(0, os.path.abspath('.'))
+# Go up one level to find preciagro module
+sys.path.insert(0, os.path.abspath('..'))
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

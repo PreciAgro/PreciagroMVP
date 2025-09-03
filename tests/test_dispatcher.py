@@ -1,5 +1,9 @@
 """Minimal test of dispatcher imports."""
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath('..'))
+
 print("Testing imports...")
 
 try:
@@ -21,37 +25,37 @@ except Exception as e:
     print("✗ sqlalchemy:", e)
 
 try:
-    from .contracts import EngineEvent
+    from preciagro.packages.engines.temporal_logic.contracts import EngineEvent
     print("✓ EngineEvent")
 except Exception as e:
     print("✗ EngineEvent:", e)
 
 try:
-    from .models import ScheduleItem, TaskOutcome, async_session
+    from preciagro.packages.engines.temporal_logic.models import ScheduleItem, TaskOutcome, async_session
     print("✓ models")
 except Exception as e:
     print("✗ models:", e)
 
 try:
-    from .dsl.loader import DSLLoader
+    from preciagro.packages.engines.temporal_logic.dsl.loader import DSLLoader
     print("✓ DSLLoader")
 except Exception as e:
     print("✗ DSLLoader:", e)
 
 try:
-    from .dsl.evaluator import RuleEvaluator
+    from preciagro.packages.engines.temporal_logic.evaluator import RuleEvaluator
     print("✓ RuleEvaluator")
 except Exception as e:
     print("✗ RuleEvaluator:", e)
 
 try:
-    from .dsl.compiler import TaskCompiler
+    from preciagro.packages.engines.temporal_logic.compiler import TaskCompiler
     print("✓ TaskCompiler")
 except Exception as e:
     print("✗ TaskCompiler:", e)
 
 try:
-    from .telemetry.metrics import events_processed, tasks_created
+    from preciagro.packages.engines.temporal_logic.telemetry.metrics import events_processed, tasks_created
     print("✓ metrics")
 except Exception as e:
     print("✗ metrics:", e)
