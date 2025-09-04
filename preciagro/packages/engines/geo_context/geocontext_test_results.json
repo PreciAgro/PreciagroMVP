@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-09-05T01:07:02.429335",
+  "total_tests": 5,
+  "passed": 0,
+  "failed": 0,
+  "errors": 4,
+  "skipped": 1,
+  "success_rate": 0.0,
+  "average_response_time_ms": 0.0,
+  "base_url": "http://localhost:8000",
+  "test_results": [
+    {
+      "test": "Health Check",
+      "status": "\u274c ERROR",
+      "error": "Cannot connect to host localhost:8000 ssl:default [The remote computer refused the network connection]"
+    },
+    {
+      "test": "FCO Resolve - Poland",
+      "status": "\u274c ERROR",
+      "error": "Cannot connect to host localhost:8000 ssl:default [The remote computer refused the network connection]"
+    },
+    {
+      "test": "FCO Resolve - Zimbabwe",
+      "status": "\u274c ERROR",
+      "error": "Cannot connect to host localhost:8000 ssl:default [The remote computer refused the network connection]"
+    },
+    {
+      "test": "Cached FCO Retrieval",
+      "status": "\u23ed\ufe0f SKIP",
+      "error": "No context hash available from previous tests"
+    },
+    {
+      "test": "Metrics Endpoint",
+      "status": "\u274c ERROR",
+      "error": "Cannot connect to host localhost:8000 ssl:default [The remote computer refused the network connection]"
+    }
+  ]
+}
