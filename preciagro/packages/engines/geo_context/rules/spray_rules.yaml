@@ -1,0 +1,134 @@
+# Spray Application Rules
+# Rules for determining optimal conditions for pesticide/fertilizer spraying
+
+conditions:
+  # Weather conditions for safe and effective spraying
+  wind:
+    max_wind_speed: 15  # km/h - maximum wind speed for spraying
+    preferred_max: 10   # km/h - preferred maximum for sensitive applications
+    measurement_height: 3  # meters - standard measurement height
+  
+  temperature:
+    min_temperature: 5   # Celsius - minimum temperature
+    max_temperature: 30  # Celsius - maximum temperature
+    optimal_range: [15, 25]  # Celsius - optimal temperature range
+  
+  humidity:
+    min_humidity: 40     # % - minimum relative humidity
+    preferred_min: 55    # % - preferred minimum to reduce drift
+  
+  precipitation:
+    hours_since_rain: 2  # minimum hours since last rainfall
+    hours_before_rain: 6 # minimum hours before expected rainfall
+    max_recent_rainfall: 5  # mm - maximum rainfall in last 24h
+
+# Time-based restrictions
+timing:
+  avoid_hours:
+    # Avoid spraying during these hours (24-hour format)
+    start: 11  # 11:00 AM
+    end: 15    # 3:00 PM (hottest part of day)
+  
+  preferred_hours:
+    morning:
+      start: 6   # 6:00 AM
+      end: 10    # 10:00 AM
+    evening:
+      start: 16  # 4:00 PM
+      end: 20    # 8:00 PM
+
+# Crop-specific considerations
+crops:
+  wheat:
+    sensitive_stages:
+      - "flowering"
+      - "grain_filling"
+    buffer_zones:
+      water_sources: 10  # meters
+      organic_fields: 50 # meters
+  
+  corn:
+    sensitive_stages:
+      - "tasseling"
+      - "silking"
+    buffer_zones:
+      water_sources: 15  # meters
+      organic_fields: 30 # meters
+  
+  soybeans:
+    sensitive_stages:
+      - "flowering"
+      - "pod_filling"
+    buffer_zones:
+      water_sources: 10  # meters
+      organic_fields: 40 # meters
+
+# Product-specific rules
+products:
+  herbicides:
+    wind_sensitivity: "high"
+    temperature_sensitivity: "medium"
+    drift_potential: "high"
+    timing_restrictions:
+      avoid_flowering: true
+  
+  insecticides:
+    wind_sensitivity: "high"
+    temperature_sensitivity: "high"  # Can be toxic at high temps
+    drift_potential: "high"
+    timing_restrictions:
+      avoid_bee_activity_hours: true
+  
+  fungicides:
+    wind_sensitivity: "medium"
+    temperature_sensitivity: "low"
+    drift_potential: "medium"
+    timing_restrictions:
+      avoid_flowering: false
+  
+  fertilizers:
+    wind_sensitivity: "low"
+    temperature_sensitivity: "low"
+    drift_potential: "low"
+    timing_restrictions:
+      avoid_flowering: false
+
+# Environmental considerations
+environmental:
+  bee_protection:
+    avoid_hours:
+      start: 8   # 8:00 AM
+      end: 18    # 6:00 PM
+    flowering_crops_buffer: 100  # meters from flowering crops
+  
+  water_protection:
+    buffer_zones:
+      streams: 20      # meters
+      ponds: 15        # meters
+      wells: 50        # meters
+      wetlands: 30     # meters
+  
+  drift_mitigation:
+    nozzle_requirements:
+      wind_5_10: "medium_droplet"
+      wind_10_15: "coarse_droplet"
+    boom_height:
+      max_height: 60  # cm above crop canopy
+  
+# Regulatory compliance
+regulations:
+  restricted_hours:
+    # No spraying during these hours (varies by region)
+    start: 22  # 10:00 PM
+    end: 6     # 6:00 AM
+  
+  documentation_required:
+    - "weather_conditions"
+    - "application_rate"
+    - "product_used"
+    - "operator_certification"
+  
+  mandatory_buffers:
+    schools: 100      # meters
+    hospitals: 200    # meters
+    residential: 50   # meters
