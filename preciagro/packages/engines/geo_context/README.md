@@ -459,6 +459,176 @@ uvicorn app:main --log-level debug
 <3>WSL (19 - Relay) ERROR: CreateProcessCommon:735: execvpe(/bin/bash) failed: No such file or directory
 ```
 
+## 🧪 **Endpoint Testing Guide**
+
+### Manual Testing Commands
+
+Test all GeoContext Engine endpoints to verify functionality:
+
+#### 1. Health Check Endpoint
+
+```sh
+# Test API health and availability
+curl -X GET "http://localhost:8000/health" \
+  -H "Content-Type: application/json"
+
+# Expected Response: {"status": "healthy", "service": "geocontext", "version": "1.0.0"}
+```
+
+#### 2. FCO Resolve Endpoint (Poland Test)
+
+```sh
+# Test complete field context resolution for Poland (Warsaw area)
+curl -X POST "http://localhost:8000/api/v1/geocontext/resolve" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "field": {
+      "type": "Polygon",
+      "coordinates": [[[21.0, 52.2], [21.01, 52.2], [21.01, 52.21], [21.0, 52.21], [21.0, 52.2]]]
+    },
+    "date": "2025-09-05",
+    "crops": ["corn", "soybeans"],
+    "forecast_days": 7,
+    "use_cache": true
+  }'
+```
+
+#### 3. FCO Resolve Endpoint (Zimbabwe Test)
+
+```sh
+# Test field context resolution for Zimbabwe (Murewa area)
+curl -X POST "http://localhost:8000/api/v1/geocontext/resolve" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "field": {
+      "type": "Polygon", 
+      "coordinates": [[[31.7, -17.7], [31.71, -17.7], [31.71, -17.69], [31.7, -17.69], [31.7, -17.7]]]
+    },
+    "date": "2025-09-05",
+    "crops": ["corn", "tobacco"],
+    "forecast_days": 5,
+    "use_cache": false
+  }'
+```
+
+#### 4. Cached FCO Retrieval Endpoint
+
+```sh
+# Test cached FCO retrieval (use context_hash from previous request)
+curl -X GET "http://localhost:8000/api/v1/geocontext/fco/a4d1fe9bd74dfe4c" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Should return same FCO data if cached, or 404 if not found
+```
+
+#### 5. Metrics Endpoint
+
+```sh
+# Test Prometheus metrics endpoint
+curl -X GET "http://localhost:8000/metrics" \
+  -H "Content-Type: text/plain"
+
+# Should return Prometheus-formatted metrics including:
+# - geo_context_requests_total
+# - geo_context_request_duration_seconds
+# - geo_context_cache_operations_total
+```
+
+### Automated Testing Script
+
+Run the comprehensive endpoint test suite:
+
+```sh
+# Option 1: Python Script (Comprehensive)
+# Install required dependencies
+pip install aiohttp
+
+# Run automated endpoint tests
+python test_endpoints.py
+
+# Option 2: PowerShell Script (Windows)
+# Run PowerShell endpoint tests
+.\test_endpoints.ps1
+
+# With custom URL and JWT token
+.\test_endpoints.ps1 -BaseUrl "http://localhost:8000" -JwtToken "your_jwt_token"
+
+# Test results will be saved to geocontext_test_results.json
+```
+
+### Expected Test Results
+
+#### ✅ Successful Response Validation
+
+**Health Endpoint:**
+- Status Code: `200`
+- Response: `{"status": "healthy", "service": "geocontext", "version": "1.0.0"}`
+- Response Time: `< 100ms`
+
+**FCO Resolve (Poland):**
+- Status Code: `200`
+- Contains: `context_hash`, `location`, `climate`, `soil`, `calendars`
+- Location: `admin_l0: "Poland"`
+- Climate: `et0_mm_day` > 0, `gdd_base10_ytd` > 0
+- Response Time: `< 500ms`
+
+**FCO Resolve (Zimbabwe):**
+- Status Code: `200`
+- Location: Different context_hash from Poland
+- Elevation: ~1200m (Murewa highlands)
+- Response Time: `< 500ms`
+
+**Cached FCO Retrieval:**
+- Status Code: `200` (cache hit) or `404` (cache miss/expired)
+- If 200: Same data as original request
+- Response Time: `< 100ms` (cached)
+
+**Metrics Endpoint:**
+- Status Code: `200`
+- Contains: Prometheus-formatted metrics
+- Includes: `geo_context_requests_total`, `geo_context_request_duration_seconds`
+- Response Time: `< 200ms`
+
+### Troubleshooting Endpoint Tests
+
+#### Common Test Failures
+
+**Connection Refused (localhost:8000)**
+```bash
+# Start the GeoContext service first
+uvicorn preciagro.apps.api_gateway.main:app --host 0.0.0.0 --port 8000
+
+# Or run the specific GeoContext engine
+python -m preciagro.packages.engines.geo_context.api.main
+```
+
+**Authentication Errors (401/403)**
+```bash
+# Set JWT token in test scripts
+export JWT_TOKEN="your_jwt_token_here"
+
+# Or run with JWT token parameter
+.\test_endpoints.ps1 -JwtToken "your_jwt_token"
+```
+
+**Timeout Errors**
+```bash
+# Increase timeout in test scripts
+# Check service logs for performance issues
+# Verify database and Redis connectivity
+```
+
+#### Demo Mode
+```bash
+# Run tests against mock endpoints (no service required)
+python demo_endpoint_tests.py
+
+# This demonstrates expected test behavior
+```
+
 ---
 
 ## 🎯 **Status: MVP Complete & Integration Ready**
@@ -466,12 +636,3 @@ uvicorn app:main --log-level debug
 The GeoContext Engine MVP is **fully implemented** with comprehensive spatial processing, climate intelligence (ET0/GDD), agricultural calendars, caching, telemetry, and API integration. Ready for production deployment and scaling.
 
 **Key Metrics:** Sub-500ms P95 response times, 80%+ cache hit ratio, comprehensive regional coverage with intelligent fallbacks.
-
-```
-
----
-
-**Copy and paste the above markdown content into your notebook.** This provides the complete documentation for your GeoContext Engine MVP, including all the technical details, API documentation, mathematical formulas, configuration options, and deployment guidelines.---
-
-**Copy and paste the above markdown content into your notebook.** This provides the complete documentation for your GeoContext Engine MVP, including all the technical details, API documentation, mathematical formulas, configuration options, and deployment guidelines.
-```
