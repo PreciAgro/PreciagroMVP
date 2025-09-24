@@ -1,0 +1,27 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [31.7833, -17.6333],
+      [31.8000, -17.6333],
+      [31.8000, -17.6200],
+      [31.7833, -17.6200],
+      [31.7833, -17.6333]
+    ]]
+  },
+  "properties": {
+    "name": "Murewa Test Field",
+    "country": "Zimbabwe",
+    "region": "Mashonaland East",
+    "area_hectares": 45.2,
+    "elevation_avg": 1200,
+    "soil_type": "clay_loam",
+    "land_use": "agricultural",
+    "crop_history": ["corn", "tobacco", "soybeans"],
+    "rainfall_pattern": "seasonal",
+    "dry_season_months": [4, 5, 6, 7, 8, 9],
+    "wet_season_months": [10, 11, 12, 1, 2, 3],
+    "last_updated": "2024-03-15T10:00:00Z"
+  }
+}

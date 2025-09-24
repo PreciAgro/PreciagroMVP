@@ -4,9 +4,12 @@ pydantic>=2
 
 # runtime
 httpx
-redis
+redis>=5.0
+asyncpg
 SQLAlchemy>=1.4
 asyncpg
+PyYAML>=6.0
+python-jose[cryptography]  # For JWT handling
 
 # testing
 pytest

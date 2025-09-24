@@ -47,6 +47,7 @@ from fastapi import FastAPI
 from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherClient
 from preciagro.packages.engines.data_integration.config import settings as di_settings
 from preciagro.packages.engines.temporal_logic.routes.api import router as temporal_router
+from preciagro.packages.engines.geo_context.api.routes.api import router as geocontext_router
 import os
 # Set DEV environment variable early to ensure .env file is loaded
 os.environ.setdefault('DEV', '1')
@@ -67,6 +68,7 @@ else:
 
 app.include_router(ingest_router.router)
 app.include_router(temporal_router)
+app.include_router(geocontext_router)
 
 # Metrics
 INGEST_COUNTER = Counter('preciagro_ingest_jobs_total',

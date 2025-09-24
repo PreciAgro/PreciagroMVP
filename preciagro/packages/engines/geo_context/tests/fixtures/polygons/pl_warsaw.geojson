@@ -1,0 +1,24 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [21.0122, 52.2297],
+      [21.0300, 52.2297],
+      [21.0300, 52.2400],
+      [21.0122, 52.2400],
+      [21.0122, 52.2297]
+    ]]
+  },
+  "properties": {
+    "name": "Warsaw Test Field",
+    "country": "Poland",
+    "region": "Mazowieckie",
+    "area_hectares": 25.6,
+    "elevation_avg": 106,
+    "soil_type": "loam",
+    "land_use": "agricultural",
+    "crop_history": ["wheat", "corn", "soybeans"],
+    "last_updated": "2024-03-15T10:00:00Z"
+  }
+}

@@ -1,0 +1,79 @@
+# Corn/Maize agricultural rules - MVP
+crop_name: "Corn (Zea mays)"
+version: "v1.0"
+
+zones:
+  temperate_continental:
+    # Poland-like climate
+    planting:
+      primary:
+        optimal_start: "04-15"  # April 15
+        optimal_end: "05-15"    # May 15  
+        extended_end: "06-01"   # June 1
+        confidence: 0.85
+        conditions:
+          - soil_temp_min: 10  # °C
+          - frost_risk_low: true
+      
+    irrigation:
+      et0_multiplier: 0.8      # 80% of ET0
+      initial_kc: 0.5          # Initial crop coefficient
+      mid_season_kc: 1.2       # Mid-season Kc
+      late_season_kc: 0.6      # Late season Kc
+      efficiency: 0.75         # System efficiency
+      preferred_method: "sprinkler"
+      critical_periods:
+        - "tasseling"          # Most critical
+        - "grain_filling"      # Second most critical
+        
+    no_spray:
+      - reason: "pollinator_protection"
+        start: "06-01"         # Tasseling period
+        end: "07-15" 
+        restrictions:
+          - "neonicotinoids"
+          - "herbicides_flowering"
+        alternatives:
+          - "early_morning_spray"
+          - "evening_spray"
+      
+      - reason: "pre_harvest_interval"
+        start: "08-15"
+        end: "harvest"
+        restrictions:
+          - "all_pesticides"
+        phi_days: 21           # Pre-harvest interval
+
+  tropical_savanna:
+    # Zimbabwe-like climate
+    planting:
+      main_season:
+        optimal_start: "11-15"  # November 15 (rainy season)
+        optimal_end: "12-31"    # December 31
+        extended_end: "01-15"   # January 15
+        confidence: 0.80
+        rainfall_dependent: true
+        
+      winter_crop:
+        optimal_start: "03-01"  # March 1 (irrigation required)
+        optimal_end: "04-15"    # April 15
+        extended_end: "05-01"   # May 1  
+        confidence: 0.70
+        irrigation_required: true
+        
+    irrigation:
+      et0_multiplier: 0.9      # Higher in hot climate
+      initial_kc: 0.4
+      mid_season_kc: 1.4       # Higher due to heat
+      late_season_kc: 0.8
+      efficiency: 0.65         # Lower efficiency in hot climate
+      preferred_method: "drip"
+      
+    no_spray:
+      - reason: "rainy_season_washoff"
+        start: "12-01"
+        end: "03-31"
+        restrictions:
+          - "foliar_applications"
+        conditions:
+          - rainfall_forecast: ">5mm_24h"
