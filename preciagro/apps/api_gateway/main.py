@@ -46,6 +46,7 @@ from preciagro.packages.engines.data_integration.routers import ingest as ingest
 from fastapi import FastAPI
 from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherClient
 from preciagro.packages.engines.data_integration.config import settings as di_settings
+from preciagro.packages.engines.temporal_logic.routes.api import router as temporal_router
 import os
 # Set DEV environment variable early to ensure .env file is loaded
 os.environ.setdefault('DEV', '1')
@@ -65,6 +66,7 @@ else:
     # ingest_router.openweather_client_singleton left unset; endpoints will still error if invoked
 
 app.include_router(ingest_router.router)
+app.include_router(temporal_router)
 
 # Metrics
 INGEST_COUNTER = Counter('preciagro_ingest_jobs_total',
@@ -125,6 +127,10 @@ async def _demo_scheduler():
 
 @app.on_event('startup')
 async def startup_tasks():
+    # Initialize temporal logic database tables
+    from preciagro.packages.engines.temporal_logic.models import init_tables
+    await init_tables()
+
     # Start demo scheduler in background - DISABLED FOR TESTING
     # asyncio.create_task(_demo_scheduler())
     # start a consumer stub so we surface events during a demo

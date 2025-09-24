@@ -1,0 +1,40 @@
+- id: spray_tomato_blight
+  version: 1
+  trigger:
+    topic: diagnosis.outcome
+    when:
+      - { key: diagnosis.code, op: equals, value: "late_blight" }
+  preconditions:
+    all:
+      - { key: weather.wind_speed_kmh, op: "<", value: 10 }
+      - { key: weather.rain_prob_pct,  op: "<=", value: 30 }
+      - { key: legal.preharvest_interval_days, op: ">=", value: 5 }
+  window:
+    start_offset_hours: 24
+    end_offset_hours: 48
+    preferred_subwindow: { start_local: "05:00", end_local: "09:00" }
+  dedupe: { scope: "farm:{farm_id}:dx:{diagnosis.code}:date:{date_local}", ttl_hours: 24 }
+  priority: high
+  channels: ["whatsapp","sms"]
+  message:
+    short: "Spray for late blight {win_start_local}–{win_end_local}."
+    long: "Detected late blight on {field_name}. Safe spray window {win_start_local}–{win_end_local}."
+
+- id: irrigation_morning
+  version: 1
+  trigger:
+    topic: soil.moisture_update
+    when:
+      - { key: soil.moisture_pct, op: "<", value: 18 }
+  preconditions:
+    all:
+      - { key: forecast.tomorrow.min_temp_c, op: "<=", value: 22 }
+  window:
+    start_at_local: "05:00"
+    end_at_local: "08:00"
+    day_offset: 1
+  dedupe: { scope: "farm:{farm_id}:field:{field_id}:date:{date_local}", ttl_hours: 24 }
+  priority: medium
+  channels: ["whatsapp"]
+  message:
+    short: "Irrigate {field_name} tomorrow 05:00–08:00. Soil moisture {soil.moisture_pct}%."
