@@ -20,13 +20,13 @@ from preciagro.packages.shared.schemas import ActionPlan, TaskItem
 
 def plan_actions(crop: str, diagnosis_label: str, context: dict, weather: dict) -> ActionPlan:
     """Legacy action planner for backward compatibility.
-    
+
     Args:
         crop: Crop type
         diagnosis_label: Disease/issue diagnosis
         context: Context information (region, season)
         weather: Weather data (tmax_c, rain_mm)
-        
+
     Returns:
         ActionPlan with tasks
     """

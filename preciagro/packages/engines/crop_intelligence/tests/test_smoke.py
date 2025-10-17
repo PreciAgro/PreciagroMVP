@@ -1,10 +1,11 @@
 from fastapi.testclient import TestClient
 from preciagro.packages.engines.crop_intelligence.app.main import app
 
+
 def test_register_and_actions():
     """Smoke test: register field, submit telemetry, get actions."""
     c = TestClient(app)
-    
+
     # Register field
     r = c.post("/cie/field/register", json={
         "field_id": "f_1",
@@ -17,7 +18,7 @@ def test_register_and_actions():
     })
     assert r.status_code == 200
     assert r.json()["ok"] == True
-    
+
     # Submit telemetry
     t = c.post("/cie/field/telemetry", json={
         "field_id": "f_1",
@@ -34,21 +35,21 @@ def test_register_and_actions():
     })
     assert t.status_code == 200
     assert t.json()["ok"] == True
-    
+
     # Get field state
     s = c.get("/cie/field/state", params={"field_id": "f_1"})
     assert s.status_code == 200
     state_data = s.json()
     assert "stage" in state_data
     assert "vigor_trend" in state_data
-    
+
     # Get actions
     a = c.get("/cie/field/actions", params={"field_id": "f_1"})
     assert a.status_code == 200
     data = a.json()
     assert "items" in data
     assert len(data["items"]) >= 1
-    
+
     # Verify action structure
     action = data["items"][0]
     assert "action_id" in action
@@ -56,7 +57,7 @@ def test_register_and_actions():
     assert "impact_score" in action
     assert "why" in action
     assert isinstance(action["why"], list)
-    
+
     # Submit feedback
     f = c.post("/cie/feedback", json={
         "field_id": "f_1",

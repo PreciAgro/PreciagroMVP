@@ -2,12 +2,13 @@ from __future__ import annotations
 from typing import Optional
 from ..models.schemas import TelemetryBatch
 
+
 class PhenologyWater:
     """Handles phenology stage estimation and water management recommendations."""
-    
+
     def estimate_stage(self, tb: TelemetryBatch) -> tuple[Optional[str], float]:
         """Estimate crop growth stage from telemetry data.
-        
+
         Returns:
             tuple: (stage_name, confidence_score)
         """
@@ -26,11 +27,11 @@ class PhenologyWater:
 
     def water_need_message(self, whc_mm: Optional[float], rain_forecast_mm: Optional[float]) -> dict:
         """Calculate water management recommendations.
-        
+
         Args:
             whc_mm: Water holding capacity in mm
             rain_forecast_mm: Forecasted rainfall in mm
-            
+
         Returns:
             dict: Water management advice
         """
@@ -43,5 +44,6 @@ class PhenologyWater:
         else:
             advice["irrigate_mm"] = 18
         return advice
+
 
 pw = PhenologyWater()

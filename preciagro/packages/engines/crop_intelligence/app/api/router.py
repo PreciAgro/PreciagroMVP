@@ -16,13 +16,14 @@ router = APIRouter(prefix="/cie", tags=["CIE"])
 _fields: dict[str, FieldRegister] = {}
 _soil_cache: dict[str, float] = {}  # field_id -> whc_mm (approx)
 
+
 @router.post("/field/register")
 def register_field(payload: FieldRegister) -> dict:
     """Register a new field with crop and management details.
-    
+
     Args:
         payload: Field registration data
-        
+
     Returns:
         Success confirmation
     """
@@ -30,13 +31,14 @@ def register_field(payload: FieldRegister) -> dict:
     lh.emit("field_registered", payload.field_id, payload.model_dump())
     return {"ok": True}
 
+
 @router.post("/field/telemetry")
 def post_telemetry(tb: TelemetryBatch) -> dict:
     """Submit telemetry data (weather, vegetation indices, soil) for a field.
-    
+
     Args:
         tb: Telemetry batch data
-        
+
     Returns:
         Success confirmation
     """
@@ -47,13 +49,14 @@ def post_telemetry(tb: TelemetryBatch) -> dict:
     lh.emit("telemetry", tb.field_id, tb.model_dump())
     return {"ok": True}
 
+
 @router.get("/field/state")
 def get_state(field_id: str) -> FieldStateOut:
     """Get current field state including stage, vigor trend, and risks.
-    
+
     Args:
         field_id: Field identifier
-        
+
     Returns:
         Current field state
     """
@@ -64,23 +67,26 @@ def get_state(field_id: str) -> FieldStateOut:
     # Here we just return whatever we have
     return st
 
+
 @router.get("/field/actions")
 def get_actions(field_id: str) -> ActionsOut:
     """Get recommended actions for a field.
-    
+
     Args:
         field_id: Field identifier
-        
+
     Returns:
         Ranked list of recommended actions with explanations
     """
     # Minimal MVP logic (replace with context stitched from repos)
     whc = _soil_cache.get(field_id)
-    stage, stage_conf = ("vegetative", 0.6)  # placeholder; finalize via PWU + state
+    # placeholder; finalize via PWU + state
+    stage, stage_conf = ("vegetative", 0.6)
     water = pw.water_need_message(whc_mm=whc, rain_forecast_mm=12)
     n_start, n_end, why_n = (None, None, [])
     if stage:
-        n_start, n_end, why_n = nt.n_topdress_window(stage, rain_forecast_mm=12)
+        n_start, n_end, why_n = nt.n_topdress_window(
+            stage, rain_forecast_mm=12)
 
     cards: list[ActionOut] = []
     if "irrigate_mm" in water or "skip_if_rain_mm" in water:
@@ -120,13 +126,14 @@ def get_actions(field_id: str) -> ActionsOut:
     lh.emit("actions_proposed", field_id, {"count": len(ranked)})
     return ActionsOut(items=ranked)
 
+
 @router.post("/feedback")
 def post_feedback(fb: FeedbackIn) -> dict:
     """Submit farmer feedback on recommended actions.
-    
+
     Args:
         fb: Feedback data including decision and notes
-        
+
     Returns:
         Success confirmation
     """

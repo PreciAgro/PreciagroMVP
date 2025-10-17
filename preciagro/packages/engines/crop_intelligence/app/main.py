@@ -9,6 +9,7 @@ app = FastAPI(
 
 app.include_router(cie_router)
 
+
 @app.get("/")
 def root():
     """Health check endpoint."""

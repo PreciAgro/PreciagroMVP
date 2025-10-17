@@ -2,9 +2,10 @@ from __future__ import annotations
 from typing import Optional, List
 from ..models.schemas import FieldStateOut, RiskCard, TelemetryBatch
 
+
 class FieldStateTracker:
     """Tracks field state including growth stage, vigor trends, and risks."""
-    
+
     def __init__(self):
         # naive in-memory state; swap to Redis/DB later
         self._state: dict[str, FieldStateOut] = {}
@@ -12,7 +13,8 @@ class FieldStateTracker:
     def update_with_telemetry(self, tb: TelemetryBatch) -> None:
         """Update field state based on telemetry data."""
         # Minimal: derive a crude vigor trend from last two VI points
-        st = self._state.get(tb.field_id, FieldStateOut(stage=None, stage_confidence=0.0))
+        st = self._state.get(tb.field_id, FieldStateOut(
+            stage=None, stage_confidence=0.0))
         if tb.vi and len(tb.vi) >= 2 and all(v.ndvi is not None for v in tb.vi[-2:]):
             prev, curr = tb.vi[-2], tb.vi[-1]
             if curr.ndvi is not None and prev.ndvi is not None:
@@ -28,5 +30,6 @@ class FieldStateTracker:
     def get(self, field_id: str) -> FieldStateOut:
         """Get current field state."""
         return self._state.get(field_id, FieldStateOut(stage=None, stage_confidence=0.0))
+
 
 state_tracker = FieldStateTracker()

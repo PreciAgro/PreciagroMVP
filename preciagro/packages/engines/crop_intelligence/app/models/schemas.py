@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 BudgetClass = Literal["low", "medium", "high"]
 IrrigationAccess = Literal["none", "limited", "full"]
 
+
 class FieldRegister(BaseModel):
     field_id: str
     boundary_geojson: dict
@@ -14,6 +15,7 @@ class FieldRegister(BaseModel):
     target_yield_band: Optional[str] = None
     budget_class: BudgetClass = "low"
 
+
 class WeatherPoint(BaseModel):
     ts: str
     tmax: float
@@ -23,11 +25,13 @@ class WeatherPoint(BaseModel):
     rad: Optional[float] = None
     rain: float
 
+
 class VIPoint(BaseModel):
     date: str
     ndvi: Optional[float] = None
     evi: Optional[float] = None
     quality: Literal["good", "cloudy", "gap"] = "good"
+
 
 class SoilBaseline(BaseModel):
     src: str = "soilgrids"
@@ -35,16 +39,19 @@ class SoilBaseline(BaseModel):
     whc_mm: Optional[float] = None
     uncertainty: Optional[str] = None
 
+
 class TelemetryBatch(BaseModel):
     field_id: str
     weather: Optional[List[WeatherPoint]] = None
     vi: Optional[List[VIPoint]] = None
     soil: Optional[SoilBaseline] = None
 
+
 class PhotoIn(BaseModel):
     field_id: str
     stage_hint: Optional[str] = None
     uri: str
+
 
 class ActionLogIn(BaseModel):
     field_id: str
@@ -53,16 +60,19 @@ class ActionLogIn(BaseModel):
     subtype: Optional[str] = None
     amount_kg: Optional[float] = None
 
+
 class RiskCard(BaseModel):
     type: str
     level: Literal["low", "medium", "high"]
     confidence: float
+
 
 class FieldStateOut(BaseModel):
     stage: Optional[str]
     stage_confidence: float = 0.0
     vigor_trend: Optional[Literal["increasing", "stable", "decreasing"]] = None
     risks: List[RiskCard] = Field(default_factory=list)
+
 
 class ActionOut(BaseModel):
     action_id: str
@@ -76,8 +86,10 @@ class ActionOut(BaseModel):
     when: Optional[str] = None
     cost_hint: Optional[str] = None
 
+
 class ActionsOut(BaseModel):
     items: List[ActionOut]
+
 
 class FeedbackIn(BaseModel):
     field_id: str
