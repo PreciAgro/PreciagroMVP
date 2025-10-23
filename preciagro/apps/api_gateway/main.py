@@ -38,6 +38,10 @@ from fastapi import Response
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 import os as _os
 import asyncio
+
+# Configure logging
+logger = logging.getLogger(__name__)
+import os
 from preciagro.packages.engines.data_integration.storage.db import ping_db
 from preciagro.packages.engines.data_integration.config import settings
 from preciagro.packages.engines.data_integration.pipeline.orchestrator import run_registered_source
@@ -46,12 +50,17 @@ from preciagro.packages.engines.data_integration.routers import ingest as ingest
 from fastapi import FastAPI
 from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherClient
 from preciagro.packages.engines.data_integration.config import settings as di_settings
-from preciagro.packages.engines.temporal_logic.routes.api import router as temporal_router
 from preciagro.packages.engines.geo_context.api.routes.api import router as geocontext_router
-import os
-# Set DEV environment variable early to ensure .env file is loaded
+
+# Set DEV environment variable early to ensure .env file is loaded BEFORE importing config
 os.environ.setdefault('DEV', '1')
 
+# Now import modules that depend on configuration
+from preciagro.packages.engines.temporal_logic.config import config as temporal_config
+
+import logging
+from fastapi import Response
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI()
 
@@ -67,7 +76,15 @@ else:
     # ingest_router.openweather_client_singleton left unset; endpoints will still error if invoked
 
 app.include_router(ingest_router.router)
-app.include_router(temporal_router)
+
+# Try to include temporal router, but handle import failures gracefully
+try:
+    from preciagro.packages.engines.temporal_logic.routes.api import router as temporal_router
+    app.include_router(temporal_router)
+    logger.info("Temporal Logic Engine router loaded successfully")
+except Exception as e:
+    logger.warning(f"Failed to load Temporal Logic Engine router: {e}")
+
 app.include_router(geocontext_router)
 
 # Metrics
@@ -129,9 +146,13 @@ async def _demo_scheduler():
 
 @app.on_event('startup')
 async def startup_tasks():
-    # Initialize temporal logic database tables
-    from preciagro.packages.engines.temporal_logic.models import init_tables
-    await init_tables()
+    # Initialize temporal logic database tables (optional if DATABASE_URL not set)
+    try:
+        from preciagro.packages.engines.temporal_logic.models import init_tables
+        await init_tables()
+        logger.info("Temporal Logic Engine database initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Temporal Logic Engine database: {e}")
 
     # Start demo scheduler in background - DISABLED FOR TESTING
     # asyncio.create_task(_demo_scheduler())

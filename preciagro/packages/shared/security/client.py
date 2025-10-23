@@ -15,11 +15,28 @@ class SecurityClient:
         self.client = httpx.AsyncClient()
 
     async def validate_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Validate token with security service."""
+        """Validate token with security service.
+        
+        First attempts to decode the token locally using the JWT public key.
+        If that's not available, falls back to remote validation if configured.
+        """
         try:
+            # Try local validation first (faster, doesn't require external service)
             payload = decode_token(token)
             return payload
-        except Exception:
+        except Exception as local_error:
+            # If local validation fails, try remote service if configured
+            if self.base_url and self.base_url != "http://localhost:8000":
+                try:
+                    response = await self.client.post(
+                        f"{self.base_url}/validate",
+                        json={"token": token},
+                        headers={"X-API-Key": self.api_key} if self.api_key else {}
+                    )
+                    if response.status_code == 200:
+                        return response.json()
+                except Exception:
+                    pass
             return None
 
     async def get_user_permissions(self, user_id: str, tenant_id: str) -> Dict[str, Any]:
@@ -33,6 +50,8 @@ class SecurityClient:
 
     async def close(self):
         """Close the HTTP client."""
+        await self.client.aclose()
+
         await self.client.aclose()
 
 

@@ -47,7 +47,8 @@ def get_engine():
     global _engine
     if _engine is None:
         if DATABASE_URL is None:
-            raise ValueError("DATABASE_URL environment variable is required")
+            # Return None instead of raising; caller can handle gracefully
+            return None
         _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
     return _engine
 
@@ -56,24 +57,31 @@ def get_session():
     """Get session factory, creating it if necessary."""
     global _Session
     if _Session is None:
-        _Session = async_sessionmaker(get_engine(), expire_on_commit=False)
+        engine = get_engine()
+        if engine is None:
+            return None
+        _Session = async_sessionmaker(engine, expire_on_commit=False)
     return _Session
 
 
-def async_session():
-    """Get async database session context manager."""
-    Session = get_session()
-    return Session()
-
-
 async def init_tables():
-    """Initialize database tables."""
+    """Initialize database tables if DATABASE_URL is configured."""
+    if DATABASE_URL is None:
+        # Skip initialization if no database is configured
+        return
+    
     engine = get_engine()
+    if engine is None:
+        return
+    
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 def init_db():
-    """Initialize database engine."""
+    """Initialize database engine and session."""
+    get_engine()
+    get_session()
+
     get_engine()
     get_session()

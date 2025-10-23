@@ -78,10 +78,14 @@ def get_actions(field_id: str) -> ActionsOut:
     Returns:
         Ranked list of recommended actions with explanations
     """
-    # Minimal MVP logic (replace with context stitched from repos)
+    # Get tracked state from telemetry (includes phenology estimate)
+    st = state_tracker.get(field_id)
+    stage, stage_conf = st.stage, st.stage_confidence
+    
+    # Get soil data from cache
     whc = _soil_cache.get(field_id)
-    # placeholder; finalize via PWU + state
-    stage, stage_conf = ("vegetative", 0.6)
+    
+    # Get water recommendations
     water = pw.water_need_message(whc_mm=whc, rain_forecast_mm=12)
     n_start, n_end, why_n = (None, None, [])
     if stage:
@@ -92,9 +96,9 @@ def get_actions(field_id: str) -> ActionsOut:
     if "irrigate_mm" in water or "skip_if_rain_mm" in water:
         why = [f"stage={stage}"] + [f"soil_whc={whc or 'unknown'}"]
         if "skip_if_rain_mm" in water:
-            why.append(f"skip if rain ≥{water['skip_if_rain_mm']}mm")
+            why.append(f"skip if rain >= {water['skip_if_rain_mm']} mm")
         else:
-            why.append(f"irrigate {water['irrigate_mm']}mm")
+            why.append(f"irrigate {water['irrigate_mm']} mm")
         cards.append(ActionOut(
             action_id=f"a_{field_id}_water",
             action="Water_Advisory",

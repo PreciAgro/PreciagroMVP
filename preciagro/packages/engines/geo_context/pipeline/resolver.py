@@ -191,9 +191,13 @@ class GeoContextResolver:
             return None
 
     async def _resolve_calendars(self, location: Dict[str, float], crops: list, climate_data: Dict = None):
-        """Resolve calendar data for crops."""
+        """Resolve calendar data for crops and return a single Calendars object."""
         try:
-            calendars = []
+            from ..contracts.v1.fco import Calendars
+            
+            all_planting = []
+            all_irrigation = []
+            all_no_spray = []
 
             # Process each crop individually with the new interface
             for crop in crops:
@@ -203,12 +207,25 @@ class GeoContextResolver:
                     climate_data or {}
                 )
                 if calendar_data:
-                    calendars.append(calendar_data)
+                    # Aggregate windows from each crop
+                    if hasattr(calendar_data, 'planting_windows'):
+                        all_planting.extend(calendar_data.planting_windows)
+                    if hasattr(calendar_data, 'irrigation_baseline'):
+                        all_irrigation.extend(calendar_data.irrigation_baseline)
+                    if hasattr(calendar_data, 'no_spray_windows'):
+                        all_no_spray.extend(calendar_data.no_spray_windows)
 
-            return calendars
+            # Return a single Calendars object with aggregated windows
+            return Calendars(
+                planting_windows=all_planting,
+                irrigation_baseline=all_irrigation,
+                no_spray_windows=all_no_spray
+            )
         except Exception as e:
             print(f"Calendar composition failed: {e}")
-            return []
+            # Return empty Calendars object on error
+            from ..contracts.v1.fco import Calendars
+            return Calendars()
 
     def _calculate_centroid(self, coordinates: list) -> Dict[str, float]:
         """Calculate centroid of polygon coordinates."""

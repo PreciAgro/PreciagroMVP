@@ -263,3 +263,7 @@ async def cleanup_expired_cache() -> None:
 
         await session.execute(query, {"now": datetime.now()})
         await session.commit()
+
+
+# Alias for backwards compatibility
+get_cached_fco_by_hash = get_cached_fco

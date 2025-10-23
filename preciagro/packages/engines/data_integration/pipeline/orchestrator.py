@@ -224,7 +224,7 @@ async def run_job(
             # cache the serialized item to avoid reprocessing for some TTL
             if content_hash:
                 try:
-                    await cache_set(cache_key, json.dumps(item.model_dump()), ttl=cache_ttl)
+                    await cache_set(cache_key, item.model_dump_json(), ttl=cache_ttl)
                 except Exception:
                     logger.debug("Failed to cache item %s",
                                  item.item_id, exc_info=True)

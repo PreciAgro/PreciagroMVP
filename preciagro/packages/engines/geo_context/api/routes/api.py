@@ -41,7 +41,7 @@ async def resolve_field_context(
             extra={
                 "tenant_id": tenant_ctx.tenant_id,
                 "context_hash": getattr(result, 'context_hash', None),
-                "confidence": result.confidence_score,
+                "confidence": result.confidence,
                 "processing_time_ms": result.processing_time_ms
             }
         )

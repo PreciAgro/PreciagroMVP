@@ -10,6 +10,8 @@ from functools import wraps
 # JWT Configuration
 JWT_PUBKEY = os.getenv("JWT_PUBKEY", "")
 ALGORITHM = "RS256"
+# Allow dev mode to bypass JWT validation if key is missing
+DEV_MODE = os.getenv("DEV_MODE", os.getenv("DEBUG", "false")).lower() == "true"
 
 # Security scheme
 security = HTTPBearer()
@@ -25,12 +27,25 @@ class TenantContext:
 
 
 def decode_token(token: str) -> dict:
-    """Decode and validate JWT token."""
+    """Decode and validate JWT token.
+    
+    In dev mode with no JWT_PUBKEY configured, returns a stub context.
+    In production, missing JWT_PUBKEY results in 401 Unauthorized.
+    """
     if not JWT_PUBKEY:
-        raise HTTPException(
-            status_code=500,
-            detail="JWT_PUBKEY not configured"
-        )
+        if DEV_MODE:
+            # Dev mode bypass: return a stub context without validation
+            return {
+                "tenant_id": "dev-tenant",
+                "user_id": "dev-user",
+                "scopes": ["*"],
+                "sub": "dev-user"
+            }
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required: JWT_PUBKEY not configured"
+            )
 
     try:
         payload = jwt.decode(
@@ -48,14 +63,26 @@ def decode_token(token: str) -> dict:
 
 
 def get_tenant_context(
-    credentials: HTTPAuthorizationCredentials = Security(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security, scopes=[])
 ) -> TenantContext:
-    """Extract tenant context from JWT token."""
+    """Extract tenant context from JWT token.
+    
+    In dev mode with no credentials, returns a stub context.
+    In production, authentication is required.
+    """
     if not credentials:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required"
-        )
+        if DEV_MODE:
+            # Dev mode bypass
+            return TenantContext(
+                tenant_id="dev-tenant",
+                user_id="dev-user",
+                scopes=["*"]
+            )
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required"
+            )
 
     payload = decode_token(credentials.credentials)
 
