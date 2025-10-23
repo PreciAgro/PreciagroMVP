@@ -16,7 +16,7 @@ class SecurityClient:
 
     async def validate_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Validate token with security service.
-        
+
         First attempts to decode the token locally using the JWT public key.
         If that's not available, falls back to remote validation if configured.
         """
@@ -31,7 +31,8 @@ class SecurityClient:
                     response = await self.client.post(
                         f"{self.base_url}/validate",
                         json={"token": token},
-                        headers={"X-API-Key": self.api_key} if self.api_key else {}
+                        headers={
+                            "X-API-Key": self.api_key} if self.api_key else {}
                     )
                     if response.status_code == 200:
                         return response.json()

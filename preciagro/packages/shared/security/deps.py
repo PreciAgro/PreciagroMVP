@@ -28,7 +28,7 @@ class TenantContext:
 
 def decode_token(token: str) -> dict:
     """Decode and validate JWT token.
-    
+
     In dev mode with no JWT_PUBKEY configured, returns a stub context.
     In production, missing JWT_PUBKEY results in 401 Unauthorized.
     """
@@ -63,10 +63,11 @@ def decode_token(token: str) -> dict:
 
 
 def get_tenant_context(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security, scopes=[])
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(
+        security, scopes=[])
 ) -> TenantContext:
     """Extract tenant context from JWT token.
-    
+
     In dev mode with no credentials, returns a stub context.
     In production, authentication is required.
     """

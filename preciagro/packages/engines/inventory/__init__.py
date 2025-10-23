@@ -16,21 +16,21 @@ logger = logging.getLogger(__name__)
 
 class InventoryRepository:
     """Interface for inventory data storage and retrieval.
-    
+
     TODO: Implement concrete backends:
         - SQLAlchemy ORM for PostgreSQL
         - Redis cache layer for fast lookups
         - ERP system integration (Odoo, SAP, etc.)
     """
-    
+
     async def get_stock_level(self, item_id: str, farm_id: str) -> Optional[float]:
         """Get current stock quantity for an item."""
         raise NotImplementedError
-    
+
     async def reserve_stock(self, item_id: str, farm_id: str, quantity: float) -> bool:
         """Reserve quantity from stock."""
         raise NotImplementedError
-    
+
     async def get_alternatives(self, item_id: str) -> List[Dict[str, Any]]:
         """Get alternative products for a given item."""
         raise NotImplementedError
@@ -38,7 +38,7 @@ class InventoryRepository:
 
 class StubInventoryRepository(InventoryRepository):
     """Stub implementation for MVP - returns hardcoded data."""
-    
+
     async def get_stock_level(self, item_id: str, farm_id: str) -> Optional[float]:
         """Hardcoded stock levels for MVP."""
         stock = {
@@ -49,7 +49,7 @@ class StubInventoryRepository(InventoryRepository):
             "insecticide-A": 2.5,
         }
         return stock.get(item_id, 0.0)
-    
+
     async def get_alternatives(self, item_id: str) -> List[Dict[str, Any]]:
         """Hardcoded alternatives for MVP."""
         alternatives = {
@@ -70,16 +70,16 @@ _inventory_repo = StubInventoryRepository()
 
 def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
     """Calculate inventory impact and shortages from action plan.
-    
+
     Args:
         plan: Action plan with recommended interventions
         farm_id: Identifier for the farm (for multi-tenant scenarios)
-    
+
     Returns:
         dict with:
             - reservations: List of items to reserve from stock
             - shortages: List of items with insufficient stock + alternatives
-    
+
     TODO: Replace hardcoded logic:
         1. Parse plan.actions to extract required materials
         2. Query inventory repo for current stock levels
@@ -88,10 +88,10 @@ def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
         5. Fetch alternatives and suggest substitutions
     """
     import asyncio
-    
+
     # For MVP: return stub data
     # In production: implement async inventory lookup and reservation
-    
+
     reservations = [
         {
             "item": "protective_gloves",
@@ -104,7 +104,7 @@ def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
             "reason": "canopy_management"
         }
     ]
-    
+
     shortages = [
         {
             "item": "fungicide-X",
@@ -115,7 +115,7 @@ def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
             "estimated_cost_usd": 45.0
         }
     ]
-    
+
     return {
         "reservations": reservations,
         "shortages": shortages,

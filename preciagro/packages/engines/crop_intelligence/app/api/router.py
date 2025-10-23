@@ -81,10 +81,10 @@ def get_actions(field_id: str) -> ActionsOut:
     # Get tracked state from telemetry (includes phenology estimate)
     st = state_tracker.get(field_id)
     stage, stage_conf = st.stage, st.stage_confidence
-    
+
     # Get soil data from cache
     whc = _soil_cache.get(field_id)
-    
+
     # Get water recommendations
     water = pw.water_need_message(whc_mm=whc, rain_forecast_mm=12)
     n_start, n_end, why_n = (None, None, [])

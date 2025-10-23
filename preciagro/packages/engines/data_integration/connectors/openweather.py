@@ -107,11 +107,12 @@ class OpenWeatherConnector(IngestConnector):
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         resp = loop.run_until_complete(
-            self.client.one_call(lat=lat, lon=lon, units=units, exclude=exclude)
+            self.client.one_call(
+                lat=lat, lon=lon, units=units, exclude=exclude)
         )
-        
+
         # Attach coordinates and source name to each record
         base = {"lat": resp.get("lat"), "lon": resp.get(
             "lon"), "_source": self.name}
@@ -144,7 +145,7 @@ class OpenWeatherConnector(IngestConnector):
         resp = await self.client.one_call(
             lat=lat, lon=lon, units=units, exclude=exclude
         )
-        
+
         # Attach coordinates and source name to each record
         base = {"lat": resp.get("lat"), "lon": resp.get(
             "lon"), "_source": self.name}
@@ -159,4 +160,3 @@ class OpenWeatherConnector(IngestConnector):
         elif scope == "daily" and "daily" in resp:
             for r in resp["daily"]:
                 yield {**base, **r}
-

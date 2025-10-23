@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 
 def diagnose(image_base64: str, crop_hint: str | None) -> DiagnosisOut:
     """Diagnose crop disease/pest from image payload.
-    
+
     Args:
         image_base64: Base64-encoded image data
         crop_hint: Optional crop type hint (e.g., 'tomato', 'maize')
-    
+
     Returns:
         DiagnosisOut with predicted disease labels and confidence scores
-    
+
     TODO: Replace heuristic with actual model inference:
         1. Decode base64 image to numpy array
         2. Preprocess (resize, normalize per model spec)
@@ -39,10 +39,11 @@ def diagnose(image_base64: str, crop_hint: str | None) -> DiagnosisOut:
                 notes="No image provided",
                 model_version="error"
             )
-        
+
         # Try to decode to verify valid base64
         try:
-            image_data = base64.b64decode(image_base64[:1000])  # partial validation
+            image_data = base64.b64decode(
+                image_base64[:1000])  # partial validation
         except Exception as e:
             logger.warning(f"Invalid base64 image payload: {e}")
             return DiagnosisOut(
@@ -50,11 +51,11 @@ def diagnose(image_base64: str, crop_hint: str | None) -> DiagnosisOut:
                 notes="Invalid image encoding",
                 model_version="error"
             )
-        
+
         # MVP heuristic: map crop type to common diseases
         # In production: use actual vision model inference
         crop = (crop_hint or "").lower()
-        
+
         if "tomato" in crop:
             return DiagnosisOut(
                 labels=[
@@ -92,7 +93,7 @@ def diagnose(image_base64: str, crop_hint: str | None) -> DiagnosisOut:
                 notes="Generic heuristic diagnosis (stub). Provide crop_hint for better accuracy.",
                 model_version="stub-0.2"
             )
-    
+
     except Exception as e:
         logger.error(f"Diagnosis failed: {e}")
         return DiagnosisOut(

@@ -15,7 +15,8 @@ class NormalizedItem(BaseModel):
     source_id: str               # e.g. 'open-meteo'
     collected_at: datetime       # when *we* fetched it
     observed_at: Optional[datetime] = None  # when it happened
-    kind: Literal["weather.observation", "weather.forecast", "market.price", "advisory"]
+    kind: Literal["weather.observation",
+                  "weather.forecast", "market.price", "advisory"]
     location: Optional[Location] = None
     tags: List[str] = []
     payload: dict                # the useful fields (temp, humidity, etc.)

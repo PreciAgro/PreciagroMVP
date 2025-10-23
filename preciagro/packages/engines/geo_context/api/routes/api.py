@@ -21,7 +21,7 @@ async def resolve_field_context(
         # Input validation and guardrails
         if request.field and hasattr(request.field, 'coordinates'):
             validate_polygon_size(request.field.coordinates)
-        
+
         # Log request (sanitized)
         logger.info(
             "FCO resolve request",
@@ -31,10 +31,10 @@ async def resolve_field_context(
                 "crops": request.crops
             }
         )
-        
+
         resolver = GeoContextResolver()
         result = await resolver.resolve_field_context(request)
-        
+
         # Log successful resolution
         logger.info(
             "FCO resolved successfully",
@@ -45,7 +45,7 @@ async def resolve_field_context(
                 "processing_time_ms": result.processing_time_ms
             }
         )
-        
+
         return result
     except Exception as e:
         logger.error(
@@ -68,11 +68,11 @@ async def get_cached_field_context(
     """Get cached Field Context Object by context hash."""
     try:
         from ...storage.db import get_cached_fco_by_hash
-        
+
         result = await get_cached_fco_by_hash(context_hash)
         if not result:
             raise HTTPException(status_code=404, detail="FCO not found")
-        
+
         logger.info(
             "FCO retrieved from cache",
             extra={
@@ -80,7 +80,7 @@ async def get_cached_field_context(
                 "context_hash": context_hash
             }
         )
-        
+
         return result
     except HTTPException:
         raise

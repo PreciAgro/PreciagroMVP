@@ -69,11 +69,11 @@ async def init_tables():
     if DATABASE_URL is None:
         # Skip initialization if no database is configured
         return
-    
+
     engine = get_engine()
     if engine is None:
         return
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

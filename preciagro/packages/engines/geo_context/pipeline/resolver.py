@@ -194,7 +194,7 @@ class GeoContextResolver:
         """Resolve calendar data for crops and return a single Calendars object."""
         try:
             from ..contracts.v1.fco import Calendars
-            
+
             all_planting = []
             all_irrigation = []
             all_no_spray = []
@@ -211,7 +211,8 @@ class GeoContextResolver:
                     if hasattr(calendar_data, 'planting_windows'):
                         all_planting.extend(calendar_data.planting_windows)
                     if hasattr(calendar_data, 'irrigation_baseline'):
-                        all_irrigation.extend(calendar_data.irrigation_baseline)
+                        all_irrigation.extend(
+                            calendar_data.irrigation_baseline)
                     if hasattr(calendar_data, 'no_spray_windows'):
                         all_no_spray.extend(calendar_data.no_spray_windows)
 

@@ -32,6 +32,17 @@
 #     return {"diagnosis": dx, "plan": plan, "reminders": reminders, "inventory": inv}
 # the above was a placeholder for the main.py file in your API gateway.
 
+from preciagro.packages.engines.temporal_logic.config import config as temporal_config
+from preciagro.packages.engines.geo_context.api.routes.api import router as geocontext_router
+from preciagro.packages.engines.data_integration.config import settings as di_settings
+from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherClient
+from fastapi import FastAPI
+from preciagro.packages.engines.data_integration.routers import ingest as ingest_router
+from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherConnector
+from preciagro.packages.engines.data_integration.pipeline.orchestrator import run_registered_source
+from preciagro.packages.engines.data_integration.config import settings
+from preciagro.packages.engines.data_integration.storage.db import ping_db
+import os
 from preciagro.packages.engines.data_integration.bus.consumer import run_consumer
 import logging
 from fastapi import Response
@@ -41,26 +52,12 @@ import asyncio
 
 # Configure logging
 logger = logging.getLogger(__name__)
-import os
-from preciagro.packages.engines.data_integration.storage.db import ping_db
-from preciagro.packages.engines.data_integration.config import settings
-from preciagro.packages.engines.data_integration.pipeline.orchestrator import run_registered_source
-from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherConnector
-from preciagro.packages.engines.data_integration.routers import ingest as ingest_router
-from fastapi import FastAPI
-from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherClient
-from preciagro.packages.engines.data_integration.config import settings as di_settings
-from preciagro.packages.engines.geo_context.api.routes.api import router as geocontext_router
 
 # Set DEV environment variable early to ensure .env file is loaded BEFORE importing config
 os.environ.setdefault('DEV', '1')
 
 # Now import modules that depend on configuration
-from preciagro.packages.engines.temporal_logic.config import config as temporal_config
 
-import logging
-from fastapi import Response
-from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI()
 
@@ -152,7 +149,8 @@ async def startup_tasks():
         await init_tables()
         logger.info("Temporal Logic Engine database initialized")
     except Exception as e:
-        logger.warning(f"Failed to initialize Temporal Logic Engine database: {e}")
+        logger.warning(
+            f"Failed to initialize Temporal Logic Engine database: {e}")
 
     # Start demo scheduler in background - DISABLED FOR TESTING
     # asyncio.create_task(_demo_scheduler())

@@ -17,7 +17,8 @@ async def init_database():
         await init_tables()
         logger.info("Database initialized successfully")
     except Exception as e:
-        logger.warning(f"Database initialization skipped (not configured): {e}")
+        logger.warning(
+            f"Database initialization skipped (not configured): {e}")
 
 
 async def close_database():
@@ -35,7 +36,8 @@ async def get_database_session() -> AsyncGenerator[AsyncSession, None]:
     """Get async database session for dependency injection."""
     Session = get_session()
     if Session is None:
-        raise RuntimeError("Database not configured. Set DATABASE_URL environment variable.")
-    
+        raise RuntimeError(
+            "Database not configured. Set DATABASE_URL environment variable.")
+
     async with Session() as session:
         yield session
