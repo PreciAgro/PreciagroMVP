@@ -46,38 +46,49 @@ def main():
 
     tests = [
         # Syntax and import checks
-        ("python -m py_compile preciagro/packages/engines/geo_context/pipeline/resolver.py",
-         "Syntax check - Main resolver"),
-
-        ("python -m py_compile preciagro/packages/engines/geo_context/api/routes/api.py",
-         "Syntax check - API routes"),
-
-        ("python -m py_compile preciagro/packages/engines/geo_context/storage/cache.py",
-         "Syntax check - Cache layer"),
-
+        (
+            "python -m py_compile preciagro/packages/engines/geo_context/pipeline/resolver.py",
+            "Syntax check - Main resolver",
+        ),
+        (
+            "python -m py_compile preciagro/packages/engines/geo_context/api/routes/api.py",
+            "Syntax check - API routes",
+        ),
+        (
+            "python -m py_compile preciagro/packages/engines/geo_context/storage/cache.py",
+            "Syntax check - Cache layer",
+        ),
         # Unit tests
-        ("python -m pytest preciagro/packages/engines/geo_context/tests/test_resolver_pipeline.py -v",
-         "Unit tests - Resolver pipeline"),
-
-        ("python -m pytest preciagro/packages/engines/geo_context/tests/test_api_smoke.py -v",
-         "API smoke tests"),
-
-        ("python -m pytest preciagro/packages/engines/geo_context/tests/test_golden_snapshots.py -v",
-         "Golden snapshot tests"),
-
+        (
+            "python -m pytest preciagro/packages/engines/geo_context/tests/test_resolver_pipeline.py -v",
+            "Unit tests - Resolver pipeline",
+        ),
+        (
+            "python -m pytest preciagro/packages/engines/geo_context/tests/test_api_smoke.py -v",
+            "API smoke tests",
+        ),
+        (
+            "python -m pytest preciagro/packages/engines/geo_context/tests/test_golden_snapshots.py -v",
+            "Golden snapshot tests",
+        ),
         # Integration tests
-        ("python -c \"from preciagro.packages.engines.geo_context.pipeline.resolver import FieldContextResolver; print('✅ Resolver import successful')\"",
-         "Import test - Main resolver"),
-
-        ("python -c \"from preciagro.packages.engines.geo_context.storage.cache import get_cache; print('✅ Cache import successful')\"",
-         "Import test - Cache layer"),
-
-        ("python -c \"from preciagro.packages.engines.geo_context.telemetry.metrics import telemetry; print('✅ Telemetry import successful')\"",
-         "Import test - Telemetry"),
-
+        (
+            "python -c \"from preciagro.packages.engines.geo_context.pipeline.resolver import FieldContextResolver; print('✅ Resolver import successful')\"",
+            "Import test - Main resolver",
+        ),
+        (
+            "python -c \"from preciagro.packages.engines.geo_context.storage.cache import get_cache; print('✅ Cache import successful')\"",
+            "Import test - Cache layer",
+        ),
+        (
+            "python -c \"from preciagro.packages.engines.geo_context.telemetry.metrics import telemetry; print('✅ Telemetry import successful')\"",
+            "Import test - Telemetry",
+        ),
         # Configuration validation
-        ("python -c \"from preciagro.packages.engines.geo_context.config import settings; print(f'✅ Config loaded: {settings.DEBUG}')\"",
-         "Configuration validation"),
+        (
+            "python -c \"from preciagro.packages.engines.geo_context.config import settings; print(f'✅ Config loaded: {settings.DEBUG}')\"",
+            "Configuration validation",
+        ),
     ]
 
     results = []

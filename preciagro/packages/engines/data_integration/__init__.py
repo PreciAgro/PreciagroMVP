@@ -1,4 +1,3 @@
-
 """Lightweight helpers for the data_integration package.
 
 This file currently contains small stubs used for local development and
@@ -17,5 +16,7 @@ def latest_weather(region: str) -> dict:
     This is a stub. Real implementations should live in connectors/ and be
     exercised by the pipeline normalizers.
     """
-    return {"tmax_c": 29.0 if region.startswith("zim") else 24.0,
-            "rain_mm": 1.2 if region.startswith("pl") else 0.0}
+    return {
+        "tmax_c": 29.0 if region.startswith("zim") else 24.0,
+        "rain_mm": 1.2 if region.startswith("pl") else 0.0,
+    }

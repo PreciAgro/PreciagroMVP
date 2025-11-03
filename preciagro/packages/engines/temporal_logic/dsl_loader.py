@@ -1,9 +1,12 @@
 """YAML DSL loader for temporal rules."""
-import yaml
-from typing import List, Dict, Any, Optional
-from pathlib import Path
+
 import logging
-from .contracts import RuleCreate, Condition, Action, WindowConfig
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+
+from .contracts import Action, Condition, RuleCreate, WindowConfig
 
 logger = logging.getLogger(__name__)
 
@@ -13,17 +16,36 @@ class DSLLoader:
 
     def __init__(self, rules_dir: Optional[str] = None):
         """Initialize DSL loader."""
-        self.rules_dir = Path(rules_dir) if rules_dir else Path(
-            __file__).parent / "rules"
+        self.rules_dir = (
+            Path(rules_dir) if rules_dir else Path(__file__).parent / "rules"
+        )
+
+    async def load_rules(self) -> List[Dict[str, Any]]:
+        """Asynchronously load raw rule dictionaries."""
+        yaml_files = list(self.rules_dir.glob("*.yaml"))
+        if not yaml_files:
+            yaml_files = [self.rules_dir / "temporal_rules.yaml"]
+
+        rules: List[Dict[str, Any]] = []
+
+        for yaml_file in yaml_files:
+            try:
+                with open(yaml_file, "r", encoding="utf-8") as f:
+                    yaml_content = yaml.safe_load(f) or {}
+            except FileNotFoundError:
+                continue
+
+            for rule_data in yaml_content.get("rules", []):
+                if self._validate_rule(rule_data):
+                    rules.append(rule_data)
+
+        return rules
 
     def load_rules_from_file(self, file_path: str) -> List[RuleCreate]:
         """Load rules from a specific YAML file."""
         try:
             file_path = Path(file_path)
-            if not file_path.exists():
-                raise FileNotFoundError(f"Rules file not found: {file_path}")
-
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 yaml_content = yaml.safe_load(f)
 
             return self._parse_yaml_rules(yaml_content)
@@ -44,12 +66,17 @@ class DSLLoader:
             try:
                 file_rules = self.load_rules_from_file(yaml_file)
                 rules.extend(file_rules)
-                logger.info(
-                    f"Loaded {len(file_rules)} rules from {yaml_file.name}")
+                logger.info(f"Loaded {len(file_rules)} rules from {yaml_file.name}")
             except Exception as e:
                 logger.error(f"Failed to load rules from {yaml_file}: {e}")
 
         return rules
+
+    def _validate_rule(self, rule_data: Dict[str, Any]) -> bool:
+        """Basic validation for rule dictionaries."""
+        if not isinstance(rule_data, dict):
+            return False
+        return bool(rule_data.get("conditions")) and bool(rule_data.get("actions"))
 
     def _parse_yaml_rules(self, yaml_content: Dict[str, Any]) -> List[RuleCreate]:
         """Parse YAML content into Rule objects."""
@@ -64,7 +91,8 @@ class DSLLoader:
                 rules.append(rule)
             except Exception as e:
                 logger.error(
-                    f"Error parsing rule {rule_data.get('name', 'unknown')}: {e}")
+                    f"Error parsing rule {rule_data.get('name', 'unknown')}: {e}"
+                )
                 raise
 
         return rules
@@ -78,7 +106,7 @@ class DSLLoader:
                 field=cond_data["field"],
                 operator=cond_data["operator"],
                 value=cond_data["value"],
-                weight=cond_data.get("weight", 1.0)
+                weight=cond_data.get("weight", 1.0),
             )
             conditions.append(condition)
 
@@ -89,7 +117,7 @@ class DSLLoader:
                 type=action_data["type"],
                 config=action_data["config"],
                 delay=action_data.get("delay", 0),
-                channel=action_data.get("channel")
+                channel=action_data.get("channel"),
             )
             actions.append(action)
 
@@ -99,7 +127,7 @@ class DSLLoader:
             type=window_data.get("type", "sliding"),
             size=window_data.get("size", 3600),  # default 1 hour
             advance=window_data.get("advance"),
-            session_timeout=window_data.get("session_timeout")
+            session_timeout=window_data.get("session_timeout"),
         )
 
         return RuleCreate(
@@ -108,7 +136,7 @@ class DSLLoader:
             conditions=conditions,
             actions=actions,
             window_config=window_config,
-            enabled=rule_data.get("enabled", True)
+            enabled=rule_data.get("enabled", True),
         )
 
     def validate_yaml_schema(self, yaml_content: Dict[str, Any]) -> List[str]:
@@ -148,7 +176,8 @@ class DSLLoader:
             else:
                 for i, cond in enumerate(rule["conditions"]):
                     cond_errors = self._validate_condition_schema(
-                        cond, f"{path}.conditions[{i}]")
+                        cond, f"{path}.conditions[{i}]"
+                    )
                     errors.extend(cond_errors)
 
         # Validate actions
@@ -158,18 +187,22 @@ class DSLLoader:
             else:
                 for i, action in enumerate(rule["actions"]):
                     action_errors = self._validate_action_schema(
-                        action, f"{path}.actions[{i}]")
+                        action, f"{path}.actions[{i}]"
+                    )
                     errors.extend(action_errors)
 
         # Validate window config
         if "window" in rule:
             window_errors = self._validate_window_schema(
-                rule["window"], f"{path}.window")
+                rule["window"], f"{path}.window"
+            )
             errors.extend(window_errors)
 
         return errors
 
-    def _validate_condition_schema(self, condition: Dict[str, Any], path: str) -> List[str]:
+    def _validate_condition_schema(
+        self, condition: Dict[str, Any], path: str
+    ) -> List[str]:
         """Validate condition schema."""
         errors = []
 
@@ -179,11 +212,22 @@ class DSLLoader:
                 errors.append(f"{path}: Missing required field '{field}'")
 
         # Validate operator
-        valid_operators = ["eq", "ne", "gt", "gte", "lt",
-                           "lte", "in", "not_in", "contains", "exists"]
+        valid_operators = [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "not_in",
+            "contains",
+            "exists",
+        ]
         if "operator" in condition and condition["operator"] not in valid_operators:
             errors.append(
-                f"{path}.operator: Invalid operator '{condition['operator']}'")
+                f"{path}.operator: Invalid operator '{condition['operator']}'"
+            )
 
         return errors
 
@@ -199,8 +243,7 @@ class DSLLoader:
         # Validate action type
         valid_types = ["message", "webhook", "schedule", "alert"]
         if "type" in action and action["type"] not in valid_types:
-            errors.append(
-                f"{path}.type: Invalid action type '{action['type']}'")
+            errors.append(f"{path}.type: Invalid action type '{action['type']}'")
 
         return errors
 
@@ -211,8 +254,7 @@ class DSLLoader:
         # Validate window type
         valid_types = ["sliding", "tumbling", "session"]
         if "type" in window and window["type"] not in valid_types:
-            errors.append(
-                f"{path}.type: Invalid window type '{window['type']}'")
+            errors.append(f"{path}.type: Invalid window type '{window['type']}'")
 
         # Validate size
         if "size" in window:
@@ -224,7 +266,7 @@ class DSLLoader:
 
 def create_sample_yaml() -> str:
     """Create a sample YAML rules file content."""
-    return '''
+    return """
 # Temporal Logic Rules Configuration
 version: "1.0"
 metadata:
@@ -316,7 +358,7 @@ rules:
     window:
       type: "session"
       session_timeout: 7200  # 2 hours
-'''
+"""
 
 
 # Utility function to save sample YAML
@@ -328,7 +370,7 @@ def save_sample_rules(file_path: str = None) -> None:
     file_path = Path(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(create_sample_yaml())
 
     logger.info(f"Sample rules saved to {file_path}")

@@ -1,13 +1,15 @@
 """WhatsApp Meta Business API channel sender."""
+
+
 import httpx
-import json
-import os
+
+from ..config import WHATSAPP_PHONE_ID, WHATSAPP_TOKEN
 from .base import ChannelSender
-from ..config import WHATSAPP_TOKEN, WHATSAPP_PHONE_ID
 
 
 class WhatsAppMetaSender(ChannelSender):
     """WhatsApp Meta Business API sender."""
+
     name = "whatsapp"
 
     async def send(self, to, payload):
@@ -27,10 +29,10 @@ class WhatsAppMetaSender(ChannelSender):
                 "action": {
                     "buttons": [
                         {"type": "reply", "reply": {"id": "done", "title": "DONE"}},
-                        {"type": "reply", "reply": {"id": "skip", "title": "SKIP"}}
+                        {"type": "reply", "reply": {"id": "skip", "title": "SKIP"}},
                     ]
-                }
-            }
+                },
+            },
         }
 
         async with httpx.AsyncClient(timeout=10) as client:

@@ -1,0 +1,26 @@
+{
+  "Poland": {
+    "texture": "loam",
+    "ph_range": [
+      6.2,
+      7.0
+    ],
+    "organic_matter_pct": 3.2,
+    "cec": 18.5,
+    "drainage": "well_drained",
+    "resolution": "admin_zone",
+    "version": "v1.0"
+  },
+  "Zimbabwe": {
+    "texture": "clay_loam",
+    "ph_range": [
+      5.8,
+      6.8
+    ],
+    "organic_matter_pct": 2.8,
+    "cec": 22.0,
+    "drainage": "moderately_drained",
+    "resolution": "admin_zone",
+    "version": "v1.0"
+  }
+}

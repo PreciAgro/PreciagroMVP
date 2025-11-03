@@ -1,6 +1,6 @@
 # connectors/base.py
 from abc import ABC, abstractmethod
-from typing import Iterable, Dict, Any
+from typing import Any, Dict, Iterable
 
 
 class IngestConnector(ABC):

@@ -1,12 +1,15 @@
-"""Pydantic schemas for temporal logic engine."""
-from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict, Any, List, Union, Literal
+﻿"""Pydantic schemas for temporal logic engine."""
+
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, validator
 
 
 class EventType(str, Enum):
     """Available event types."""
+
     WEATHER_UPDATE = "weather_update"
     CROP_STAGE_CHANGE = "crop_stage_change"
     IRRIGATION_COMPLETE = "irrigation_complete"
@@ -19,6 +22,7 @@ class EventType(str, Enum):
 
 class TaskStatus(str, Enum):
     """Task execution statuses."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -28,6 +32,7 @@ class TaskStatus(str, Enum):
 
 class ChannelType(str, Enum):
     """Available communication channels."""
+
     WHATSAPP = "whatsapp"
     SMS = "sms"
     EMAIL = "email"
@@ -38,6 +43,7 @@ class ChannelType(str, Enum):
 # Event Schemas
 class EventBase(BaseModel):
     """Base event schema."""
+
     event_type: EventType
     source: str
     payload: Dict[str, Any]
@@ -46,15 +52,23 @@ class EventBase(BaseModel):
 
 class EventCreate(EventBase):
     """Schema for creating events."""
+    @validator("payload")
+    def ensure_payload(cls, value):
+        # FIX: Ruff F811 lint — fold validation into primary EventCreate to avoid duplicate class while preserving behaviour.
+        if not value:
+            raise ValueError("Payload cannot be empty")
+        return value
+
     pass
 
 
 class EventResponse(EventBase):
     """Schema for event responses."""
+
     id: int
     created_at: datetime
     processed_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -62,6 +76,7 @@ class EventResponse(EventBase):
 # Rule Schemas
 class WindowConfig(BaseModel):
     """Time window configuration for rules."""
+
     type: Literal["sliding", "tumbling", "session"]
     size: int  # in seconds
     advance: Optional[int] = None  # for sliding windows
@@ -70,14 +85,18 @@ class WindowConfig(BaseModel):
 
 class Condition(BaseModel):
     """Individual condition in a rule."""
+
     field: str
-    operator: Literal["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]
+    operator: Literal[
+        "eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"
+    ]
     value: Any
     weight: float = 1.0
 
 
 class Action(BaseModel):
     """Action to take when rule is triggered."""
+
     type: Literal["message", "webhook", "schedule", "alert"]
     config: Dict[str, Any]
     delay: int = 0  # delay in seconds before executing
@@ -86,6 +105,7 @@ class Action(BaseModel):
 
 class RuleBase(BaseModel):
     """Base rule schema."""
+
     name: str
     description: Optional[str] = None
     conditions: List[Condition]
@@ -96,11 +116,25 @@ class RuleBase(BaseModel):
 
 class RuleCreate(RuleBase):
     """Schema for creating rules."""
+    @validator("conditions")
+    def ensure_conditions(cls, value):
+        # FIX: Ruff F811 lint — consolidate validation on canonical RuleCreate to eliminate duplicate subclass.
+        if not value:
+            raise ValueError("At least one condition is required")
+        return value
+
+    @validator("actions")
+    def ensure_actions(cls, value):
+        if not value:
+            raise ValueError("At least one action is required")
+        return value
+
     pass
 
 
 class RuleUpdate(BaseModel):
     """Schema for updating rules."""
+
     name: Optional[str] = None
     description: Optional[str] = None
     conditions: Optional[List[Condition]] = None
@@ -111,10 +145,11 @@ class RuleUpdate(BaseModel):
 
 class RuleResponse(RuleBase):
     """Schema for rule responses."""
+
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -122,6 +157,7 @@ class RuleResponse(RuleBase):
 # Task Schemas
 class TaskConfig(BaseModel):
     """Task configuration."""
+
     message: Optional[str] = None
     recipient: Optional[str] = None
     webhook_url: Optional[str] = None
@@ -132,6 +168,7 @@ class TaskConfig(BaseModel):
 
 class ScheduledTaskBase(BaseModel):
     """Base scheduled task schema."""
+
     task_type: str
     task_config: TaskConfig
     scheduled_for: datetime
@@ -140,12 +177,14 @@ class ScheduledTaskBase(BaseModel):
 
 class ScheduledTaskCreate(ScheduledTaskBase):
     """Schema for creating scheduled tasks."""
+
     rule_id: int
     triggering_event_id: Optional[int] = None
 
 
 class ScheduledTaskUpdate(BaseModel):
     """Schema for updating scheduled tasks."""
+
     scheduled_for: Optional[datetime] = None
     status: Optional[TaskStatus] = None
     max_attempts: Optional[int] = None
@@ -153,6 +192,7 @@ class ScheduledTaskUpdate(BaseModel):
 
 class ScheduledTaskResponse(ScheduledTaskBase):
     """Schema for scheduled task responses."""
+
     id: int
     rule_id: int
     triggering_event_id: Optional[int] = None
@@ -164,7 +204,7 @@ class ScheduledTaskResponse(ScheduledTaskBase):
     result: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -172,6 +212,7 @@ class ScheduledTaskResponse(ScheduledTaskBase):
 # Outcome Schemas
 class OutcomeBase(BaseModel):
     """Base outcome schema."""
+
     outcome_type: str
     outcome_data: Dict[str, Any]
     source: Optional[str] = None
@@ -179,15 +220,17 @@ class OutcomeBase(BaseModel):
 
 class OutcomeCreate(OutcomeBase):
     """Schema for creating outcomes."""
+
     task_id: int
 
 
 class OutcomeResponse(OutcomeBase):
     """Schema for outcome responses."""
+
     id: int
     task_id: int
     recorded_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -195,6 +238,7 @@ class OutcomeResponse(OutcomeBase):
 # Intent Schemas
 class IntentBase(BaseModel):
     """Base intent schema."""
+
     user_id: str
     channel: ChannelType
     raw_input: str
@@ -203,11 +247,13 @@ class IntentBase(BaseModel):
 
 class IntentCreate(IntentBase):
     """Schema for creating intents."""
+
     pass
 
 
 class ProcessedIntent(BaseModel):
     """Processed intent data."""
+
     intent_type: str
     entities: Dict[str, Any] = {}
     confidence_score: Optional[int] = None
@@ -216,12 +262,13 @@ class ProcessedIntent(BaseModel):
 
 class IntentResponse(IntentBase):
     """Schema for intent responses."""
+
     id: int
     processed_intent: ProcessedIntent
     confidence_score: Optional[int] = None
     created_at: datetime
     processed_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -229,6 +276,7 @@ class IntentResponse(IntentBase):
 # Message Schemas
 class MessageTemplate(BaseModel):
     """Message template schema."""
+
     id: str
     content: str
     parameters: List[str] = []
@@ -237,6 +285,7 @@ class MessageTemplate(BaseModel):
 
 class MessageRequest(BaseModel):
     """Message sending request."""
+
     recipient: str
     channel: ChannelType
     template_id: Optional[str] = None
@@ -248,6 +297,7 @@ class MessageRequest(BaseModel):
 # API Response Schemas
 class HealthCheck(BaseModel):
     """Health check response."""
+
     status: Literal["healthy", "degraded", "unhealthy"]
     timestamp: datetime
     version: str
@@ -256,6 +306,7 @@ class HealthCheck(BaseModel):
 
 class BulkOperationResponse(BaseModel):
     """Response for bulk operations."""
+
     processed: int
     succeeded: int
     failed: int
@@ -264,6 +315,7 @@ class BulkOperationResponse(BaseModel):
 
 class PaginatedResponse(BaseModel):
     """Generic paginated response."""
+
     items: List[Any]
     total: int
     page: int
@@ -271,27 +323,3 @@ class PaginatedResponse(BaseModel):
     pages: int
 
 
-# Validation
-class EventCreate(EventBase):
-    @validator('payload')
-    def validate_payload(cls, v):
-        """Ensure payload is not empty."""
-        if not v:
-            raise ValueError('Payload cannot be empty')
-        return v
-
-
-class RuleCreate(RuleBase):
-    @validator('conditions')
-    def validate_conditions(cls, v):
-        """Ensure at least one condition exists."""
-        if not v:
-            raise ValueError('At least one condition is required')
-        return v
-    
-    @validator('actions')
-    def validate_actions(cls, v):
-        """Ensure at least one action exists."""
-        if not v:
-            raise ValueError('At least one action is required')
-        return v

@@ -1,9 +1,11 @@
 """Test configuration for geo_context engine."""
-import pytest
+
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..storage.db import AsyncSessionLocal
+
 
 
 @pytest.fixture(scope="session")
@@ -30,7 +32,9 @@ def mock_db_session(monkeypatch):
         yield mock_session
 
     monkeypatch.setattr(
-        "preciagro.packages.engines.geo_context.storage.db.AsyncSessionLocal", mock_session_factory)
+        "preciagro.packages.engines.geo_context.storage.db.AsyncSessionLocal",
+        mock_session_factory,
+    )
     return mock_session
 
 
@@ -48,7 +52,7 @@ def sample_fco_request():
         include_spatial=True,
         include_calendar=True,
         crop_types=["wheat"],
-        use_cache=False
+        use_cache=False,
     )
 
 
@@ -64,7 +68,7 @@ def sample_soil_data():
         "soil_type": "loam",
         "drainage": "well_drained",
         "texture": "loam",
-        "data_source": "test"
+        "data_source": "test",
     }
 
 
@@ -82,7 +86,7 @@ def sample_climate_data():
             "wind_speed": 8.5,
             "solar_radiation": None,
             "growing_degree_days": 5.5,
-            "data_source": "test"
+            "data_source": "test",
         }
     ]
 
@@ -95,30 +99,28 @@ def sample_spatial_data():
         "slope": 2.5,
         "aspect": 180,
         "land_use": "agricultural",
-        "admin_region": "Mazowieckie"
+        "admin_region": "Mazowieckie",
     }
 
 
 @pytest.fixture
 def mock_external_apis(monkeypatch):
     """Mock external API calls."""
+
     async def mock_weather_api(*args, **kwargs):
         return {
-            "main": {
-                "temp": 15.5,
-                "temp_min": 8.2,
-                "temp_max": 22.8,
-                "humidity": 65
-            },
-            "wind": {
-                "speed": 8.5
-            }
+            "main": {"temp": 15.5, "temp_min": 8.2, "temp_max": 22.8, "humidity": 65},
+            "wind": {"speed": 8.5},
         }
 
-    monkeypatch.setattr("aiohttp.ClientSession.get", AsyncMock(return_value=AsyncMock(
-        status=200,
-        json=AsyncMock(return_value=mock_weather_api())
-    )))
+    monkeypatch.setattr(
+        "aiohttp.ClientSession.get",
+        AsyncMock(
+            return_value=AsyncMock(
+                status=200, json=AsyncMock(return_value=mock_weather_api())
+            )
+        ),
+    )
 
 
 @pytest.fixture
@@ -131,7 +133,7 @@ def mock_rules_engine():
         "crops": {
             "wheat": {
                 "soil": {"ph_range": [6.0, 7.5], "min_organic_matter": 2.0},
-                "climate": {"temperature_range": [15, 25], "min_gdd": 1200}
+                "climate": {"temperature_range": [15, 25], "min_gdd": 1200},
             }
         }
     }
@@ -140,7 +142,7 @@ def mock_rules_engine():
             "max_wind_speed": 15,
             "min_temperature": 5,
             "max_temperature": 30,
-            "min_humidity": 40
+            "min_humidity": 40,
         }
     }
 

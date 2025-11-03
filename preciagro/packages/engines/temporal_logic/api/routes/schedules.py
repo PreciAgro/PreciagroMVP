@@ -1,17 +1,19 @@
 """API routes for schedules/tasks endpoints."""
+
 import logging
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.security import HTTPBearer
+from sqlalchemy import and_, desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, desc, update
-from ..models import ScheduledTask, TemporalRule, TaskStatus
-from ..contracts import (
-    ScheduledTaskResponse, ScheduledTaskCreate, ScheduledTaskUpdate,
-    PaginatedResponse, BulkOperationResponse
-)
-from ..security.auth import security_middleware, Permission
+
+from ..contracts import (BulkOperationResponse, PaginatedResponse,
+                         ScheduledTaskCreate, ScheduledTaskResponse,
+                         ScheduledTaskUpdate)
+from ..models import ScheduledTask, TaskStatus, TemporalRule
+from ..security.auth import Permission, security_middleware
 from ..telemetry.metrics import engine_metrics
 
 logger = logging.getLogger(__name__)
@@ -39,18 +41,19 @@ async def get_scheduled_tasks(
     task_type: Optional[str] = Query(None, description="Filter by task type"),
     rule_id: Optional[int] = Query(None, description="Filter by rule ID"),
     scheduled_after: Optional[datetime] = Query(
-        None, description="Filter tasks scheduled after this date"),
+        None, description="Filter tasks scheduled after this date"
+    ),
     scheduled_before: Optional[datetime] = Query(
-        None, description="Filter tasks scheduled before this date"),
+        None, description="Filter tasks scheduled before this date"
+    ),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get paginated list of scheduled tasks with optional filtering."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_TASKS
+            current_user["user_id"], Permission.READ_TASKS
         )
 
         # Build query
@@ -76,8 +79,7 @@ async def get_scheduled_tasks(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(ScheduledTask.id).select_from(
-            query.alias().subquery())
+        count_query = select(ScheduledTask.id).select_from(query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -105,7 +107,7 @@ async def get_scheduled_tasks(
                 error_message=task.error_message,
                 result=task.result,
                 created_at=task.created_at,
-                updated_at=task.updated_at
+                updated_at=task.updated_at,
             )
             for task in tasks
         ]
@@ -115,7 +117,7 @@ async def get_scheduled_tasks(
             total=total,
             page=page,
             size=size,
-            pages=(total + size - 1) // size
+            pages=(total + size - 1) // size,
         )
 
     except Exception as e:
@@ -127,14 +129,13 @@ async def get_scheduled_tasks(
 async def get_scheduled_task(
     task_id: int = Path(..., description="Task ID"),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get a specific scheduled task by ID."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_TASKS
+            current_user["user_id"], Permission.READ_TASKS
         )
 
         # Get task
@@ -160,7 +161,7 @@ async def get_scheduled_task(
             error_message=task.error_message,
             result=task.result,
             created_at=task.created_at,
-            updated_at=task.updated_at
+            updated_at=task.updated_at,
         )
 
     except HTTPException:
@@ -174,19 +175,18 @@ async def get_scheduled_task(
 async def create_scheduled_task(
     task_data: ScheduledTaskCreate,
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Create a new scheduled task."""
     try:
         # Check permissions
         security_middleware.authorize_request(
             current_user["user_id"],
-            Permission.CREATE_RULES  # Using CREATE_RULES as proxy for task creation
+            Permission.CREATE_RULES,  # Using CREATE_RULES as proxy for task creation
         )
 
         # Validate rule exists
-        rule_stmt = select(TemporalRule).where(
-            TemporalRule.id == task_data.rule_id)
+        rule_stmt = select(TemporalRule).where(TemporalRule.id == task_data.rule_id)
         rule_result = await db.execute(rule_stmt)
         rule = rule_result.scalar_one_or_none()
 
@@ -200,7 +200,7 @@ async def create_scheduled_task(
             task_type=task_data.task_type,
             task_config=task_data.task_config.dict(),
             scheduled_for=task_data.scheduled_for,
-            max_attempts=task_data.max_attempts
+            max_attempts=task_data.max_attempts,
         )
 
         db.add(task)
@@ -211,7 +211,7 @@ async def create_scheduled_task(
         engine_metrics.task_scheduled(
             task.task_type,
             task.task_config.get("channel", "unknown"),
-            int((task.scheduled_for - datetime.utcnow()).total_seconds())
+            int((task.scheduled_for - datetime.utcnow()).total_seconds()),
         )
 
         logger.info(f"Created scheduled task {task.id}")
@@ -231,7 +231,7 @@ async def create_scheduled_task(
             error_message=task.error_message,
             result=task.result,
             created_at=task.created_at,
-            updated_at=task.updated_at
+            updated_at=task.updated_at,
         )
 
     except HTTPException:
@@ -246,14 +246,13 @@ async def update_scheduled_task(
     task_id: int = Path(..., description="Task ID"),
     task_update: ScheduledTaskUpdate = ...,
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Update a scheduled task."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.UPDATE_TASKS
+            current_user["user_id"], Permission.UPDATE_TASKS
         )
 
         # Get task
@@ -295,7 +294,7 @@ async def update_scheduled_task(
             error_message=task.error_message,
             result=task.result,
             created_at=task.created_at,
-            updated_at=task.updated_at
+            updated_at=task.updated_at,
         )
 
     except HTTPException:
@@ -309,14 +308,13 @@ async def update_scheduled_task(
 async def cancel_scheduled_task(
     task_id: int = Path(..., description="Task ID"),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Cancel a scheduled task."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.CANCEL_TASKS
+            current_user["user_id"], Permission.CANCEL_TASKS
         )
 
         # Get task
@@ -330,8 +328,7 @@ async def cancel_scheduled_task(
         # Can only cancel pending or running tasks
         if task.status not in [TaskStatus.PENDING.value, TaskStatus.RUNNING.value]:
             raise HTTPException(
-                status_code=400,
-                detail=f"Cannot cancel task in status: {task.status}"
+                status_code=400, detail=f"Cannot cancel task in status: {task.status}"
             )
 
         # Cancel task
@@ -346,7 +343,7 @@ async def cancel_scheduled_task(
         return {
             "task_id": task_id,
             "status": "cancelled",
-            "cancelled_at": task.completed_at.isoformat()
+            "cancelled_at": task.completed_at.isoformat(),
         }
 
     except HTTPException:
@@ -360,22 +357,19 @@ async def cancel_scheduled_task(
 async def get_tasks_summary(
     days: int = Query(7, ge=1, le=90, description="Number of days to analyze"),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get summary statistics of scheduled tasks."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_TASKS
+            current_user["user_id"], Permission.READ_TASKS
         )
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get tasks from the last N days
-        stmt = select(ScheduledTask).where(
-            ScheduledTask.created_at >= start_date
-        )
+        stmt = select(ScheduledTask).where(ScheduledTask.created_at >= start_date)
 
         result = await db.execute(stmt)
         tasks = result.scalars().all()
@@ -407,12 +401,15 @@ async def get_tasks_summary(
         for task_type in type_counts:
             type_tasks = [t for t in tasks if t.task_type == task_type]
             completed_tasks = [
-                t for t in type_tasks if t.status == TaskStatus.COMPLETED.value]
+                t for t in type_tasks if t.status == TaskStatus.COMPLETED.value
+            ]
 
             success_rates[task_type] = {
                 "total": len(type_tasks),
                 "completed": len(completed_tasks),
-                "success_rate": len(completed_tasks) / len(type_tasks) if type_tasks else 0
+                "success_rate": (
+                    len(completed_tasks) / len(type_tasks) if type_tasks else 0
+                ),
             }
 
         return {
@@ -423,7 +420,7 @@ async def get_tasks_summary(
             "daily_counts": daily_counts,
             "success_rates": success_rates,
             "start_date": start_date.isoformat(),
-            "end_date": datetime.utcnow().isoformat()
+            "end_date": datetime.utcnow().isoformat(),
         }
 
     except Exception as e:
@@ -436,36 +433,39 @@ async def bulk_cancel_tasks(
     task_ids: List[int],
     reason: str = "Bulk cancellation",
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Cancel multiple tasks in bulk."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.CANCEL_TASKS
+            current_user["user_id"], Permission.CANCEL_TASKS
         )
 
         if len(task_ids) > 100:
             raise HTTPException(
-                status_code=400,
-                detail="Cannot cancel more than 100 tasks at once"
+                status_code=400, detail="Cannot cancel more than 100 tasks at once"
             )
 
         # Update tasks
         current_time = datetime.utcnow()
 
-        update_stmt = update(ScheduledTask).where(
-            and_(
-                ScheduledTask.id.in_(task_ids),
-                ScheduledTask.status.in_(
-                    [TaskStatus.PENDING.value, TaskStatus.RUNNING.value])
+        update_stmt = (
+            update(ScheduledTask)
+            .where(
+                and_(
+                    ScheduledTask.id.in_(task_ids),
+                    ScheduledTask.status.in_(
+                        [TaskStatus.PENDING.value, TaskStatus.RUNNING.value]
+                    ),
+                )
             )
-        ).values(
-            status=TaskStatus.CANCELLED.value,
-            completed_at=current_time,
-            updated_at=current_time,
-            error_message=reason
+            .values(
+                status=TaskStatus.CANCELLED.value,
+                completed_at=current_time,
+                updated_at=current_time,
+                error_message=reason,
+            )
         )
 
         result = await db.execute(update_stmt)
@@ -479,7 +479,7 @@ async def bulk_cancel_tasks(
             processed=len(task_ids),
             succeeded=cancelled_count,
             failed=len(task_ids) - cancelled_count,
-            errors=[]
+            errors=[],
         )
 
     except HTTPException:
@@ -492,14 +492,13 @@ async def bulk_cancel_tasks(
 @router.get("/due/count")
 async def get_due_tasks_count(
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get count of tasks due for execution."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_TASKS
+            current_user["user_id"], Permission.READ_TASKS
         )
 
         current_time = datetime.utcnow()
@@ -508,7 +507,7 @@ async def get_due_tasks_count(
             and_(
                 ScheduledTask.scheduled_for <= current_time,
                 ScheduledTask.status == TaskStatus.PENDING.value,
-                ScheduledTask.attempts < ScheduledTask.max_attempts
+                ScheduledTask.attempts < ScheduledTask.max_attempts,
             )
         )
 
@@ -517,7 +516,7 @@ async def get_due_tasks_count(
 
         return {
             "due_tasks_count": len(due_tasks),
-            "current_time": current_time.isoformat()
+            "current_time": current_time.isoformat(),
         }
 
     except Exception as e:

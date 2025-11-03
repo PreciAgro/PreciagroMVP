@@ -1,11 +1,13 @@
 """Redis cache adapter for GeoContext engine."""
+
 import json
-import hashlib
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from datetime import datetime
+from typing import Any, Dict, Optional
+
 from redis.asyncio import Redis
-from ..contracts.v1.fco import FCOResponse
+
 from ..config import settings
+from ..contracts.v1.fco import FCOResponse
 
 
 class GeoContextCache:
@@ -13,8 +15,7 @@ class GeoContextCache:
 
     def __init__(self, redis_client: Optional[Redis] = None):
         self.redis = redis_client or Redis.from_url(
-            settings.REDIS_URL or "redis://localhost:6379",
-            decode_responses=True
+            settings.REDIS_URL or "redis://localhost:6379", decode_responses=True
         )
         self.default_ttl = 3600 * 24 * 7  # 7 days
         self.key_prefix = "geocontext:"
@@ -44,7 +45,7 @@ class GeoContextCache:
         self,
         context_hash: str,
         response: FCOResponse,
-        ttl_seconds: Optional[int] = None
+        ttl_seconds: Optional[int] = None,
     ) -> bool:
         """Cache FCO response."""
         try:
@@ -55,15 +56,13 @@ class GeoContextCache:
                 "context_hash": context_hash,
                 "fco_response": response.model_dump(),
                 "cached_at": datetime.utcnow().isoformat(),
-                "hit_count": 0
+                "hit_count": 0,
             }
 
             # Set with TTL
             ttl = ttl_seconds or self.default_ttl
             success = await self.redis.setex(
-                key,
-                ttl,
-                json.dumps(cache_data, default=str)
+                key, ttl, json.dumps(cache_data, default=str)
             )
 
             return bool(success)
@@ -102,7 +101,7 @@ class GeoContextCache:
                 "total_entries": len(keys),
                 "cache_size_mb": 0,
                 "total_hits": 0,
-                "avg_hit_count": 0
+                "avg_hit_count": 0,
             }
 
             if keys:
@@ -118,15 +117,15 @@ class GeoContextCache:
                     if data:
                         parsed = json.loads(data)
                         total_hits += parsed.get("hit_count", 0)
-                        total_size += len(data.encode('utf-8'))
+                        total_size += len(data.encode("utf-8"))
 
                 # Extrapolate statistics
                 if sample_size > 0:
-                    stats["total_hits"] = int(
-                        total_hits * len(keys) / sample_size)
+                    stats["total_hits"] = int(total_hits * len(keys) / sample_size)
                     stats["avg_hit_count"] = total_hits / sample_size
                     stats["cache_size_mb"] = round(
-                        total_size * len(keys) / sample_size / 1024 / 1024, 2)
+                        total_size * len(keys) / sample_size / 1024 / 1024, 2
+                    )
 
             return stats
 
@@ -167,11 +166,7 @@ class GeoContextCache:
                 # Get remaining TTL
                 ttl = await self.redis.ttl(key)
                 if ttl > 0:
-                    await self.redis.setex(
-                        key,
-                        ttl,
-                        json.dumps(data, default=str)
-                    )
+                    await self.redis.setex(key, ttl, json.dumps(data, default=str))
         except Exception as e:
             print(f"Hit count increment error: {e}")
 

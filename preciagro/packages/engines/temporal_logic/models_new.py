@@ -1,10 +1,12 @@
 """SQLAlchemy models for Temporal Logic Engine."""
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import BigInteger, Text, Enum, JSON, ForeignKey, Index
-from datetime import datetime
+
 import enum
-import os
+from datetime import datetime
+
+from sqlalchemy import JSON, BigInteger, Enum, ForeignKey, Index, Text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
 from .config import DATABASE_URL
 
 
@@ -13,20 +15,20 @@ class Base(DeclarativeBase):
 
 
 class ScheduleStatus(enum.Enum):
-    pending = 'pending'
-    scheduled = 'scheduled'
-    done = 'done'
-    skipped = 'skipped'
-    expired = 'expired'
-    cancelled = 'cancelled'
+    pending = "pending"
+    scheduled = "scheduled"
+    done = "done"
+    skipped = "skipped"
+    expired = "expired"
+    cancelled = "cancelled"
 
 
 class JobStatus(enum.Enum):
-    queued = 'queued'
-    sending = 'sending'
-    sent = 'sent'
-    failed = 'failed'
-    cancelled = 'cancelled'
+    queued = "queued"
+    sending = "sending"
+    sent = "sent"
+    failed = "failed"
+    cancelled = "cancelled"
 
 
 class ScheduleItem(Base):
@@ -42,13 +44,15 @@ class ScheduleItem(Base):
     window_end_ts: Mapped[datetime]
     source_event_id: Mapped[str] = mapped_column(Text)
     status: Mapped[ScheduleStatus] = mapped_column(
-        Enum(ScheduleStatus), default=ScheduleStatus.scheduled)
+        Enum(ScheduleStatus), default=ScheduleStatus.scheduled
+    )
     created_at: Mapped[datetime]
     updated_at: Mapped[datetime]
 
     # Relationships
     jobs: Mapped[list["NotificationJob"]] = relationship(
-        back_populates="schedule", cascade="all, delete-orphan")
+        back_populates="schedule", cascade="all, delete-orphan"
+    )
 
 
 class NotificationJob(Base):
@@ -72,8 +76,7 @@ class NotificationJob(Base):
 
 # Indexes
 Index("notification_job_dedupe_idx", NotificationJob.dedupe_key, unique=True)
-Index("notification_due_idx", NotificationJob.status,
-      NotificationJob.send_after_ts)
+Index("notification_due_idx", NotificationJob.status, NotificationJob.send_after_ts)
 
 
 class TaskOutcome(Base):

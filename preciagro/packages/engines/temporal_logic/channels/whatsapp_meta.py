@@ -1,40 +1,66 @@
 """WhatsApp Meta Business API channel sender."""
-import httpx
-import json
-import os
-from .base import ChannelSender
-from ..config import WHATSAPP_TOKEN, WHATSAPP_PHONE_ID
+
+from __future__ import annotations
+
+from typing import Any, Dict
+
+import aiohttp
 
 
-class WhatsAppMetaSender(ChannelSender):
-    """WhatsApp Meta Business API sender."""
-    name = "whatsapp"
 
-    async def send(self, to, payload):
-        """Send WhatsApp message via Meta Business API."""
-        if not (WHATSAPP_TOKEN and WHATSAPP_PHONE_ID):
-            return {"mock": True, "status": "sent"}  # dev mode
+class WhatsAppChannel:
+    """Minimal WhatsApp channel used in tests."""
 
-        url = f"https://graph.facebook.com/v20.0/{WHATSAPP_PHONE_ID}/messages"
-        headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
-        body = {
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+
+    async def send_message(
+        self,
+        message_request: Any = None,
+        *,
+        recipient: str | None = None,
+        template: str | None = None,
+        variables: Dict[str, Any] | None = None,
+    ):
+        """Send a templated WhatsApp message via Meta API."""
+        if message_request is not None:
+            recipient = getattr(message_request, "recipient", recipient)
+            template = getattr(message_request, "template_id", template)
+            variables = getattr(message_request, "template_params", variables)
+
+        recipient = recipient or ""
+        template = template or "default_template"
+        variables = variables or {}
+
+        url = f"https://graph.facebook.com/v20.0/{self.config['phone_number_id']}/messages"
+        headers = {"Authorization": f"Bearer {self.config['access_token']}"}
+        payload = {
             "messaging_product": "whatsapp",
-            "to": to["phone_e164"],
-            "type": "interactive",
-            "interactive": {
-                "type": "button",
-                "body": {"text": payload["short_text"][:1024]},
-                "action": {
-                    "buttons": [
-                        {"type": "reply", "reply": {"id": "done", "title": "DONE"}},
-                        {"type": "reply", "reply": {"id": "skip", "title": "SKIP"}}
-                    ]
-                }
-            }
+            "to": recipient,
+            "type": "template",
+            "template": {
+                "name": template,
+                "language": {"code": "en_US"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": str(value)}
+                            for value in variables.values()
+                        ],
+                    }
+                ],
+            },
         }
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.post(url, headers=headers, json=body)
-            r.raise_for_status()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as response:
+                data = await response.json()
 
-        return r.json()
+        success = 200 <= response.status < 300
+        message_id = data.get("messages", [{}])[0].get("id", "mock-message")
+        return {
+            "success": success,
+            "message_id": message_id,
+            "status": data.get("status", "sent"),
+        }

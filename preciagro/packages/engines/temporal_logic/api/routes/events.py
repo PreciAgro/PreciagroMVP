@@ -1,17 +1,19 @@
 """API routes for events endpoints."""
+
 import logging
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.security import HTTPBearer
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, desc
+
+from ..contracts import (BulkOperationResponse, EventCreate, EventResponse,
+                         PaginatedResponse)
 from ..models import TemporalEvent
-from ..contracts import EventCreate, EventResponse, BulkOperationResponse, PaginatedResponse
-from ..security.auth import security_middleware, Permission
+from ..security.auth import Permission, security_middleware
 from ..telemetry.metrics import engine_metrics
-from ..evaluator import RuleEvaluator
-from ..compiler import RuleCompiler
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events", tags=["events"])
@@ -34,14 +36,13 @@ async def authenticate_user(token: str = Depends(security)) -> Dict[str, Any]:
 async def create_event(
     event_data: EventCreate,
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Create a new temporal event."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.CREATE_EVENTS
+            current_user["user_id"], Permission.CREATE_EVENTS
         )
 
         # Create event in database
@@ -49,7 +50,7 @@ async def create_event(
             event_type=event_data.event_type.value,
             source=event_data.source,
             payload=event_data.payload,
-            metadata=event_data.metadata
+            metadata=event_data.metadata,
         )
 
         db.add(event)
@@ -68,7 +69,7 @@ async def create_event(
             payload=event.payload,
             metadata=event.metadata,
             created_at=event.created_at,
-            processed_at=event.processed_at
+            processed_at=event.processed_at,
         )
 
     except Exception as e:
@@ -80,22 +81,22 @@ async def create_event(
 async def get_events(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
-    event_type: Optional[str] = Query(
-        None, description="Filter by event type"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
     source: Optional[str] = Query(None, description="Filter by source"),
     start_date: Optional[datetime] = Query(
-        None, description="Filter events after this date"),
+        None, description="Filter events after this date"
+    ),
     end_date: Optional[datetime] = Query(
-        None, description="Filter events before this date"),
+        None, description="Filter events before this date"
+    ),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get paginated list of events with optional filtering."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_EVENTS
+            current_user["user_id"], Permission.READ_EVENTS
         )
 
         # Build query
@@ -118,8 +119,7 @@ async def get_events(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(TemporalEvent.id).select_from(
-            query.alias().subquery())
+        count_query = select(TemporalEvent.id).select_from(query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -139,7 +139,7 @@ async def get_events(
                 payload=event.payload,
                 metadata=event.metadata,
                 created_at=event.created_at,
-                processed_at=event.processed_at
+                processed_at=event.processed_at,
             )
             for event in events
         ]
@@ -149,7 +149,7 @@ async def get_events(
             total=total,
             page=page,
             size=size,
-            pages=(total + size - 1) // size
+            pages=(total + size - 1) // size,
         )
 
     except Exception as e:
@@ -161,14 +161,13 @@ async def get_events(
 async def get_event(
     event_id: int = Path(..., description="Event ID"),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get a specific event by ID."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_EVENTS
+            current_user["user_id"], Permission.READ_EVENTS
         )
 
         # Get event
@@ -186,7 +185,7 @@ async def get_event(
             payload=event.payload,
             metadata=event.metadata,
             created_at=event.created_at,
-            processed_at=event.processed_at
+            processed_at=event.processed_at,
         )
 
     except HTTPException:
@@ -200,20 +199,19 @@ async def get_event(
 async def create_bulk_events(
     events_data: List[EventCreate],
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Create multiple events in a single request."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.CREATE_EVENTS
+            current_user["user_id"], Permission.CREATE_EVENTS
         )
 
         if len(events_data) > 100:
             raise HTTPException(
                 status_code=400,
-                detail="Cannot create more than 100 events in a single request"
+                detail="Cannot create more than 100 events in a single request",
             )
 
         created_events = []
@@ -225,7 +223,7 @@ async def create_bulk_events(
                     event_type=event_data.event_type.value,
                     source=event_data.source,
                     payload=event_data.payload,
-                    metadata=event_data.metadata
+                    metadata=event_data.metadata,
                 )
 
                 db.add(event)
@@ -235,11 +233,9 @@ async def create_bulk_events(
                 engine_metrics.event_received(event.event_type, event.source)
 
             except Exception as e:
-                errors.append({
-                    "index": i,
-                    "error": str(e),
-                    "event_data": event_data.dict()
-                })
+                errors.append(
+                    {"index": i, "error": str(e), "event_data": event_data.dict()}
+                )
 
         await db.commit()
 
@@ -253,7 +249,7 @@ async def create_bulk_events(
             processed=len(events_data),
             succeeded=len(created_events),
             failed=len(errors),
-            errors=errors
+            errors=errors,
         )
 
     except HTTPException:
@@ -270,14 +266,13 @@ async def create_typed_event(
     source: str = "api",
     metadata: Dict[str, Any] = None,
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Create an event with specific type (convenience endpoint)."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.CREATE_EVENTS
+            current_user["user_id"], Permission.CREATE_EVENTS
         )
 
         # Create event data
@@ -285,7 +280,7 @@ async def create_typed_event(
             event_type=event_type,
             source=source,
             payload=payload,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Create event
@@ -293,7 +288,7 @@ async def create_typed_event(
             event_type=event_data.event_type,
             source=event_data.source,
             payload=event_data.payload,
-            metadata=event_data.metadata
+            metadata=event_data.metadata,
         )
 
         db.add(event)
@@ -312,7 +307,7 @@ async def create_typed_event(
             payload=event.payload,
             metadata=event.metadata,
             created_at=event.created_at,
-            processed_at=event.processed_at
+            processed_at=event.processed_at,
         )
 
     except Exception as e:
@@ -324,22 +319,19 @@ async def create_typed_event(
 async def get_event_types_summary(
     days: int = Query(7, ge=1, le=90, description="Number of days to analyze"),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get summary of event types and their counts over a time period."""
     try:
         # Check permissions
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.READ_EVENTS
+            current_user["user_id"], Permission.READ_EVENTS
         )
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get events from the last N days
-        stmt = select(TemporalEvent).where(
-            TemporalEvent.created_at >= start_date
-        )
+        stmt = select(TemporalEvent).where(TemporalEvent.created_at >= start_date)
 
         result = await db.execute(stmt)
         events = result.scalars().all()
@@ -373,7 +365,7 @@ async def get_event_types_summary(
             "sources": source_counts,
             "daily_counts": daily_counts,
             "start_date": start_date.isoformat(),
-            "end_date": datetime.utcnow().isoformat()
+            "end_date": datetime.utcnow().isoformat(),
         }
 
     except Exception as e:
@@ -385,14 +377,13 @@ async def get_event_types_summary(
 async def process_event(
     event_id: int = Path(..., description="Event ID"),
     db: AsyncSession = Depends(get_db_session),
-    current_user: Dict[str, Any] = Depends(authenticate_user)
+    current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Manually trigger processing of a specific event."""
     try:
         # Check permissions (admin only)
         security_middleware.authorize_request(
-            current_user["user_id"],
-            Permission.ADMIN_SYSTEM
+            current_user["user_id"], Permission.ADMIN_SYSTEM
         )
 
         # Get event
@@ -415,7 +406,7 @@ async def process_event(
         return {
             "event_id": event_id,
             "processed_at": event.processed_at.isoformat(),
-            "status": "processed"
+            "status": "processed",
         }
 
     except HTTPException:

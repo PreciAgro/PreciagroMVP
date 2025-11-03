@@ -1,5 +1,6 @@
 """Quiet hours policy for temporal logic engine."""
-from datetime import time, datetime
+
+from datetime import time
 from zoneinfo import ZoneInfo
 
 

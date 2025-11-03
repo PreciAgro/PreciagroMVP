@@ -1,9 +1,11 @@
 """Base channel interface for temporal logic engine."""
-from typing import Dict, Any
+
+from typing import Any, Dict
 
 
 class ChannelSender:
     """Base class for channel senders."""
+
     name = "base"
 
     async def send(self, to: Dict[str, str], payload: Dict[str, Any]) -> Dict[str, Any]:

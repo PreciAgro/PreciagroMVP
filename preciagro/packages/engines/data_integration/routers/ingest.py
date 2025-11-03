@@ -1,10 +1,10 @@
 # routers/ingest.py
-from fastapi import APIRouter, Query, HTTPException
 from typing import Literal
-from ..connectors.openweather import OpenWeatherConnector
+
+from fastapi import APIRouter, HTTPException, Query
+
 from ..pipeline.orchestrator import run_registered_source
 from ..storage.db import get_items
-
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -16,18 +16,27 @@ openweather_client_singleton = None  # set from app startup
 async def run_openweather(
     lat: float = Query(..., description="Latitude"),
     lon: float = Query(..., description="Longitude"),
-    scope: Literal["current", "hourly", "daily"] = "hourly"
+    scope: Literal["current", "hourly", "daily"] = "hourly",
 ):
     if openweather_client_singleton is None:
         raise HTTPException(
-            status_code=503, detail="OpenWeather API key not configured")
+            status_code=503, detail="OpenWeather API key not configured"
+        )
 
     # Use the already created connector
     connector = openweather_client_singleton
     # run_registered_source will lookup the normalizer from the registry
     # and run the generic job runner.
-    await run_registered_source("openweather.onecall", connector, lat=lat, lon=lon, scope=scope)
-    return {"status": "ok", "source": "openweather.onecall", "scope": scope, "lat": lat, "lon": lon}
+    await run_registered_source(
+        "openweather.onecall", connector, lat=lat, lon=lon, scope=scope
+    )
+    return {
+        "status": "ok",
+        "source": "openweather.onecall",
+        "scope": scope,
+        "lat": lat,
+        "lon": lon,
+    }
 
 
 @router.get("/items")

@@ -1,17 +1,23 @@
 """Minimal working test for temporal logic engine core components."""
-from preciagro.packages.engines.temporal_logic.contracts import (
-    EngineEvent, Rule, Trigger, Window, Message, Dedupe, Clause
-)
-import pytest
+
 import os
 import sys
 from datetime import datetime, timezone
+
+import pytest
+
+from preciagro.packages.engines.temporal_logic.contracts import (Clause,
+                                                                 Dedupe,
+                                                                 EngineEvent,
+                                                                 Message, Rule,
+                                                                 Trigger,
+                                                                 Window)
 
 # Set test database URL
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 # Add project to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
 # Import only what we can safely test
 
@@ -27,7 +33,7 @@ class TestBasicContracts:
             ts_utc=datetime.now(timezone.utc),
             farm_id="farm_123",
             farmer_tz="America/New_York",
-            payload={"temperature": 25.5, "humidity": 80}
+            payload={"temperature": 25.5, "humidity": 80},
         )
 
         assert event.topic == "weather.forecast"
@@ -37,11 +43,7 @@ class TestBasicContracts:
 
     def test_clause_creation(self):
         """Test Clause validation."""
-        clause = Clause(
-            key="temperature",
-            op=" >",  # Note the space before >
-            value=30
-        )
+        clause = Clause(key="temperature", op=" >", value=30)  # Note the space before >
 
         assert clause.key == "temperature"
         assert clause.op == " >"
@@ -54,8 +56,8 @@ class TestBasicContracts:
             when=[
                 # Note the space before >
                 Clause(key="temperature", op=" >", value=30),
-                Clause(key="humidity", op=">=", value=80)
-            ]
+                Clause(key="humidity", op=">=", value=80),
+            ],
         )
 
         assert trigger.topic == "weather.forecast"
@@ -64,11 +66,7 @@ class TestBasicContracts:
 
     def test_window_creation(self):
         """Test Window creation."""
-        window = Window(
-            start_offset_hours=2,
-            end_offset_hours=6,
-            day_offset=0
-        )
+        window = Window(start_offset_hours=2, end_offset_hours=6, day_offset=0)
 
         assert window.start_offset_hours == 2
         assert window.end_offset_hours == 6
@@ -81,7 +79,7 @@ class TestBasicContracts:
             trigger=Trigger(topic="weather.forecast"),
             window=Window(day_offset=1),
             dedupe=Dedupe(scope="farm_daily"),
-            message=Message(short="Test alert message")
+            message=Message(short="Test alert message"),
         )
 
         assert rule.id == "test_rule_001"

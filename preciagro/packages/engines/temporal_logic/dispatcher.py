@@ -1,14 +1,17 @@
 """Event dispatcher for temporal logic engine."""
-from typing import Dict, Any, List
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select, and_
-from .contracts import EngineEvent
-from .models import ScheduleItem, TaskOutcome, async_session
-from .dsl.loader import DSLLoader
-from .dsl.evaluator import RuleEvaluator
-from .dsl.compiler import TaskCompiler
-from .telemetry.metrics import events_processed, tasks_created
+
 import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List
+
+from sqlalchemy import and_, select
+
+from .contracts import EngineEvent
+from .dsl.compiler import TaskCompiler
+from .dsl.evaluator import RuleEvaluator
+from .dsl.loader import DSLLoader
+from .models import ScheduleItem, TaskOutcome, async_session
+from .telemetry.metrics import events_processed, tasks_created
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,9 @@ class EventDispatcher:
         self.evaluator = RuleEvaluator()
         self.compiler = TaskCompiler()
 
-    async def process_event(self, event: EngineEvent, context: Dict[str, Any] = None) -> List[str]:
+    async def process_event(
+        self, event: EngineEvent, context: Dict[str, Any] = None
+    ) -> List[str]:
         """Process an incoming event and create scheduled tasks."""
         context = context or {}
 
@@ -35,8 +40,7 @@ class EventDispatcher:
         async with async_session() as session:
             for rule in rules:
                 if self.evaluator.should_trigger(rule, event, context):
-                    logger.info(
-                        f"Rule {rule.id} triggered for event {event.id}")
+                    logger.info(f"Rule {rule.id} triggered for event {event.id}")
 
                     # Compile tasks
                     tasks = self.compiler.compile_tasks(rule, event, context)
@@ -50,7 +54,8 @@ class EventDispatcher:
                             existing = await session.execute(existing_stmt)
                             if existing.scalar():
                                 logger.info(
-                                    f"Skipping duplicate task: {task_data['dedupe_key']}")
+                                    f"Skipping duplicate task: {task_data['dedupe_key']}"
+                                )
                                 continue
 
                         # Create schedule item
@@ -62,7 +67,7 @@ class EventDispatcher:
                             payload=task_data["payload"],
                             target=task_data["target"],
                             dedupe_key=task_data.get("dedupe_key"),
-                            status="pending"
+                            status="pending",
                         )
 
                         session.add(item)
@@ -73,21 +78,28 @@ class EventDispatcher:
             await session.commit()
 
         logger.info(
-            f"Created {len(created_tasks)} scheduled tasks for event {event.id}")
+            f"Created {len(created_tasks)} scheduled tasks for event {event.id}"
+        )
         return created_tasks
 
-    async def get_user_schedule(self, user_id: str, days_ahead: int = 7) -> List[Dict[str, Any]]:
+    async def get_user_schedule(
+        self, user_id: str, days_ahead: int = 7
+    ) -> List[Dict[str, Any]]:
         """Get upcoming scheduled notifications for a user."""
         async with async_session() as session:
             end_time = datetime.now(timezone.utc) + timedelta(days=days_ahead)
 
-            stmt = select(ScheduleItem).where(
-                and_(
-                    ScheduleItem.user_id == user_id,
-                    ScheduleItem.schedule_time <= end_time,
-                    ScheduleItem.status == "pending"
+            stmt = (
+                select(ScheduleItem)
+                .where(
+                    and_(
+                        ScheduleItem.user_id == user_id,
+                        ScheduleItem.schedule_time <= end_time,
+                        ScheduleItem.status == "pending",
+                    )
                 )
-            ).order_by(ScheduleItem.schedule_time)
+                .order_by(ScheduleItem.schedule_time)
+            )
 
             result = await session.execute(stmt)
             items = result.scalars().all()
@@ -98,7 +110,7 @@ class EventDispatcher:
                     "rule_id": item.rule_id,
                     "schedule_time": item.schedule_time.isoformat(),
                     "payload": item.payload,
-                    "target": item.target
+                    "target": item.target,
                 }
                 for item in items
             ]
@@ -117,14 +129,14 @@ class EventDispatcher:
 
             return False
 
-    async def get_task_outcomes(self, user_id: str = None, days_back: int = 30) -> List[Dict[str, Any]]:
+    async def get_task_outcomes(
+        self, user_id: str = None, days_back: int = 30
+    ) -> List[Dict[str, Any]]:
         """Get task completion outcomes."""
         async with async_session() as session:
             start_time = datetime.now(timezone.utc) - timedelta(days=days_back)
 
-            stmt = select(TaskOutcome).where(
-                TaskOutcome.timestamp >= start_time
-            )
+            stmt = select(TaskOutcome).where(TaskOutcome.timestamp >= start_time)
 
             if user_id:
                 stmt = stmt.where(TaskOutcome.user_id == user_id)
@@ -140,7 +152,7 @@ class EventDispatcher:
                     "user_id": outcome.user_id,
                     "outcome": outcome.outcome,
                     "timestamp": outcome.timestamp.isoformat(),
-                    "metadata": outcome.task_metadata
+                    "metadata": outcome.task_metadata,
                 }
                 for outcome in outcomes
             ]
@@ -153,6 +165,7 @@ try:
 except Exception as e:
     print(f"✗ Error creating dispatcher: {e}")
     import traceback
+
     traceback.print_exc()
     # Create a dummy dispatcher for now
     dispatcher = None

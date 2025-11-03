@@ -1,6 +1,8 @@
 # connectors/http_json.py
-import httpx
 import time
+
+import httpx
+
 from .base import IngestConnector
 
 
@@ -26,8 +28,7 @@ class HttpJsonConnector(IngestConnector):
             resp.raise_for_status()
             data = resp.json()
             # If list: return directly; if dict: extract list part.
-            items = data if isinstance(
-                data, list) else data.get("results", [data])
+            items = data if isinstance(data, list) else data.get("results", [data])
             for it in items:
                 yield it
         # Small throttle to avoid hammering endpoints. Replace with smarter

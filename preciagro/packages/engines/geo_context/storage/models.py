@@ -1,15 +1,18 @@
 """Database models for GeoContext caching and layer registry."""
+
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import Column, String, DateTime, Text, Float, Integer, Boolean, Index
-from sqlalchemy.ext.declarative import declarative_base
+
+from sqlalchemy import (Boolean, Column, DateTime, Float, Index, Integer,
+                        String, Text)
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
 
 class GeoContextCache(Base):
     """Cache table for geocontext resolution results."""
+
     __tablename__ = "geoctx_cache"
 
     # Primary key is the context hash
@@ -32,14 +35,15 @@ class GeoContextCache(Base):
 
     # Indexing for performance
     __table_args__ = (
-        Index('idx_geoctx_cache_location', 'centroid_lat', 'centroid_lon'),
-        Index('idx_geoctx_cache_expires', 'expires_at'),
-        Index('idx_geoctx_cache_created', 'created_at'),
+        Index("idx_geoctx_cache_location", "centroid_lat", "centroid_lon"),
+        Index("idx_geoctx_cache_expires", "expires_at"),
+        Index("idx_geoctx_cache_created", "created_at"),
     )
 
 
 class LayerRegistry(Base):
     """Registry of data layers and their versions."""
+
     __tablename__ = "layer_registry"
 
     # Layer identification
@@ -65,6 +69,7 @@ class LayerRegistry(Base):
 
 class GeoContextMetrics(Base):
     """Metrics for geocontext engine performance."""
+
     __tablename__ = "geoctx_metrics"
 
     # Unique identifier
@@ -94,8 +99,8 @@ class GeoContextMetrics(Base):
 
     # Indexing
     __table_args__ = (
-        Index('idx_geoctx_metrics_timestamp', 'timestamp'),
-        Index('idx_geoctx_metrics_context_hash', 'context_hash'),
-        Index('idx_geoctx_metrics_duration', 'total_duration_ms'),
-        Index('idx_geoctx_metrics_cache_hit', 'cache_hit'),
+        Index("idx_geoctx_metrics_timestamp", "timestamp"),
+        Index("idx_geoctx_metrics_context_hash", "context_hash"),
+        Index("idx_geoctx_metrics_duration", "total_duration_ms"),
+        Index("idx_geoctx_metrics_cache_hit", "cache_hit"),
     )

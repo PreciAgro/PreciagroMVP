@@ -1,12 +1,13 @@
-
 # connectors/openweather.py
 # Implements a connector for the OpenWeather API, wrapping an existing client.
 
-import httpx
-from .base import IngestConnector
-from typing import Dict, Any, Iterable, Literal, AsyncIterable
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, AsyncIterable, Dict, Iterable, Literal
+
+import httpx
+
+from .base import IngestConnector
 
 
 class OpenWeatherClient:
@@ -34,7 +35,7 @@ class OpenWeatherClient:
             "lon": lon,
             "units": units,
             "exclude": exclude,
-            "appid": self.api_key
+            "appid": self.api_key,
         }
         with httpx.Client(timeout=20) as client:
             resp = client.get(self.base_url, params=params)
@@ -48,7 +49,7 @@ class OpenWeatherClient:
             "lon": lon,
             "units": units,
             "exclude": exclude,
-            "appid": self.api_key
+            "appid": self.api_key,
         }
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.get(self.base_url, params=params)
@@ -109,13 +110,11 @@ class OpenWeatherConnector(IngestConnector):
             asyncio.set_event_loop(loop)
 
         resp = loop.run_until_complete(
-            self.client.one_call(
-                lat=lat, lon=lon, units=units, exclude=exclude)
+            self.client.one_call(lat=lat, lon=lon, units=units, exclude=exclude)
         )
 
         # Attach coordinates and source name to each record
-        base = {"lat": resp.get("lat"), "lon": resp.get(
-            "lon"), "_source": self.name}
+        base = {"lat": resp.get("lat"), "lon": resp.get("lon"), "_source": self.name}
 
         if scope == "current" and "current" in resp:
             # Yield the current weather record
@@ -147,8 +146,7 @@ class OpenWeatherConnector(IngestConnector):
         )
 
         # Attach coordinates and source name to each record
-        base = {"lat": resp.get("lat"), "lon": resp.get(
-            "lon"), "_source": self.name}
+        base = {"lat": resp.get("lat"), "lon": resp.get("lon"), "_source": self.name}
 
         if scope == "current" and "current" in resp:
             yield {**base, **resp["current"]}

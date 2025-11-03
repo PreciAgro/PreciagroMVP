@@ -1,8 +1,11 @@
 """Rules engine for agricultural recommendations."""
-import yaml
-from typing import Dict, List, Optional
+
 from pathlib import Path
-from ..contracts.v1.fco import SoilData, ClimateData
+from typing import Dict, List, Optional
+
+import yaml
+
+from ..contracts.v1.fco import ClimateData, SoilData
 
 
 class RulesEngine:
@@ -20,12 +23,12 @@ class RulesEngine:
 
             planting_file = rules_dir / "planting_rules.yaml"
             if planting_file.exists():
-                with open(planting_file, 'r') as f:
+                with open(planting_file, "r") as f:
                     self.planting_rules = yaml.safe_load(f)
 
             spray_file = rules_dir / "spray_rules.yaml"
             if spray_file.exists():
-                with open(spray_file, 'r') as f:
+                with open(spray_file, "r") as f:
                     self.spray_rules = yaml.safe_load(f)
 
         except Exception as e:
@@ -36,7 +39,7 @@ class RulesEngine:
         location: Dict[str, float],
         soil: Optional[SoilData],
         climate: Optional[ClimateData],
-        crop_types: List[str]
+        crop_types: List[str],
     ) -> List[Dict]:
         """Get planting recommendations based on rules."""
         recommendations = []
@@ -51,24 +54,30 @@ class RulesEngine:
 
             # Evaluate soil conditions
             soil_score = self._evaluate_soil_conditions(
-                soil, crop_rules.get("soil", {}))
+                soil, crop_rules.get("soil", {})
+            )
 
             # Evaluate climate conditions
             climate_score = self._evaluate_climate_conditions(
-                climate, crop_rules.get("climate", {}))
+                climate, crop_rules.get("climate", {})
+            )
 
             # Overall recommendation
             overall_score = (soil_score + climate_score) / 2
 
             if overall_score > 0.5:  # Threshold for recommendation
-                recommendations.append({
-                    "crop_type": crop_type,
-                    "recommendation": "suitable",
-                    "confidence": overall_score,
-                    "soil_suitability": soil_score,
-                    "climate_suitability": climate_score,
-                    "notes": self._generate_planting_notes(soil, climate, crop_rules)
-                })
+                recommendations.append(
+                    {
+                        "crop_type": crop_type,
+                        "recommendation": "suitable",
+                        "confidence": overall_score,
+                        "soil_suitability": soil_score,
+                        "climate_suitability": climate_score,
+                        "notes": self._generate_planting_notes(
+                            soil, climate, crop_rules
+                        ),
+                    }
+                )
 
         return recommendations
 
@@ -76,7 +85,7 @@ class RulesEngine:
         self,
         location: Dict[str, float],
         climate: Optional[ClimateData],
-        crop_types: List[str]
+        crop_types: List[str],
     ) -> List[Dict]:
         """Get spray recommendations based on rules."""
         recommendations = []
@@ -107,31 +116,37 @@ class RulesEngine:
 
         # Overall suitability
         if wind_suitable and temp_suitable and humidity_suitable:
-            recommendations.append({
-                "recommendation": "favorable_conditions",
-                "confidence": 0.9,
-                "conditions": {
-                    "wind_suitable": wind_suitable,
-                    "temperature_suitable": temp_suitable,
-                    "humidity_suitable": humidity_suitable
-                },
-                "notes": "Current conditions are favorable for spraying operations"
-            })
+            recommendations.append(
+                {
+                    "recommendation": "favorable_conditions",
+                    "confidence": 0.9,
+                    "conditions": {
+                        "wind_suitable": wind_suitable,
+                        "temperature_suitable": temp_suitable,
+                        "humidity_suitable": humidity_suitable,
+                    },
+                    "notes": "Current conditions are favorable for spraying operations",
+                }
+            )
         else:
-            recommendations.append({
-                "recommendation": "unfavorable_conditions",
-                "confidence": 0.8,
-                "conditions": {
-                    "wind_suitable": wind_suitable,
-                    "temperature_suitable": temp_suitable,
-                    "humidity_suitable": humidity_suitable
-                },
-                "notes": "Current conditions are not ideal for spraying"
-            })
+            recommendations.append(
+                {
+                    "recommendation": "unfavorable_conditions",
+                    "confidence": 0.8,
+                    "conditions": {
+                        "wind_suitable": wind_suitable,
+                        "temperature_suitable": temp_suitable,
+                        "humidity_suitable": humidity_suitable,
+                    },
+                    "notes": "Current conditions are not ideal for spraying",
+                }
+            )
 
         return recommendations
 
-    def _evaluate_soil_conditions(self, soil: Optional[SoilData], soil_rules: Dict) -> float:
+    def _evaluate_soil_conditions(
+        self, soil: Optional[SoilData], soil_rules: Dict
+    ) -> float:
         """Evaluate soil conditions against rules."""
         if not soil or not soil_rules:
             return 0.5  # Neutral score
@@ -154,12 +169,16 @@ class RulesEngine:
         # Check organic matter
         if soil.organic_matter is not None and "min_organic_matter" in soil_rules:
             min_om = soil_rules["min_organic_matter"]
-            score += 1.0 if soil.organic_matter >= min_om else soil.organic_matter / min_om
+            score += (
+                1.0 if soil.organic_matter >= min_om else soil.organic_matter / min_om
+            )
             criteria_count += 1
 
         return score / max(criteria_count, 1)
 
-    def _evaluate_climate_conditions(self, climate: Optional[ClimateData], climate_rules: Dict) -> float:
+    def _evaluate_climate_conditions(
+        self, climate: Optional[ClimateData], climate_rules: Dict
+    ) -> float:
         """Evaluate climate conditions against rules."""
         if not climate or not climate_rules:
             return 0.5  # Neutral score
@@ -187,7 +206,9 @@ class RulesEngine:
 
         return score / max(criteria_count, 1)
 
-    def _generate_planting_notes(self, soil: Optional[SoilData], climate: Optional[ClimateData], rules: Dict) -> str:
+    def _generate_planting_notes(
+        self, soil: Optional[SoilData], climate: Optional[ClimateData], rules: Dict
+    ) -> str:
         """Generate planting notes based on conditions."""
         notes = []
 

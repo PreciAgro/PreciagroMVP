@@ -1,15 +1,19 @@
 """Dispatcher for selecting and enqueueing due jobs."""
-import logging
+
 import asyncio
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+
+from ..config import config
 from ..models import ScheduledTask, TaskStatus
 from ..policies.quiet_hours import apply_quiet_hours_policy
 from ..policies.rate_limits import apply_rate_limiting
 from ..telemetry.metrics import engine_metrics
-from ..config import config
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +21,10 @@ logger = logging.getLogger(__name__)
 class TaskDispatcher:
     """Dispatches due tasks to the worker queue."""
 
-    def __init__(self, redis_pool, db_session_factory):
+    def __init__(self, redis_pool=None, db_session_factory=None):
+        if db_session_factory is None:
+            db_session_factory = redis_pool
+            redis_pool = None
         self.redis_pool = redis_pool
         self.db_session_factory = db_session_factory
         self.queue_name = "temporal_engine_tasks"
@@ -45,7 +52,7 @@ class TaskDispatcher:
     async def _dispatch_due_tasks(self):
         """Find and dispatch tasks that are due for execution."""
         try:
-            async with self.db_session_factory() as session:
+            async with self._session_scope() as session:
                 # Find tasks due for execution
                 due_tasks = await self._get_due_tasks(session)
 
@@ -57,9 +64,11 @@ class TaskDispatcher:
 
                 # Group tasks by priority
                 high_priority_tasks = [
-                    t for t in due_tasks if t.task_config.get("priority", 5) >= 8]
+                    t for t in due_tasks if t.task_config.get("priority", 5) >= 8
+                ]
                 normal_priority_tasks = [
-                    t for t in due_tasks if t.task_config.get("priority", 5) < 8]
+                    t for t in due_tasks if t.task_config.get("priority", 5) < 8
+                ]
 
                 # Dispatch high priority first
                 for task in high_priority_tasks:
@@ -73,32 +82,60 @@ class TaskDispatcher:
         except Exception as e:
             logger.error(f"Error dispatching due tasks: {e}")
 
+    @asynccontextmanager
+    async def _session_scope(self):
+        """Yield an async session regardless of factory style."""
+        if self.db_session_factory is None:
+            raise RuntimeError("Database session factory not configured")
+
+        factory = self.db_session_factory
+        if callable(factory):
+            async with factory() as session:
+                yield session
+        else:
+            yield factory
+
+    async def get_due_tasks(self, limit: int = 100) -> List[ScheduledTask]:
+        """Public helper for tests to retrieve due tasks with policy checks."""
+        async with self._session_scope() as session:
+            tasks = await self._get_due_tasks(session)
+            filtered: List[ScheduledTask] = []
+            for task in tasks:
+                if limit and len(filtered) >= limit:
+                    break
+                if await self._check_quiet_hours(task):
+                    continue
+                if not await self._check_rate_limits(task):
+                    continue
+                filtered.append(task)
+            return filtered
+
     async def _get_due_tasks(self, session: AsyncSession) -> List[ScheduledTask]:
         """Get tasks that are due for execution."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
 
         # Query for tasks that are:
         # 1. Due for execution (scheduled_for <= now)
         # 2. In pending status
         # 3. Haven't exceeded max attempts
-        stmt = select(ScheduledTask).where(
-            and_(
-                ScheduledTask.scheduled_for <= current_time,
-                ScheduledTask.status == TaskStatus.PENDING.value,
-                ScheduledTask.attempts < ScheduledTask.max_attempts
+        stmt = (
+            select(ScheduledTask)
+            .where(
+                and_(
+                    ScheduledTask.scheduled_for <= current_time,
+                    ScheduledTask.status == TaskStatus.PENDING.value,
+                    ScheduledTask.attempts < ScheduledTask.max_attempts,
+                )
             )
-        ).order_by(
-            ScheduledTask.scheduled_for.asc()
-        ).limit(100)  # Process max 100 tasks per cycle
+            .order_by(ScheduledTask.scheduled_for.asc())
+            .limit(100)
+        )  # Process max 100 tasks per cycle
 
         result = await session.execute(stmt)
         return result.scalars().all()
 
     async def _dispatch_single_task(
-        self,
-        task: ScheduledTask,
-        session: AsyncSession,
-        high_priority: bool = False
+        self, task: ScheduledTask, session: AsyncSession, high_priority: bool = False
     ):
         """Dispatch a single task to the worker queue."""
         try:
@@ -106,14 +143,14 @@ class TaskDispatcher:
             adjusted_time, policy_reason = await self._apply_policies(task)
 
             # If task needs to be delayed, reschedule it
-            if adjusted_time > datetime.utcnow():
+            if adjusted_time > datetime.now(timezone.utc):
                 await self._reschedule_task(task, adjusted_time, policy_reason, session)
                 return
 
             # Mark task as running
             task.status = TaskStatus.RUNNING.value
             task.attempts += 1
-            task.executed_at = datetime.utcnow()
+            task.executed_at = datetime.now(timezone.utc)
 
             # Create job payload
             job_payload = {
@@ -123,7 +160,7 @@ class TaskDispatcher:
                 "rule_id": task.rule_id,
                 "attempt": task.attempts,
                 "max_attempts": task.max_attempts,
-                "high_priority": high_priority
+                "high_priority": high_priority,
             }
 
             # Enqueue job
@@ -134,11 +171,12 @@ class TaskDispatcher:
             engine_metrics.task_scheduled(
                 task.task_type,
                 task.task_config.get("channel", "unknown"),
-                0  # No additional delay since it's being dispatched now
+                0,  # No additional delay since it's being dispatched now
             )
 
             logger.info(
-                f"Dispatched task {task.id} (type: {task.task_type}, attempt: {task.attempts})")
+                f"Dispatched task {task.id} (type: {task.task_type}, attempt: {task.attempts})"
+            )
 
         except Exception as e:
             logger.error(f"Error dispatching task {task.id}: {e}")
@@ -147,7 +185,7 @@ class TaskDispatcher:
 
     async def _apply_policies(self, task: ScheduledTask) -> tuple[datetime, str]:
         """Apply quiet hours and rate limiting policies to a task."""
-        scheduled_time = datetime.utcnow()
+        scheduled_time = datetime.now(timezone.utc)
 
         # Extract task details
         task_config = task.task_config or {}
@@ -173,38 +211,58 @@ class TaskDispatcher:
         if rate_limit_reason != "Within rate limits":
             policy_reasons.append(f"Rate limit: {rate_limit_reason}")
 
-        combined_reason = "; ".join(
-            policy_reasons) if policy_reasons else "No policy delays"
+        combined_reason = (
+            "; ".join(policy_reasons) if policy_reasons else "No policy delays"
+        )
 
         return final_time, combined_reason
+
+    async def _check_quiet_hours(self, task: ScheduledTask) -> bool:
+        """Return True when the task should be delayed due to quiet hours."""
+        task_config = task.task_config or {}
+        channel = task_config.get("channel", "unknown")
+        message_type = task.task_type
+        priority = task_config.get("priority", 5)
+        _, reason = apply_quiet_hours_policy(
+            channel, datetime.now(timezone.utc), message_type, priority
+        )
+        return reason != "Outside quiet hours"
+
+    async def _check_rate_limits(self, task: ScheduledTask) -> bool:
+        """Return True when the task passes rate-limiting checks."""
+        task_config = task.task_config or {}
+        user_id = task_config.get("recipient", task.user_id or "unknown")
+        channel = task_config.get("channel", "unknown")
+        _, reason = apply_rate_limiting(
+            user_id, channel, datetime.now(timezone.utc), task_config.get("priority", 5)
+        )
+        return reason == "Within rate limits"
 
     async def _reschedule_task(
         self,
         task: ScheduledTask,
         new_time: datetime,
         reason: str,
-        session: AsyncSession
+        session: AsyncSession,
     ):
         """Reschedule a task due to policy constraints."""
         task.scheduled_for = new_time
 
-        delay_seconds = int((new_time - datetime.utcnow()).total_seconds())
+        delay_seconds = int((new_time - datetime.now(timezone.utc)).total_seconds())
 
-        logger.info(
-            f"Rescheduled task {task.id} by {delay_seconds} seconds: {reason}")
+        logger.info(f"Rescheduled task {task.id} by {delay_seconds} seconds: {reason}")
 
         # Record metrics for policy applications
         if "quiet hours" in reason.lower():
             engine_metrics.quiet_hours_applied(
-                task.task_config.get("channel", "unknown"),
-                delay_seconds
+                task.task_config.get("channel", "unknown"), delay_seconds
             )
 
         if "rate limit" in reason.lower():
             engine_metrics.rate_limit_applied(
                 "unknown",  # We don't have the limit type here
                 task.task_config.get("recipient", "unknown"),
-                delay_seconds
+                delay_seconds,
             )
 
     async def _enqueue_job(self, queue_name: str, job_payload: Dict[str, Any]):
@@ -221,8 +279,8 @@ class TaskDispatcher:
             "args": [],
             "kwargs": job_payload,
             "job_try": 1,
-            "enqueue_time": datetime.utcnow().isoformat(),
-            "timeout": config.arq_job_timeout
+            "enqueue_time": datetime.now(timezone.utc).isoformat(),
+            "timeout": config.arq_job_timeout,
         }
 
         # Push to Redis queue
@@ -231,11 +289,13 @@ class TaskDispatcher:
 
         logger.debug(f"Enqueued job {job_id} to queue {queue_name}")
 
-    async def _mark_task_failed(self, task: ScheduledTask, error: str, session: AsyncSession):
+    async def _mark_task_failed(
+        self, task: ScheduledTask, error: str, session: AsyncSession
+    ):
         """Mark a task as failed."""
         task.status = TaskStatus.FAILED.value
         task.error_message = error
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(timezone.utc)
 
         logger.error(f"Marked task {task.id} as failed: {error}")
 
@@ -250,27 +310,24 @@ class TaskDispatcher:
                     "normal_queue_length": normal_queue_len,
                     "high_priority_queue_length": high_priority_queue_len,
                     "total_queued": normal_queue_len + high_priority_queue_len,
-                    "dispatcher_running": self.is_running
+                    "dispatcher_running": self.is_running,
                 }
 
         except Exception as e:
             logger.error(f"Error getting queue stats: {e}")
-            return {
-                "error": str(e),
-                "dispatcher_running": self.is_running
-            }
+            return {"error": str(e), "dispatcher_running": self.is_running}
 
     async def get_due_tasks_count(self) -> int:
         """Get count of tasks due for execution."""
         try:
             async with self.db_session_factory() as session:
-                current_time = datetime.utcnow()
+                current_time = datetime.now(timezone.utc)
 
                 stmt = select(ScheduledTask).where(
                     and_(
                         ScheduledTask.scheduled_for <= current_time,
                         ScheduledTask.status == TaskStatus.PENDING.value,
-                        ScheduledTask.attempts < ScheduledTask.max_attempts
+                        ScheduledTask.attempts < ScheduledTask.max_attempts,
                     )
                 )
 
@@ -286,14 +343,16 @@ class TaskDispatcher:
         """Reschedule failed tasks that might be retryable."""
         try:
             async with self.db_session_factory() as session:
-                cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+                cutoff_time = datetime.now(timezone.utc) - timedelta(
+                    hours=max_age_hours
+                )
 
                 # Find failed tasks that are recent and haven't exceeded max attempts
                 stmt = select(ScheduledTask).where(
                     and_(
                         ScheduledTask.status == TaskStatus.FAILED.value,
                         ScheduledTask.completed_at >= cutoff_time,
-                        ScheduledTask.attempts < ScheduledTask.max_attempts
+                        ScheduledTask.attempts < ScheduledTask.max_attempts,
                     )
                 )
 
@@ -307,18 +366,19 @@ class TaskDispatcher:
                     if self._is_retryable_error(task.error_message):
                         # Reset task for retry
                         task.status = TaskStatus.PENDING.value
-                        task.scheduled_for = datetime.utcnow() + timedelta(minutes=5)  # Retry in 5 minutes
+                        task.scheduled_for = datetime.now(timezone.utc) + timedelta(
+                            minutes=5
+                        )  # Retry in 5 minutes
                         task.error_message = None
                         rescheduled_count += 1
 
                 await session.commit()
 
-                logger.info(
-                    f"Rescheduled {rescheduled_count} failed tasks for retry")
+                logger.info(f"Rescheduled {rescheduled_count} failed tasks for retry")
 
                 return {
                     "total_failed_tasks": len(failed_tasks),
-                    "rescheduled_tasks": rescheduled_count
+                    "rescheduled_tasks": rescheduled_count,
                 }
 
         except Exception as e:
@@ -340,7 +400,7 @@ class TaskDispatcher:
             "not found",
             "bad request",
             "invalid template",
-            "permission denied"
+            "permission denied",
         ]
 
         for non_retryable_error in non_retryable:
@@ -354,7 +414,7 @@ class TaskDispatcher:
             "network",
             "server error",
             "service unavailable",
-            "rate limit"
+            "rate limit",
         ]
 
         for retryable_error in retryable:
@@ -383,34 +443,38 @@ class PriorityTaskDispatcher(TaskDispatcher):
 
                     for task in tasks:
                         await self._dispatch_single_task(
-                            task,
-                            session,
-                            high_priority=(priority_level >= 8)
+                            task, session, high_priority=(priority_level >= 8)
                         )
                         total_dispatched += 1
 
                 if total_dispatched > 0:
                     logger.info(
-                        f"Dispatched {total_dispatched} tasks across priority levels")
+                        f"Dispatched {total_dispatched} tasks across priority levels"
+                    )
 
                 await session.commit()
 
         except Exception as e:
             logger.error(f"Error in priority-based dispatch: {e}")
 
-    async def _get_tasks_by_priority(self, session: AsyncSession) -> Dict[int, List[ScheduledTask]]:
+    async def _get_tasks_by_priority(
+        self, session: AsyncSession
+    ) -> Dict[int, List[ScheduledTask]]:
         """Get tasks grouped by priority level."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
 
-        stmt = select(ScheduledTask).where(
-            and_(
-                ScheduledTask.scheduled_for <= current_time,
-                ScheduledTask.status == TaskStatus.PENDING.value,
-                ScheduledTask.attempts < ScheduledTask.max_attempts
+        stmt = (
+            select(ScheduledTask)
+            .where(
+                and_(
+                    ScheduledTask.scheduled_for <= current_time,
+                    ScheduledTask.status == TaskStatus.PENDING.value,
+                    ScheduledTask.attempts < ScheduledTask.max_attempts,
+                )
             )
-        ).order_by(
-            ScheduledTask.scheduled_for.asc()
-        ).limit(100)
+            .order_by(ScheduledTask.scheduled_for.asc())
+            .limit(100)
+        )
 
         result = await session.execute(stmt)
         all_tasks = result.scalars().all()
@@ -419,8 +483,7 @@ class PriorityTaskDispatcher(TaskDispatcher):
         priority_groups = {}
 
         for task in all_tasks:
-            priority = task.task_config.get(
-                "priority", 5) if task.task_config else 5
+            priority = task.task_config.get("priority", 5) if task.task_config else 5
 
             if priority not in priority_groups:
                 priority_groups[priority] = []

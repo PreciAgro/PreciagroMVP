@@ -1,28 +1,25 @@
 """ARQ worker for processing scheduled notifications."""
-import redis.asyncio as redis
-from arq import create_pool
+
+import logging
+from datetime import datetime, timedelta, timezone
+
 from arq.connections import RedisSettings
-from datetime import datetime, timezone, timedelta
-import asyncio
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from ..config import REDIS_URL, DATABASE_URL
-from ..models import ScheduleItem, NotificationJob, async_session
-from ..channels.base import ChannelSender
-from ..channels.whatsapp_meta import WhatsAppMetaSender
+
 from ..channels.twilio_sms import TwilioSMSSender
+from ..channels.whatsapp_meta import WhatsAppMetaSender
+from ..config import REDIS_URL
+from ..models import NotificationJob, ScheduleItem, async_session
 from ..policies.quiet_hours import is_quiet_hours
 from ..policies.rate_limits import should_rate_limit
-from ..telemetry.metrics import notification_attempts, notification_results, notification_latency
-import logging
+from ..telemetry.metrics import (notification_attempts, notification_latency,
+                                 notification_results)
 
 logger = logging.getLogger(__name__)
 
 # Channel registry
-CHANNELS = {
-    "whatsapp": WhatsAppMetaSender(),
-    "sms": TwilioSMSSender()
-}
+CHANNELS = {"whatsapp": WhatsAppMetaSender(), "sms": TwilioSMSSender()}
 
 
 async def process_due_notifications(ctx):
@@ -32,10 +29,7 @@ async def process_due_notifications(ctx):
 
         # Get due notifications
         stmt = select(ScheduleItem).where(
-            and_(
-                ScheduleItem.schedule_time <= now,
-                ScheduleItem.status == "pending"
-            )
+            and_(ScheduleItem.schedule_time <= now, ScheduleItem.status == "pending")
         )
 
         result = await session.execute(stmt)
@@ -57,8 +51,9 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
     # Check quiet hours
     if is_quiet_hours(item.target.get("timezone", "UTC")):
         # Reschedule for tomorrow at 8am
-        tomorrow_8am = (datetime.now(timezone.utc) +
-                        timedelta(days=1)).replace(hour=8, minute=0, second=0)
+        tomorrow_8am = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+            hour=8, minute=0, second=0
+        )
         item.schedule_time = tomorrow_8am
         await session.commit()
         return
@@ -84,7 +79,7 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
         channel=channel_name,
         target=item.target,
         payload=item.payload,
-        status="sending"
+        status="sending",
     )
     session.add(job)
     await session.flush()
@@ -99,8 +94,7 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
         job.result = result
         item.status = "completed"
 
-        notification_results.labels(
-            channel=channel_name, result="success").inc()
+        notification_results.labels(channel=channel_name, result="success").inc()
 
     except Exception as e:
         logger.error(f"Failed to send via {channel_name}: {e}")
@@ -119,6 +113,7 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
 
 class WorkerSettings:
     """ARQ worker settings."""
+
     redis_settings = RedisSettings.from_dsn(REDIS_URL)
     functions = [process_due_notifications]
     cron_jobs = [

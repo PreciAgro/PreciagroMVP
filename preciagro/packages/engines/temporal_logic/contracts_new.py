@@ -1,7 +1,9 @@
 """Core contracts and Pydantic models for Temporal Logic Engine."""
-from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Literal, Optional
+
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel
 
 # Event coming from other engines (e.g., diagnosis)
 
@@ -71,6 +73,7 @@ class Rule(BaseModel):
     priority: Literal["low", "medium", "high"] = "medium"
     channels: List[Literal["whatsapp", "sms", "email", "push"]] = ["whatsapp"]
     message: Message
+
 
 # API contracts
 

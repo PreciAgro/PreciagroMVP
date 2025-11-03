@@ -1,4 +1,5 @@
 """Configuration management for Temporal Logic Engine."""
+
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")

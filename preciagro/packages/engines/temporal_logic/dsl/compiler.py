@@ -1,15 +1,18 @@
 """Task compiler for generating scheduled notifications."""
+
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Tuple
-from ..contracts import Rule, EngineEvent, Window
-from ..models import ScheduleItem
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List
+
+from ..contracts import EngineEvent, Rule, Window
 
 
 class TaskCompiler:
     """Compiles rules into scheduled notification tasks."""
 
-    def compile_tasks(self, rule: Rule, event: EngineEvent, context: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+    def compile_tasks(
+        self, rule: Rule, event: EngineEvent, context: Dict[str, Any] = None
+    ) -> List[Dict[str, Any]]:
         """Compile rule into scheduled tasks."""
         context = context or {}
 
@@ -21,7 +24,9 @@ class TaskCompiler:
 
         return tasks
 
-    def _compile_window_task(self, rule: Rule, event: EngineEvent, window: Window, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _compile_window_task(
+        self, rule: Rule, event: EngineEvent, window: Window, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Compile single window into a task."""
         now = datetime.now(timezone.utc)
 
@@ -30,24 +35,28 @@ class TaskCompiler:
 
         # Build task payload
         payload = {
-            "short_text": window.message.format(**self._get_template_vars(event, context)),
+            "short_text": window.message.format(
+                **self._get_template_vars(event, context)
+            ),
             "channel": window.channel,
             "metadata": {
                 "rule_id": rule.id,
                 "window_id": window.id,
                 "event_id": event.event_id,
                 "user_id": event.user_id,
-                "farm_id": event.farm_id
-            }
+                "farm_id": event.farm_id,
+            },
         }
 
         # Build target
-        target = {"phone_e164": context.get(
-            "phone") or event.metadata.get("phone")}
+        target = {"phone_e164": context.get("phone") or event.metadata.get("phone")}
 
         # Generate deduplication key
-        dedupe_key = self._generate_dedupe_key(
-            rule, event, window) if rule.deduplication else None
+        dedupe_key = (
+            self._generate_dedupe_key(rule, event, window)
+            if rule.deduplication
+            else None
+        )
 
         return {
             "id": str(uuid.uuid4()),
@@ -57,7 +66,7 @@ class TaskCompiler:
             "payload": payload,
             "target": target,
             "dedupe_key": dedupe_key,
-            "status": "pending"
+            "status": "pending",
         }
 
     def _calculate_schedule_time(self, window: Window, base_time: datetime) -> datetime:
@@ -74,11 +83,12 @@ class TaskCompiler:
                 return base_time + timedelta(days=days)
 
         # If specific time is set (e.g., "08:00")
-        if hasattr(window, 'time') and window.time:
+        if hasattr(window, "time") and window.time:
             hour, minute = map(int, window.time.split(":"))
             schedule_date = base_time.date()
             schedule_time = datetime.combine(
-                schedule_date, datetime.min.time().replace(hour=hour, minute=minute))
+                schedule_date, datetime.min.time().replace(hour=hour, minute=minute)
+            )
             schedule_time = schedule_time.replace(tzinfo=timezone.utc)
 
             # If time has passed today, schedule for tomorrow
@@ -90,31 +100,36 @@ class TaskCompiler:
         # Default: schedule immediately
         return base_time
 
-    def _get_template_vars(self, event: EngineEvent, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_template_vars(
+        self, event: EngineEvent, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Get variables for message template formatting."""
         vars_dict = {
             "user_id": event.user_id,
             "farm_id": event.farm_id,
-            "event_type": event.event_type
+            "event_type": event.event_type,
         }
         vars_dict.update(event.metadata)
         vars_dict.update(context)
         return vars_dict
 
-    def _generate_dedupe_key(self, rule: Rule, event: EngineEvent, window: Window) -> str:
+    def _generate_dedupe_key(
+        self, rule: Rule, event: EngineEvent, window: Window
+    ) -> str:
         """Generate deduplication key."""
-        key_parts = [
-            rule.id,
-            window.id,
-            str(event.user_id),
-            str(event.farm_id)
-        ]
+        key_parts = [rule.id, window.id, str(event.user_id), str(event.farm_id)]
+        existing_values = set(key_parts)
 
         # Add deduplication fields
         if rule.deduplication and rule.deduplication.fields:
             for field in rule.deduplication.fields:
-                value = getattr(
-                    event, field, None) or event.metadata.get(field, "")
-                key_parts.append(str(value))
+                value = getattr(event, field, None)
+                if value is None:
+                    value = event.metadata.get(field, "")
+                value_str = str(value)
+                if value_str in existing_values:
+                    continue
+                key_parts.append(value_str)
+                existing_values.add(value_str)
 
         return "|".join(key_parts)

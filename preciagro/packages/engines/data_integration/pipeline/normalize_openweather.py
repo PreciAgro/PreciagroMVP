@@ -3,8 +3,9 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Literal, Dict, Any
-from ..contracts.v1.normalized_item import NormalizedItem, Location
+from typing import Any, Dict, Literal
+
+from ..contracts.v1.normalized_item import Location, NormalizedItem
 
 
 def _ts(dt_unix: int | None):
@@ -76,8 +77,7 @@ def normalize_openweather(
 
     # content hash from raw (stable id)
     content_hash = _hash(raw)
-    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL,
-                  f"{source_id}:{content_hash}"))
+    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{content_hash}"))
 
     return NormalizedItem(
         item_id=item_id,
@@ -85,8 +85,11 @@ def normalize_openweather(
         collected_at=datetime.now(timezone.utc),
         observed_at=observed_at,
         kind=kind,
-        location=Location(lat=lat, lon=lon) if (
-            lat is not None and lon is not None) else None,
+        location=(
+            Location(lat=lat, lon=lon)
+            if (lat is not None and lon is not None)
+            else None
+        ),
         tags=["weather", "openweather"],
         payload=payload,
         raw_ref=None,

@@ -1,7 +1,10 @@
 """Rate limiting policy for temporal logic engine."""
+
 from datetime import datetime, timedelta
-from sqlalchemy import select, func
-from ..models import Session, NotificationJob, JobStatus
+
+from sqlalchemy import func, select
+
+from ..models import JobStatus, NotificationJob, Session
 
 
 async def daily_count(farm_id: str, now_utc: datetime):
@@ -13,7 +16,7 @@ async def daily_count(farm_id: str, now_utc: datetime):
             .join_from(NotificationJob, NotificationJob.schedule)
             .where(
                 NotificationJob.created_at >= start,
-                NotificationJob.status.in_([JobStatus.sent, JobStatus.sending])
+                NotificationJob.status.in_([JobStatus.sent, JobStatus.sending]),
             )
         )
         return q.scalar_one()

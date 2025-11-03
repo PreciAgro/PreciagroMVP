@@ -1,6 +1,6 @@
-from pathlib import Path
-import sys
 import logging
+import sys
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

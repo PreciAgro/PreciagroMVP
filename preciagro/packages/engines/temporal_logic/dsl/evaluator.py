@@ -1,14 +1,17 @@
 """Rule evaluator for temporal logic conditions."""
+
 import operator
-from typing import Dict, Any, List
-from datetime import datetime, timezone
-from ..contracts import Rule, EngineEvent, Trigger, Preconditions
+from typing import Any, Dict
+
+from ..contracts import EngineEvent, Preconditions, Rule, Trigger
 
 
 class RuleEvaluator:
     """Evaluates rule conditions against events."""
 
-    def should_trigger(self, rule: Rule, event: EngineEvent, context: Dict[str, Any] = None) -> bool:
+    def should_trigger(
+        self, rule: Rule, event: EngineEvent, context: Dict[str, Any] = None
+    ) -> bool:
         """Check if rule should trigger for given event."""
         context = context or {}
 
@@ -17,7 +20,9 @@ class RuleEvaluator:
             return False
 
         # Check preconditions if they exist
-        if rule.preconditions and not self._check_preconditions(rule.preconditions, event, context):
+        if rule.preconditions and not self._check_preconditions(
+            rule.preconditions, event, context
+        ):
             return False
 
         return True
@@ -43,7 +48,9 @@ class RuleEvaluator:
 
         return True
 
-    def _check_preconditions(self, preconds: Preconditions, event: EngineEvent, context: Dict[str, Any]) -> bool:
+    def _check_preconditions(
+        self, preconds: Preconditions, event: EngineEvent, context: Dict[str, Any]
+    ) -> bool:
         """Check preconditions against context."""
         for condition in preconds.conditions:
             field = condition["field"]
@@ -54,7 +61,7 @@ class RuleEvaluator:
             ctx_value = context.get(field)
             if ctx_value is None:
                 ctx_value = getattr(event, field, None)
-            if ctx_value is None and hasattr(event, 'metadata'):
+            if ctx_value is None and hasattr(event, "metadata"):
                 ctx_value = event.metadata.get(field)
 
             if not self._apply_operator(ctx_value, op, value):
@@ -71,9 +78,9 @@ class RuleEvaluator:
             "gte": operator.ge,
             "lt": operator.lt,
             "lte": operator.le,
-            "in": lambda l, r: l in r,
-            "not_in": lambda l, r: l not in r,
-            "contains": lambda l, r: r in l if l else False
+            "in": lambda left_value, right_value: left_value in right_value,  # FIX: Ruff E741 lint — expand parameter names for readability.
+            "not_in": lambda left_value, right_value: left_value not in right_value,
+            "contains": lambda left_value, right_value: right_value in left_value if left_value else False,
         }
 
         if op not in ops:

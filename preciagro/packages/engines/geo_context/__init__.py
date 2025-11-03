@@ -5,28 +5,32 @@ for any location, including spatial data, soil information, climate data, and
 agricultural calendars.
 """
 
-# Import contracts which don't have circular dependencies
-from .contracts.v1.fco import FCOResponse, SoilData, ClimateData, SpatialContext, CalendarEvent
-from .contracts.v1.requests import FCORequest, LocationPoint, LocationPolygon
-
 # Legacy compatibility
 from preciagro.packages.shared.schemas import GeoPoint
+
+# Import contracts which don't have circular dependencies
+from .contracts.v1.fco import (CalendarEvent, ClimateData, FCOResponse,
+                               FieldGeometry, SoilData, SpatialContext)
+from .contracts.v1.requests import FCORequest, LocationPoint, LocationPolygon
 
 # Import routers and resolvers lazily to avoid circular imports
 
 
 def get_api_router():
     from .api.routes.api import router
+
     return router
 
 
 def get_main_router():
     from .routers.geocontext import router
+
     return router
 
 
 def get_resolver():
     from .pipeline.resolver import GeoContextResolver
+
     return GeoContextResolver
 
 
@@ -53,6 +57,7 @@ __all__ = [
     "ClimateData",
     "SpatialContext",
     "CalendarEvent",
+    "FieldGeometry",
     "FCORequest",
     "LocationPoint",
     "LocationPolygon",

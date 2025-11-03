@@ -1,0 +1,42 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  engines:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: data-integration
+            path: preciagro/packages/engines/data_integration
+            test: pytest preciagro/packages/engines/data_integration/tests -q
+          - name: temporal-logic
+            path: preciagro/packages/engines/temporal_logic
+            test: pytest preciagro/packages/engines/temporal_logic/tests -q
+          - name: geo-context
+            path: preciagro/packages/engines/geo_context
+            test: pytest preciagro/packages/engines/geo_context/tests -q
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+      - name: Install core dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install black isort ruff mypy pip-audit
+      - name: Lint
+        run: make -C ${{ matrix.path }} lint
+      - name: Type check (soft fail)
+        run: make -C ${{ matrix.path }} type
+        continue-on-error: true
+      - name: Tests
+        run: ${{ matrix.test }}

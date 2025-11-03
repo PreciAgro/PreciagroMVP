@@ -2,7 +2,9 @@
 # It verifies that the scheduler task can be started and that the consumer
 # stub can be started; it does not require Redis or Postgres.
 import asyncio
+
 import pytest
+
 from preciagro.apps.api_gateway.main import _demo_scheduler
 
 

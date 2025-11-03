@@ -12,20 +12,20 @@ It deliberately keeps integration points small so other engines can consume the
 published events without this file needing to depend on them.
 """
 
-from ..connectors.mock_connector import MockConnector
-from typing import Literal, Callable, Dict, Any, Optional
+import asyncio
 import logging
 import os
-import json
 import time
-import asyncio
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from typing import Any, Callable, Dict, Literal, Optional
 
-from ..storage.db import upsert_normalized, get_cursor, set_cursor
-from ..bus.publisher import publish_ingest_created
-from .normalize_openweather import normalize_openweather
-from ..config import settings
 from prometheus_client import Counter
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_exponential)
+
+from ..bus.publisher import publish_ingest_created
+from ..config import settings
+from ..storage.db import get_cursor, set_cursor, upsert_normalized
+from .normalize_openweather import normalize_openweather
 
 logger = logging.getLogger("preciagro.data_integration.orchestrator")
 
@@ -34,14 +34,16 @@ logger = logging.getLogger("preciagro.data_integration.orchestrator")
 _SEMAPHORES: Dict[str, asyncio.Semaphore] = {}
 
 # Prometheus metrics
-_UPsert_SUCC = Counter('preciagro_upsert_success_total',
-                       'Successful DB upserts', ['source'])
-_UPsert_FAIL = Counter('preciagro_upsert_fail_total',
-                       'Failed DB upserts', ['source'])
-_PUBLISH_SUCC = Counter('preciagro_publish_success_total',
-                        'Successful publish events', ['source'])
-_PUBLISH_FAIL = Counter('preciagro_publish_fail_total',
-                        'Failed publish events', ['source'])
+_UPsert_SUCC = Counter(
+    "preciagro_upsert_success_total", "Successful DB upserts", ["source"]
+)
+_UPsert_FAIL = Counter("preciagro_upsert_fail_total", "Failed DB upserts", ["source"])
+_PUBLISH_SUCC = Counter(
+    "preciagro_publish_success_total", "Successful publish events", ["source"]
+)
+_PUBLISH_FAIL = Counter(
+    "preciagro_publish_fail_total", "Failed publish events", ["source"]
+)
 
 
 # --- Simple cache layer: try Redis, otherwise in-memory TTL cache ---
@@ -51,12 +53,12 @@ try:
     import redis.asyncio as _redis_async_pkg
 
     _redis_async = _redis_async_pkg.from_url(
-        os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+        os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    )
     logger.debug("Using redis.asyncio for cache (preciagro.data_integration)")
 except Exception:
     _redis_async = None
-    logger.debug(
-        "redis.asyncio not available, will use in-process async cache")
+    logger.debug("redis.asyncio not available, will use in-process async cache")
 
 
 class _InMemoryTTLCache:
@@ -99,8 +101,7 @@ async def cache_get(key: str) -> Optional[str]:
                 return val.decode()
             return val
         except Exception:
-            logger.debug(
-                "redis.asyncio get failed, falling back to memory cache")
+            logger.debug("redis.asyncio get failed, falling back to memory cache")
             return await _local_cache.get(key)
     return await _local_cache.get(key)
 
@@ -112,8 +113,7 @@ async def cache_set(key: str, value: str, ttl: int = 300):
             await _redis_async.setex(key, ttl, value)
             return
         except Exception:
-            logger.debug(
-                "redis.asyncio set failed, falling back to memory cache")
+            logger.debug("redis.asyncio set failed, falling back to memory cache")
     await _local_cache.set(key, value, ttl)
 
 
@@ -146,20 +146,23 @@ async def run_job(
     kind = "weather.observation" if scope == "current" else "weather.forecast"
     # simple per-source rate limiter (1 concurrent permit maps to INGEST_RATE_LIMIT_QPS pacing)
     _semaphore = _SEMAPHORES.setdefault(
-        source_id, asyncio.Semaphore(max(1, settings.INGEST_RATE_LIMIT_QPS)))
+        source_id, asyncio.Semaphore(max(1, settings.INGEST_RATE_LIMIT_QPS))
+    )
 
     # load last cursor so connectors can resume if they support cursors
     last_cursor = None
     try:
         cur = await get_cursor(source_id)
         if cur:
-            last_cursor = cur.get('last_content_hash') or None
+            last_cursor = cur.get("last_content_hash") or None
     except Exception:
-        logger.debug('Failed to load cursor for %s', source_id, exc_info=True)
+        logger.debug("Failed to load cursor for %s", source_id, exc_info=True)
 
     try:
         # connectors may accept a 'cursor' kwarg; if they don't, they can ignore it.
-        for raw in connector.fetch(cursor=last_cursor, lat=lat, lon=lon, scope=scope, units=units):
+        for raw in connector.fetch(
+            cursor=last_cursor, lat=lat, lon=lon, scope=scope, units=units
+        ):
             try:
                 item = normalizer(raw, source_id=source_id, kind=kind)
             except TypeError:
@@ -168,8 +171,10 @@ async def run_job(
 
             # caching key is based on source_id + content_hash coming from normalizer
             if not getattr(item, "content_hash", None):
-                logger.warning("Normalized item missing content_hash; skipping cache for item_id=%s", getattr(
-                    item, "item_id", "-"))
+                logger.warning(
+                    "Normalized item missing content_hash; skipping cache for item_id=%s",
+                    getattr(item, "item_id", "-"),
+                )
                 content_hash = None
             else:
                 content_hash = item.content_hash
@@ -179,11 +184,17 @@ async def run_job(
                 cached = await cache_get(cache_key)
                 if cached:
                     logger.info(
-                        "Skipping upsert; cached normalized item found for %s", item.item_id)
+                        "Skipping upsert; cached normalized item found for %s",
+                        item.item_id,
+                    )
                     continue
 
             # persist with retry/backoff (DB sometimes transiently fails)
-            @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, max=5), retry=retry_if_exception_type(Exception))
+            @retry(
+                stop=stop_after_attempt(3),
+                wait=wait_exponential(multiplier=0.5, max=5),
+                retry=retry_if_exception_type(Exception),
+            )
             async def _safe_upsert(i):
                 await upsert_normalized(i)
 
@@ -201,10 +212,16 @@ async def run_job(
             # Call the publisher once. If it returns a coroutine or Future,
             # await it; otherwise assume it already executed synchronously.
             # publish with retry/backoff
-            @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, max=5), retry=retry_if_exception_type(Exception))
+            @retry(
+                stop=stop_after_attempt(3),
+                wait=wait_exponential(multiplier=0.5, max=5),
+                retry=retry_if_exception_type(Exception),
+            )
             async def _safe_publish(i):
                 maybe_awaitable = publish_ingest_created(i)
-                if asyncio.iscoroutine(maybe_awaitable) or isinstance(maybe_awaitable, asyncio.Future):
+                if asyncio.iscoroutine(maybe_awaitable) or isinstance(
+                    maybe_awaitable, asyncio.Future
+                ):
                     await maybe_awaitable
 
             try:
@@ -215,7 +232,9 @@ async def run_job(
                     pass
             except Exception:
                 logger.exception(
-                    "Failed to publish ingest event for item=%s", getattr(item, "item_id", "-"))
+                    "Failed to publish ingest event for item=%s",
+                    getattr(item, "item_id", "-"),
+                )
                 try:
                     _PUBLISH_FAIL.labels(source=source_id).inc()
                 except Exception:
@@ -226,20 +245,27 @@ async def run_job(
                 try:
                     await cache_set(cache_key, item.model_dump_json(), ttl=cache_ttl)
                 except Exception:
-                    logger.debug("Failed to cache item %s",
-                                 item.item_id, exc_info=True)
+                    logger.debug("Failed to cache item %s", item.item_id, exc_info=True)
 
             logger.info("Ingested item %s (%s)", item.item_id, kind)
             # advance cursor after successful processing of this item
             try:
-                await set_cursor(source_id, last_observed_at=item.observed_at, last_content_hash=getattr(item, 'content_hash', None))
+                await set_cursor(
+                    source_id,
+                    last_observed_at=item.observed_at,
+                    last_content_hash=getattr(item, "content_hash", None),
+                )
             except Exception:
-                logger.debug('Failed to set cursor for %s',
-                             source_id, exc_info=True)
+                logger.debug("Failed to set cursor for %s", source_id, exc_info=True)
 
     except Exception:
         logger.exception(
-            "Job failed for source=%s lat=%s lon=%s scope=%s", source_id, lat, lon, scope)
+            "Job failed for source=%s lat=%s lon=%s scope=%s",
+            source_id,
+            lat,
+            lon,
+            scope,
+        )
 
 
 # --- Small connector/normalizer registry for convenience ---
@@ -253,7 +279,9 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
 
 # add a mocked demo source
 REGISTRY["mock.source"] = {
-    "normalizer": normalize_openweather, "description": "Mock demo source"}
+    "normalizer": normalize_openweather,
+    "description": "Mock demo source",
+}
 
 
 async def run_registered_source(source_name: str, connector, **kwargs):

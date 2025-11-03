@@ -1,4 +1,5 @@
-fastapi
+﻿fastapi==0.121.0
+starlette==0.49.1  # FIX: GHSA-7f5h-v6xp-fcq8 mitigation — aligns with FastAPI 0.121.0.
 uvicorn
 pydantic>=2
 
@@ -7,9 +8,10 @@ httpx
 redis>=5.0
 asyncpg
 SQLAlchemy>=1.4
-asyncpg
 PyYAML>=6.0
 python-jose[cryptography]  # For JWT handling
+aiohttp
+arq
 
 # testing
 pytest

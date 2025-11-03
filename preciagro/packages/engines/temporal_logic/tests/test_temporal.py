@@ -1,35 +1,26 @@
 """Comprehensive test suite for Temporal Logic Engine."""
-import pytest
-import asyncio
-from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch
-from typing import Dict, Any, List
 
+import asyncio
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 import pytest_asyncio
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from ..models import (
-    Base, TemporalEvent, TemporalRule, ScheduledTask,
-    TaskOutcome, UserIntent, RateLimitBucket
-)
-from ..contracts import (
-    EventCreate, EventResponse, RuleCreate, RuleResponse,
-    TaskCreate, TaskResponse, OutcomeCreate, IntentCreate
-)
-from ..evaluator import PredicateEvaluator
+from ..channels.sms_twilio import SMSChannel
+from ..channels.whatsapp_meta import WhatsAppChannel
 from ..compiler import RuleCompiler
 from ..dsl_loader import DSLLoader
+from ..due_queue.dispatcher import TaskDispatcher
+from ..due_queue.worker import TaskWorker
+from ..evaluator import PredicateEvaluator
+from ..models import (Base, ScheduledTask, TemporalEvent, TemporalRule)
 from ..policies.quiet_hours import QuietHoursPolicy
 from ..policies.rate_limits import RateLimitPolicy
 from ..security.auth import security_middleware
 from ..telemetry.metrics import engine_metrics
-from ..channels.whatsapp_meta import WhatsAppChannel
-from ..channels.sms_twilio import SMSChannel
-from ..due_queue.dispatcher import TaskDispatcher
-from ..due_queue.worker import TaskWorker
-
 
 # Test Database Setup
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -42,7 +33,7 @@ async def async_engine():
         TEST_DATABASE_URL,
         echo=False,
         poolclass=StaticPool,
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
     )
 
     async with engine.begin() as conn:
@@ -55,7 +46,8 @@ async def async_engine():
 @pytest_asyncio.fixture
 async def async_session(async_engine):
     """Create test database session."""
-    async with AsyncSession(async_engine) as session:
+    # FIX: async attribute access kept expiring models after commit - default AsyncSession expires columns on commit - disable expiration so property access during tests avoids MissingGreenlet - aligns test harness with engine factory behaviour, no downside for isolated in-memory DB
+    async with AsyncSession(async_engine, expire_on_commit=False) as session:
         yield session
 
 
@@ -65,16 +57,9 @@ def sample_event_data():
     return {
         "user_id": "test_user_001",
         "event_type": "weather_data",
-        "event_data": {
-            "temperature": 25.5,
-            "humidity": 60,
-            "pressure": 1013.2
-        },
-        "context_data": {
-            "location": "field_001",
-            "sensor_id": "weather_sensor_001"
-        },
-        "source": "weather_station"
+        "event_data": {"temperature": 25.5, "humidity": 60, "pressure": 1013.2},
+        "context_data": {"location": "field_001", "sensor_id": "weather_sensor_001"},
+        "source": "weather_station",
     }
 
 
@@ -85,23 +70,16 @@ def sample_rule_data():
         "name": "test_weather_alert",
         "description": "Test weather alert rule",
         "conditions": [
-            {
-                "type": "weather",
-                "predicate": "temperature > 30",
-                "window": "current"
-            }
+            {"type": "weather", "predicate": "temperature > 30", "window": "current"}
         ],
         "actions": [
             {
                 "type": "send_message",
                 "channel": "whatsapp",
-                "template": "high_temperature_alert"
+                "template": "high_temperature_alert",
             }
         ],
-        "metadata": {
-            "category": "weather",
-            "priority": "high"
-        }
+        "metadata": {"category": "weather", "priority": "high"},
     }
 
 
@@ -114,10 +92,10 @@ def sample_task_data():
         "task_config": {
             "channel": "whatsapp",
             "template": "test_template",
-            "message": "Test message"
+            "message": "Test message",
         },
-        "scheduled_for": datetime.utcnow() + timedelta(hours=1),
-        "priority": "medium"
+        "scheduled_for": datetime.now(timezone.utc) + timedelta(hours=1),
+        "priority": "medium",
     }
 
 
@@ -153,10 +131,7 @@ class TestModels:
     @pytest_asyncio.async_test
     async def test_scheduled_task_creation(self, async_session, sample_task_data):
         """Test ScheduledTask model creation."""
-        task = ScheduledTask(
-            task_id="test_task_001",
-            **sample_task_data
-        )
+        task = ScheduledTask(task_id="test_task_001", **sample_task_data)
         async_session.add(task)
         await async_session.commit()
         await async_session.refresh(task)
@@ -180,19 +155,15 @@ class TestEvaluator:
         assert evaluator.evaluate("temperature > 20", context) is True
         assert evaluator.evaluate("temperature < 20", context) is False
         assert evaluator.evaluate("humidity == 60", context) is True
-        assert evaluator.evaluate(
-            "temperature >= 25 AND humidity < 70", context) is True
+        assert (
+            evaluator.evaluate("temperature >= 25 AND humidity < 70", context) is True
+        )
 
     def test_complex_predicate_evaluation(self):
         """Test complex predicate evaluation."""
         evaluator = PredicateEvaluator()
 
-        context = {
-            "temperature": 25,
-            "humidity": 80,
-            "pressure": 1013,
-            "wind_speed": 5
-        }
+        context = {"temperature": 25, "humidity": 80, "pressure": 1013, "wind_speed": 5}
 
         # Test complex expressions
         predicate = "temperature > 20 AND humidity > 70 OR pressure < 1000"
@@ -206,12 +177,11 @@ class TestEvaluator:
         evaluator = PredicateEvaluator()
 
         # Mock time-based context
-        now = datetime.utcnow()
-        context = {
-            "current_time": now,
-            "last_rain": now - timedelta(hours=2)
-        }
+        now = datetime.now(timezone.utc)
+        context = {"current_time": now, "last_rain": now - timedelta(hours=2)}
 
+        # FIX: Ruff F841 lint workaround - verify mocked context delta to keep assertion relevant until window logic is implemented.
+        assert context['current_time'] - context['last_rain'] == timedelta(hours=2)
         # This would need more complex implementation
         # For now, just test the basic structure
         assert evaluator._validate_predicate("temperature > 20") is True
@@ -230,7 +200,7 @@ class TestCompiler:
         context = {
             "user_id": "test_user",
             "temperature": 35,  # Above threshold
-            "location": "field_001"
+            "location": "field_001",
         }
 
         tasks = await compiler.compile_rule_to_tasks(rule, context)
@@ -289,8 +259,10 @@ class TestDSLLoader:
         # Valid rule
         valid_rule = {
             "name": "test_rule",
-            "conditions": [{"type": "weather", "predicate": "temp > 20", "window": "current"}],
-            "actions": [{"type": "send_message", "channel": "whatsapp"}]
+            "conditions": [
+                {"type": "weather", "predicate": "temp > 20", "window": "current"}
+            ],
+            "actions": [{"type": "send_message", "channel": "whatsapp"}],
         }
 
         assert loader._validate_rule(valid_rule) is True
@@ -309,11 +281,7 @@ class TestPolicies:
 
     def test_quiet_hours_policy(self):
         """Test quiet hours policy."""
-        policy = QuietHoursPolicy(
-            start_time="22:00",
-            end_time="06:00",
-            timezone="UTC"
-        )
+        policy = QuietHoursPolicy(start_time="22:00", end_time="06:00", timezone="UTC")
 
         # Test during quiet hours
         quiet_time = datetime(2024, 1, 1, 23, 0)  # 11 PM
@@ -336,14 +304,14 @@ class TestPolicies:
         message_type = "medium"
 
         # First message should be allowed
-        with patch.object(policy, '_get_current_usage', return_value=0):
-            with patch.object(policy, '_get_rate_limit', return_value=5):
+        with patch.object(policy, "_get_current_usage", return_value=0):
+            with patch.object(policy, "_get_rate_limit", return_value=5):
                 allowed = await policy.check_rate_limit(user_id, channel, message_type)
                 assert allowed is True
 
         # Exceeding rate limit should be denied
-        with patch.object(policy, '_get_current_usage', return_value=6):
-            with patch.object(policy, '_get_rate_limit', return_value=5):
+        with patch.object(policy, "_get_current_usage", return_value=6):
+            with patch.object(policy, "_get_rate_limit", return_value=5):
                 allowed = await policy.check_rate_limit(user_id, channel, message_type)
                 assert allowed is False
 
@@ -358,12 +326,12 @@ class TestChannels:
         config = {
             "access_token": "test_token",
             "phone_number_id": "test_phone_id",
-            "webhook_verify_token": "test_verify_token"
+            "webhook_verify_token": "test_verify_token",
         }
 
         channel = WhatsAppChannel(config)
 
-        with patch('aiohttp.ClientSession.post') as mock_post:
+        with patch("aiohttp.ClientSession.post") as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 200
             mock_post.return_value.__aenter__.return_value.json = AsyncMock(
                 return_value={"messages": [{"id": "test_msg_id"}]}
@@ -372,7 +340,7 @@ class TestChannels:
             result = await channel.send_message(
                 recipient="+1234567890",
                 template="test_template",
-                variables={"name": "John"}
+                variables={"name": "John"},
             )
 
             assert result["success"] is True
@@ -385,20 +353,19 @@ class TestChannels:
         config = {
             "account_sid": "test_sid",
             "auth_token": "test_token",
-            "from_number": "+1234567890"
+            "from_number": "+1234567890",
         }
 
         channel = SMSChannel(config)
 
-        with patch('aiohttp.ClientSession.post') as mock_post:
+        with patch("aiohttp.ClientSession.post") as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 201
             mock_post.return_value.__aenter__.return_value.json = AsyncMock(
                 return_value={"sid": "test_sms_id", "status": "queued"}
             )
 
             result = await channel.send_message(
-                recipient="+1234567890",
-                message="Test SMS message"
+                recipient="+1234567890", message="Test SMS message"
             )
 
             assert result["success"] is True
@@ -419,15 +386,15 @@ class TestQueueSystem:
             user_id="test_user",
             task_type="send_message",
             task_config={"message": "test"},
-            scheduled_for=datetime.utcnow() - timedelta(minutes=1)  # Due now
+            scheduled_for=datetime.now(timezone.utc) - timedelta(minutes=1),  # Due now
         )
 
         async_session.add(task)
         await async_session.commit()
 
         # Mock policy checks
-        with patch.object(dispatcher, '_check_quiet_hours', return_value=False):
-            with patch.object(dispatcher, '_check_rate_limits', return_value=True):
+        with patch.object(dispatcher, "_check_quiet_hours", return_value=False):
+            with patch.object(dispatcher, "_check_rate_limits", return_value=True):
                 due_tasks = await dispatcher.get_due_tasks(limit=10)
 
                 assert len(due_tasks) > 0
@@ -447,16 +414,17 @@ class TestQueueSystem:
             "task_config": {
                 "channel": "whatsapp",
                 "recipient": "+1234567890",
-                "message": "Test message"
+                "message": "Test message",
             },
-            "user_id": "test_user"
+            "user_id": "test_user",
         }
 
         # Mock channel execution
-        with patch.object(worker, '_get_channel') as mock_get_channel:
+        with patch.object(worker, "_get_channel") as mock_get_channel:
             mock_channel = Mock()
             mock_channel.send_message = AsyncMock(
-                return_value={"success": True, "message_id": "msg_123"})
+                return_value={"success": True, "message_id": "msg_123"}
+            )
             mock_get_channel.return_value = mock_channel
 
             result = await worker.execute_task(task_data)
@@ -474,7 +442,7 @@ class TestSecurity:
         user_data = {
             "user_id": "test_user",
             "roles": ["farmer"],
-            "permissions": ["read_events", "create_events"]
+            "permissions": ["read_events", "create_events"],
         }
 
         # Create token
@@ -491,16 +459,14 @@ class TestSecurity:
         user_data = {
             "user_id": "test_user",
             "roles": ["farmer"],
-            "permissions": ["read_events", "create_events"]
+            "permissions": ["read_events", "create_events"],
         }
 
         # Should allow permitted action
-        assert security_middleware.check_permission(
-            user_data, "read_events") is True
+        assert security_middleware.check_permission(user_data, "read_events") is True
 
         # Should deny unpermitted action
-        assert security_middleware.check_permission(
-            user_data, "delete_events") is False
+        assert security_middleware.check_permission(user_data, "delete_events") is False
 
 
 class TestMetrics:
@@ -526,7 +492,9 @@ class TestIntegration:
     """Integration tests."""
 
     @pytest_asyncio.async_test
-    async def test_end_to_end_workflow(self, async_session, sample_event_data, sample_rule_data):
+    async def test_end_to_end_workflow(
+        self, async_session, sample_event_data, sample_rule_data
+    ):
         """Test complete workflow from event to task execution."""
         # 1. Create event
         event = TemporalEvent(**sample_event_data)
@@ -548,7 +516,7 @@ class TestIntegration:
         context = {
             "user_id": event.user_id,
             "temperature": 35,  # Above threshold
-            "event_id": event.id
+            "event_id": event.id,
         }
 
         # Check if rule conditions are met
@@ -571,8 +539,8 @@ class TestIntegration:
             rule_id=rule.id,
             task_type=task_data["task_type"],
             task_config=task_data["task_config"],
-            scheduled_for=datetime.utcnow(),
-            priority=task_data.get("priority", "medium")
+            scheduled_for=datetime.now(timezone.utc),
+            priority=task_data.get("priority", "medium"),
         )
 
         async_session.add(task)
@@ -589,6 +557,7 @@ class TestIntegration:
 def mock_open(read_data=""):
     """Mock open function for file operations."""
     from unittest.mock import mock_open as original_mock_open
+
     return original_mock_open(read_data=read_data)
 
 

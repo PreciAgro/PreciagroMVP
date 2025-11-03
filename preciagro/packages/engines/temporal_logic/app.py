@@ -1,29 +1,29 @@
 """Main FastAPI application for Temporal Logic Engine."""
+
 import logging
 from contextlib import asynccontextmanager
-from typing import Dict, Any
 
+import redis.asyncio as redis
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 from prometheus_client import make_asgi_app
-import redis.asyncio as redis
 
+from .api.routes import events, intents, outcomes, schedules
 from .config import config
-from .storage.db import init_database, close_database, get_database_session
-from .api.routes import events, schedules, outcomes, intents
-from .due_queue.worker import create_worker_pool
-from .telemetry.metrics import engine_metrics
-from .security.auth import security_middleware
 from .dsl_loader import DSLLoader
+from .due_queue.worker import create_worker_pool
+from .security.auth import security_middleware
+from .storage.db import close_database, get_database_session, init_database
+from .telemetry.metrics import engine_metrics
 
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, config.log_level.upper()),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -80,12 +80,12 @@ async def lifespan(app: FastAPI):
 
         try:
             # Close Redis connection
-            if hasattr(app.state, 'redis'):
+            if hasattr(app.state, "redis"):
                 await app.state.redis.close()
                 logger.info("Redis connection closed")
 
             # Stop worker pool
-            if hasattr(app.state, 'worker_pool'):
+            if hasattr(app.state, "worker_pool"):
                 await app.state.worker_pool.close()
                 logger.info("Worker pool stopped")
 
@@ -106,7 +106,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs" if config.debug else None,
     redoc_url="/redoc" if config.debug else None,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add middleware
@@ -118,10 +118,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=config.allowed_hosts
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.allowed_hosts)
 
 
 # Health check endpoints
@@ -134,14 +131,14 @@ async def health_check():
             await db.execute("SELECT 1")
 
         # Check Redis connection
-        if hasattr(app.state, 'redis'):
+        if hasattr(app.state, "redis"):
             await app.state.redis.ping()
 
         return {
             "status": "healthy",
             "version": "1.0.0",
             "timestamp": engine_metrics.get_current_timestamp(),
-            "environment": config.environment
+            "environment": config.environment,
         }
 
     except Exception as e:
@@ -165,12 +162,14 @@ async def detailed_health_check():
 
         # Redis health
         try:
-            if hasattr(app.state, 'redis'):
+            if hasattr(app.state, "redis"):
                 start_time = engine_metrics.get_current_timestamp()
                 await app.state.redis.ping()
                 latency = engine_metrics.get_current_timestamp() - start_time
                 components["redis"] = {
-                    "status": "healthy", "latency_ms": latency * 1000}
+                    "status": "healthy",
+                    "latency_ms": latency * 1000,
+                }
             else:
                 components["redis"] = {"status": "not_configured"}
         except Exception as e:
@@ -178,25 +177,22 @@ async def detailed_health_check():
 
         # Worker pool health
         try:
-            if hasattr(app.state, 'worker_pool'):
-                components["worker_pool"] = {
-                    "status": "healthy", "active": True}
+            if hasattr(app.state, "worker_pool"):
+                components["worker_pool"] = {"status": "healthy", "active": True}
             else:
                 components["worker_pool"] = {"status": "not_configured"}
         except Exception as e:
-            components["worker_pool"] = {
-                "status": "unhealthy", "error": str(e)}
+            components["worker_pool"] = {"status": "unhealthy", "error": str(e)}
 
         # Rule engine health
         try:
-            rules_count = len(getattr(app.state, 'temporal_rules', []))
+            rules_count = len(getattr(app.state, "temporal_rules", []))
             components["rule_engine"] = {
                 "status": "healthy",
-                "loaded_rules": rules_count
+                "loaded_rules": rules_count,
             }
         except Exception as e:
-            components["rule_engine"] = {
-                "status": "unhealthy", "error": str(e)}
+            components["rule_engine"] = {"status": "unhealthy", "error": str(e)}
 
         # Overall status
         all_healthy = all(
@@ -209,7 +205,7 @@ async def detailed_health_check():
             "version": "1.0.0",
             "timestamp": engine_metrics.get_current_timestamp(),
             "environment": config.environment,
-            "components": components
+            "components": components,
         }
 
     except Exception as e:
@@ -224,12 +220,11 @@ async def get_metrics():
         return {
             "system_metrics": engine_metrics.get_system_metrics(),
             "business_metrics": engine_metrics.get_business_metrics(),
-            "performance_metrics": engine_metrics.get_performance_metrics()
+            "performance_metrics": engine_metrics.get_performance_metrics(),
         }
     except Exception as e:
         logger.error(f"Failed to get metrics: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve metrics")
+        raise HTTPException(status_code=500, detail="Failed to retrieve metrics")
 
 
 # Add Prometheus metrics endpoint
@@ -257,9 +252,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
                 "code": exc.status_code,
                 "message": exc.detail,
                 "timestamp": engine_metrics.get_current_timestamp(),
-                "path": str(request.url.path)
+                "path": str(request.url.path),
             }
-        }
+        },
     )
 
 
@@ -275,9 +270,9 @@ async def general_exception_handler(request: Request, exc: Exception):
                 "code": 500,
                 "message": "Internal server error" if not config.debug else str(exc),
                 "timestamp": engine_metrics.get_current_timestamp(),
-                "path": str(request.url.path)
+                "path": str(request.url.path),
             }
-        }
+        },
     )
 
 
@@ -288,10 +283,7 @@ async def logging_middleware(request: Request, call_next):
     start_time = engine_metrics.get_current_timestamp()
 
     # Record request
-    engine_metrics.request_started(
-        method=request.method,
-        endpoint=request.url.path
-    )
+    engine_metrics.request_started(method=request.method, endpoint=request.url.path)
 
     try:
         response = await call_next(request)
@@ -304,7 +296,7 @@ async def logging_middleware(request: Request, call_next):
             method=request.method,
             endpoint=request.url.path,
             status_code=response.status_code,
-            duration=duration
+            duration=duration,
         )
 
         # Log request
@@ -323,12 +315,11 @@ async def logging_middleware(request: Request, call_next):
             method=request.method,
             endpoint=request.url.path,
             error_type=type(e).__name__,
-            duration=duration
+            duration=duration,
         )
 
         logger.error(
-            f"{request.method} {request.url.path} - "
-            f"ERROR: {e} - {duration:.3f}s"
+            f"{request.method} {request.url.path} - " f"ERROR: {e} - {duration:.3f}s"
         )
 
         raise
@@ -345,7 +336,7 @@ async def root():
         "environment": config.environment,
         "docs_url": "/docs" if config.debug else None,
         "status": "operational",
-        "timestamp": engine_metrics.get_current_timestamp()
+        "timestamp": engine_metrics.get_current_timestamp(),
     }
 
 
@@ -359,11 +350,11 @@ async def api_info():
             "events": "/api/v1/events",
             "schedules": "/api/v1/schedules",
             "outcomes": "/api/v1/outcomes",
-            "intents": "/api/v1/intents"
+            "intents": "/api/v1/intents",
         },
         "documentation": "/docs" if config.debug else None,
         "health": "/health",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
     }
 
 
@@ -383,13 +374,13 @@ if config.debug:
             ),
             "log_level": config.log_level,
             "enable_worker": config.enable_worker,
-            "debug": config.debug
+            "debug": config.debug,
         }
 
     @app.get("/debug/rules", tags=["debug"])
     async def debug_rules():
         """Get loaded temporal rules (debug only)."""
-        rules = getattr(app.state, 'temporal_rules', [])
+        rules = getattr(app.state, "temporal_rules", [])
         return {
             "rules_count": len(rules),
             "rules": [
@@ -397,10 +388,10 @@ if config.debug:
                     "name": rule.get("name"),
                     "description": rule.get("description"),
                     "conditions_count": len(rule.get("conditions", [])),
-                    "actions_count": len(rule.get("actions", []))
+                    "actions_count": len(rule.get("actions", [])),
                 }
                 for rule in rules
-            ]
+            ],
         }
 
 
@@ -417,5 +408,5 @@ if __name__ == "__main__":
         port=8000,
         reload=config.debug,
         log_level=config.log_level.lower(),
-        access_log=True
+        access_log=True,
     )

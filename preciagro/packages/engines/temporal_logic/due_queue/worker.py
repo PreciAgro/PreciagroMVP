@@ -1,18 +1,22 @@
-"""ARQ worker for executing temporal logic tasks."""
+﻿"""ARQ worker for executing temporal logic tasks."""
+
 import logging
-import asyncio
-from typing import Dict, Any, Optional
-from datetime import datetime
 import traceback
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta  # FIX: Ruff F821 lint — ensure retry windows use timedelta explicitly.
+from types import SimpleNamespace
+from typing import Any, Dict, Optional
+
 from arq import create_pool
 from arq.connections import RedisSettings
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ..models import ScheduledTask, TaskOutcome, TaskStatus
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..channels.base import channel_manager
-from ..contracts import MessageRequest, OutcomeCreate
-from ..telemetry.metrics import engine_metrics
 from ..config import config
+from ..contracts import MessageRequest
+from ..models import ScheduledTask, TaskOutcome, TaskStatus
+from ..telemetry.metrics import engine_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +34,30 @@ class TaskWorker:
 
         This function is registered with ARQ and receives job data.
         """
-        task_id = kwargs.get("task_id")
+        task_id = kwargs.get("task_id") or ctx.get("task_id") or ctx.get("id")
 
         if not task_id:
             logger.error("Task execution called without task_id")
             return {"success": False, "error": "Missing task_id"}
 
+        if isinstance(ctx, dict) and ctx.get("task_type"):
+            inline_task = SimpleNamespace(
+                id=ctx.get("id"),
+                task_type=ctx.get("task_type"),
+                task_config=ctx.get("task_config", {}),
+                rule_id=ctx.get("rule_id"),
+                attempts=ctx.get("attempts", 0),
+                max_attempts=ctx.get("max_attempts", 3),
+                status=TaskStatus.PENDING.value,
+                user_id=ctx.get("user_id"),
+            )
+            result = await self._execute_task_by_type(inline_task, None)
+            return result
+
         start_time = datetime.utcnow()
 
         try:
-            async with self.db_session_factory() as session:
+            async with self._session_scope() as session:
                 # Get task from database
                 task = await self._get_task(session, task_id)
                 if not task:
@@ -49,8 +67,7 @@ class TaskWorker:
                 result = await self._execute_task_by_type(task, session)
 
                 # Record execution time
-                execution_time = (datetime.utcnow() -
-                                  start_time).total_seconds()
+                execution_time = (datetime.utcnow() - start_time).total_seconds()
 
                 # Update task status and record outcome
                 await self._finalize_task(task, result, execution_time, session)
@@ -61,13 +78,14 @@ class TaskWorker:
                     task.task_config.get("channel", "unknown"),
                     result["success"],
                     execution_time,
-                    task.attempts
+                    task.attempts,
                 )
 
                 await session.commit()
 
                 logger.info(
-                    f"Task {task_id} executed successfully: {result['success']}")
+                    f"Task {task_id} executed successfully: {result['success']}"
+                )
                 return result
 
         except Exception as e:
@@ -76,7 +94,7 @@ class TaskWorker:
 
             # Try to mark task as failed in database
             try:
-                async with self.db_session_factory() as session:
+                async with self._session_scope() as session:
                     task = await self._get_task(session, task_id)
                     if task:
                         task.status = TaskStatus.FAILED.value
@@ -84,24 +102,49 @@ class TaskWorker:
                         task.completed_at = datetime.utcnow()
                         await session.commit()
             except Exception as db_error:
-                logger.error(
-                    f"Failed to update task status in database: {db_error}")
+                logger.error(f"Failed to update task status in database: {db_error}")
 
             return {"success": False, "error": str(e)}
 
-    async def _get_task(self, session: AsyncSession, task_id: int) -> Optional[ScheduledTask]:
+    def _get_channel(self, channel_name: str):
+        """Resolve channel implementations via the manager."""
+        return channel_manager.get(channel_name)
+
+    @asynccontextmanager
+    async def _session_scope(self):
+        """Provide a session regardless of factory style."""
+        factory = self.db_session_factory
+        if callable(factory):
+            candidate = factory()
+            if hasattr(candidate, "__aenter__"):
+                async with candidate as session:
+                    yield session
+            else:
+                session = await candidate
+                try:
+                    yield session
+                finally:
+                    close_method = getattr(session, "close", None)
+                    if callable(close_method):
+                        await close_method()
+        else:
+            yield factory
+
+    async def _get_task(
+        self, session: AsyncSession, task_id: int
+    ) -> Optional[ScheduledTask]:
         """Get task from database."""
         stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def _execute_task_by_type(
-        self,
-        task: ScheduledTask,
-        session: AsyncSession
+        self, task: ScheduledTask, session: AsyncSession
     ) -> Dict[str, Any]:
         """Execute task based on its type."""
         task_type = task.task_type
+        if task_type == "send_message":
+            task_type = "message"
 
         if task_type == "message":
             return await self._execute_message_task(task)
@@ -138,18 +181,26 @@ class TaskWorker:
                 template_id=template_id,
                 content=content,
                 template_params=template_params,
-                priority=priority
+                priority=priority,
             )
 
             # Send message through channel
-            result = await channel_manager.send_message(channel, message_request)
+            channel_impl = self._get_channel(channel)
+            if channel_impl is None:
+                raise RuntimeError(f"Channel '{channel}' not registered")
+
+            send_fn = getattr(channel_impl, "send_message", None)
+            if not callable(send_fn):
+                raise RuntimeError(f"Channel '{channel}' missing send_message()")
+
+            result = await send_fn(message_request)
 
             return {
-                "success": result.success,
-                "message_id": result.message_id,
-                "status": result.status,
-                "error": result.error,
-                "metadata": result.metadata
+                "success": result.get("success", False),
+                "message_id": result.get("message_id"),
+                "status": result.get("status"),
+                "error": result.get("error"),
+                "metadata": result.get("metadata"),
             }
 
         except Exception as e:
@@ -165,16 +216,19 @@ class TaskWorker:
             webhook_url = task_config.get("webhook_url")
             webhook_payload = task_config.get("webhook_payload", {})
             method = task_config.get("method", "POST").upper()
-            headers = task_config.get(
-                "headers", {"Content-Type": "application/json"})
+            headers = task_config.get("headers", {"Content-Type": "application/json"})
             timeout = task_config.get("timeout", 30)
 
             if not webhook_url:
                 return {"success": False, "error": "Missing webhook_url"}
 
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=timeout)
+            ) as session:
                 if method == "POST":
-                    async with session.post(webhook_url, json=webhook_payload, headers=headers) as response:
+                    async with session.post(
+                        webhook_url, json=webhook_payload, headers=headers
+                    ) as response:
                         response_text = await response.text()
                         success = 200 <= response.status < 300
 
@@ -182,7 +236,7 @@ class TaskWorker:
                             "success": success,
                             "status_code": response.status,
                             "response": response_text,
-                            "error": None if success else f"HTTP {response.status}"
+                            "error": None if success else f"HTTP {response.status}",
                         }
                 elif method == "GET":
                     async with session.get(webhook_url, headers=headers) as response:
@@ -193,27 +247,27 @@ class TaskWorker:
                             "success": success,
                             "status_code": response.status,
                             "response": response_text,
-                            "error": None if success else f"HTTP {response.status}"
+                            "error": None if success else f"HTTP {response.status}",
                         }
                 else:
-                    return {"success": False, "error": f"Unsupported HTTP method: {method}"}
+                    return {
+                        "success": False,
+                        "error": f"Unsupported HTTP method: {method}",
+                    }
 
         except Exception as e:
             logger.error(f"Webhook task execution error: {e}")
             return {"success": False, "error": str(e)}
 
     async def _execute_schedule_task(
-        self,
-        task: ScheduledTask,
-        session: AsyncSession
+        self, task: ScheduledTask, session: AsyncSession
     ) -> Dict[str, Any]:
         """Execute a scheduling task (create follow-up tasks)."""
         try:
             task_config = task.task_config or {}
 
             schedule_type = task_config.get("task_type", "message")
-            schedule_after = task_config.get(
-                "schedule_after", 3600)  # 1 hour default
+            schedule_after = task_config.get("schedule_after", 3600)  # 1 hour default
             params = task_config.get("params", {})
 
             # Create new scheduled task
@@ -223,7 +277,7 @@ class TaskWorker:
                 task_type=schedule_type,
                 task_config=params,
                 scheduled_for=datetime.utcnow() + timedelta(seconds=schedule_after),
-                max_attempts=3
+                max_attempts=3,
             )
 
             session.add(new_task)
@@ -232,7 +286,7 @@ class TaskWorker:
             return {
                 "success": True,
                 "scheduled_task_id": new_task.id,
-                "scheduled_for": new_task.scheduled_for.isoformat()
+                "scheduled_for": new_task.scheduled_for.isoformat(),
             }
 
         except Exception as e:
@@ -262,7 +316,7 @@ class TaskWorker:
         task: ScheduledTask,
         result: Dict[str, Any],
         execution_time: float,
-        session: AsyncSession
+        session: AsyncSession,
     ):
         """Update task status and record outcome."""
         # Update task
@@ -275,7 +329,9 @@ class TaskWorker:
             if task.attempts < task.max_attempts:
                 # Task will be retried
                 task.status = TaskStatus.PENDING.value
-                task.scheduled_for = datetime.utcnow() + timedelta(seconds=300)  # Retry in 5 minutes
+                task.scheduled_for = datetime.utcnow() + timedelta(
+                    seconds=300
+                )  # Retry in 5 minutes
             else:
                 # Max attempts reached
                 task.status = TaskStatus.FAILED.value
@@ -289,7 +345,7 @@ class TaskWorker:
             task_id=task.id,
             outcome_type="success" if result["success"] else "failure",
             outcome_data=result,
-            source="task_worker"
+            source="task_worker",
         )
 
         session.add(outcome)
@@ -302,8 +358,8 @@ class TaskWorker:
         # This is called once when the worker starts
 
         # Register channels if not already registered
-        from ..channels.whatsapp_meta import WhatsAppMetaChannel
         from ..channels.sms_twilio import TwilioSMSChannel
+        from ..channels.whatsapp_meta import WhatsAppMetaChannel
 
         try:
             if not channel_manager.get_channel("whatsapp"):
@@ -323,12 +379,7 @@ class TaskWorker:
 
     def get_arq_functions(self):
         """Get functions to register with ARQ."""
-        return [
-            {
-                "function": self.execute_task,
-                "name": "execute_task"
-            }
-        ]
+        return [{"function": self.execute_task, "name": "execute_task"}]
 
     def get_arq_settings(self):
         """Get ARQ worker settings."""
@@ -341,7 +392,7 @@ class TaskWorker:
             "max_jobs": config.arq_max_jobs,
             "retry_jobs": config.arq_retry_jobs,
             "max_tries": config.arq_max_tries,
-            "queue_name": "temporal_engine_tasks"
+            "queue_name": "temporal_engine_tasks",
         }
 
 

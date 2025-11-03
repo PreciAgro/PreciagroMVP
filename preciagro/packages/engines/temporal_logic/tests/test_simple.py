@@ -1,16 +1,18 @@
-"""Simple working test for temporal logic engine."""
-from preciagro.packages.engines.temporal_logic.dsl.compiler import TaskCompiler
-from preciagro.packages.engines.temporal_logic.dsl.loader import DSLLoader
-from preciagro.packages.engines.temporal_logic.dsl.evaluator import RuleEvaluator
-from preciagro.packages.engines.temporal_logic.contracts import EngineEvent, Rule
-import pytest
-import asyncio
-from datetime import datetime, timezone
-import sys
+﻿"""Simple working test for temporal logic engine."""
+
 import os
+import sys
+from datetime import datetime, timezone
+
+import pytest
+
+from preciagro.packages.engines.temporal_logic.contracts import (EngineEvent)
+from preciagro.packages.engines.temporal_logic.dsl.compiler import TaskCompiler
+from preciagro.packages.engines.temporal_logic.dsl.evaluator import \
+    RuleEvaluator
 
 # Add the project root to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
 
 class TestTemporalLogicEngine:
@@ -24,7 +26,7 @@ class TestTemporalLogicEngine:
             user_id="user_123",
             farm_id="farm_456",
             timestamp=datetime.now(timezone.utc),
-            metadata={"temperature": 25.5, "humidity": 80}
+            metadata={"temperature": 25.5, "humidity": 80},
         )
 
         assert event.event_id == "test_001"
@@ -43,13 +45,15 @@ class TestTemporalLogicEngine:
             user_id="user_123",
             farm_id="farm_456",
             timestamp=datetime.now(timezone.utc),
-            metadata={"humidity": 85, "crop_type": "tomato"}
+            metadata={"humidity": 85, "crop_type": "tomato"},
         )
+        # FIX: Ruff F841 lint - ensure event instantiation is asserted so the construction remains covered and lint passes.
+        assert event.metadata["humidity"] == 85
 
         # Test the _apply_operator method directly
-        assert evaluator._apply_operator(85, "gt", 80) == True
-        assert evaluator._apply_operator(75, "gt", 80) == False
-        assert evaluator._apply_operator("tomato", "eq", "tomato") == True
+        assert evaluator._apply_operator(85, "gt", 80)  # FIX: Ruff E712 lint - rely on truthiness instead of explicit True comparison.
+        assert not evaluator._apply_operator(75, "gt", 80)
+        assert evaluator._apply_operator("tomato", "eq", "tomato")
 
     def test_task_compiler_basic(self):
         """Test basic task compilation functionality."""
@@ -62,7 +66,7 @@ class TestTemporalLogicEngine:
             user_id="user_123",
             farm_id="farm_456",
             timestamp=datetime.now(timezone.utc),
-            metadata={"temperature": 25.5, "crop": "corn"}
+            metadata={"temperature": 25.5, "crop": "corn"},
         )
 
         context = {"phone": "+1234567890", "name": "John"}
@@ -77,7 +81,8 @@ class TestTemporalLogicEngine:
 
     def test_dedupe_key_generation(self):
         """Test deduplication key generation."""
-        from preciagro.packages.engines.temporal_logic.contracts import Rule, Trigger, ScheduleWindow, Deduplication
+        from preciagro.packages.engines.temporal_logic.contracts import (
+            Deduplication, Rule, ScheduleWindow, Trigger)
 
         compiler = TaskCompiler()
 
@@ -85,10 +90,8 @@ class TestTemporalLogicEngine:
         rule = Rule(
             id="test_rule",
             trigger=Trigger(event_type="test", filters=[]),
-            windows=[ScheduleWindow(
-                id="window1", channel="sms", message="test")],
-            deduplication=Deduplication(
-                window="24h", fields=["farm_id", "crop_type"])
+            windows=[ScheduleWindow(id="window1", channel="sms", message="test")],
+            deduplication=Deduplication(window="24h", fields=["farm_id", "crop_type"]),
         )
 
         event = EngineEvent(
@@ -97,14 +100,13 @@ class TestTemporalLogicEngine:
             user_id="user_123",
             farm_id="farm_456",
             timestamp=datetime.now(timezone.utc),
-            metadata={"crop_type": "wheat"}
+            metadata={"crop_type": "wheat"},
         )
 
         window = rule.windows[0]
         dedupe_key = compiler._generate_dedupe_key(rule, event, window)
 
-        expected_parts = ["test_rule", "window1",
-                          "user_123", "farm_456", "wheat"]
+        expected_parts = ["test_rule", "window1", "user_123", "farm_456", "wheat"]
         assert dedupe_key == "|".join(expected_parts)
 
 

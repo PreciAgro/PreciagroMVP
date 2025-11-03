@@ -1,11 +1,13 @@
 """Rule evaluator with predicate and window logic."""
+
+import ast
 import logging
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
-from .contracts import Condition, WindowConfig, EventResponse
-from .models import TemporalEvent
-import json
 import re
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+from .contracts import Condition, WindowConfig
+from .models import TemporalEvent
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,18 @@ logger = logging.getLogger(__name__)
 class PredicateEvaluator:
     """Evaluates conditions/predicates against events."""
 
-    def evaluate_condition(self, condition: Condition, event_data: Dict[str, Any]) -> bool:
+    _ALLOWED_COMPARATORS = (
+        ast.Eq,
+        ast.NotEq,
+        ast.Gt,
+        ast.GtE,
+        ast.Lt,
+        ast.LtE,
+    )
+
+    def evaluate_condition(
+        self, condition: Condition, event_data: Dict[str, Any]
+    ) -> bool:
         """Evaluate a single condition against event data."""
         try:
             field_value = self._get_nested_field(event_data, condition.field)
@@ -21,14 +34,19 @@ class PredicateEvaluator:
             if field_value is None and condition.operator != "exists":
                 return False
 
-            return self._apply_operator(field_value, condition.operator, condition.value)
+            return self._apply_operator(
+                field_value, condition.operator, condition.value
+            )
 
         except Exception as e:
             logger.error(
-                f"Error evaluating condition {condition.field} {condition.operator} {condition.value}: {e}")
+                f"Error evaluating condition {condition.field} {condition.operator} {condition.value}: {e}"
+            )
             return False
 
-    def evaluate_conditions(self, conditions: List[Condition], event_data: Dict[str, Any]) -> Tuple[bool, float]:
+    def evaluate_conditions(
+        self, conditions: List[Condition], event_data: Dict[str, Any]
+    ) -> Tuple[bool, float]:
         """
         Evaluate all conditions against event data.
         Returns (matches, confidence_score).
@@ -53,7 +71,7 @@ class PredicateEvaluator:
 
     def _get_nested_field(self, data: Dict[str, Any], field_path: str) -> Any:
         """Get nested field value using dot notation (e.g., 'payload.temperature.value')."""
-        keys = field_path.split('.')
+        keys = field_path.split(".")
         current = data
 
         for key in keys:
@@ -70,7 +88,9 @@ class PredicateEvaluator:
 
         return current
 
-    def _apply_operator(self, field_value: Any, operator: str, condition_value: Any) -> bool:
+    def _apply_operator(
+        self, field_value: Any, operator: str, condition_value: Any
+    ) -> bool:
         """Apply comparison operator."""
         try:
             if operator == "eq":
@@ -101,6 +121,64 @@ class PredicateEvaluator:
             logger.warning(f"Type error in operator {operator}: {e}")
             return False
 
+    def _normalize_predicate(self, predicate: str) -> Optional[str]:
+        """Normalize a raw predicate string to a safe Python expression."""
+        if not predicate or not predicate.strip():
+            return None
+
+        expr = re.sub(r"\bAND\b", "and", predicate, flags=re.IGNORECASE)
+        expr = re.sub(r"\bOR\b", "or", expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\bNOT\b", "not", expr, flags=re.IGNORECASE)
+        expr = re.sub(r"(?<![<>=!])=(?!=)", "==", expr)
+
+        try:
+            tree = ast.parse(expr, mode="eval")
+        except SyntaxError:
+            return None
+
+        if not self._is_safe_ast(tree):
+            return None
+
+        return expr
+
+    def _is_safe_ast(self, node: ast.AST) -> bool:
+        """Ensure the predicate AST contains only safe nodes."""
+        if isinstance(node, ast.Expression):
+            return self._is_safe_ast(node.body)
+        if isinstance(node, ast.BoolOp):
+            if not isinstance(node.op, (ast.And, ast.Or)):
+                return False
+            return all(self._is_safe_ast(value) for value in node.values)
+        if isinstance(node, ast.UnaryOp):
+            return isinstance(node.op, ast.Not) and self._is_safe_ast(node.operand)
+        if isinstance(node, ast.Compare):
+            if not self._is_safe_ast(node.left):
+                return False
+            if not all(isinstance(op, self._ALLOWED_COMPARATORS) for op in node.ops):
+                return False
+            return all(self._is_safe_ast(comp) for comp in node.comparators)
+        if isinstance(node, ast.Name):
+            return True
+        if isinstance(node, ast.Constant):
+            return True
+        return False
+
+    def evaluate(self, predicate: str, context: Dict[str, Any]) -> bool:
+        """Evaluate a raw predicate string against the supplied context."""
+        normalized = self._normalize_predicate(predicate)
+        if normalized is None:
+            return False
+
+        try:
+            return bool(eval(normalized, {"__builtins__": {}}, context))
+        except Exception as exc:  # noqa: BLE001 - broad for safety
+            logger.warning("Predicate evaluation error for %s: %s", predicate, exc)
+            return False
+
+    def _validate_predicate(self, predicate: str) -> bool:
+        """Return True when the predicate is syntactically valid."""
+        return self._normalize_predicate(predicate) is not None
+
 
 class WindowEvaluator:
     """Evaluates events within time windows."""
@@ -112,14 +190,13 @@ class WindowEvaluator:
         self,
         events: List[TemporalEvent],
         window_config: WindowConfig,
-        current_time: Optional[datetime] = None
+        current_time: Optional[datetime] = None,
     ) -> List[TemporalEvent]:
         """Get events that fall within the specified time window."""
         if current_time is None:
             current_time = datetime.utcnow()
 
-        window_start = self._calculate_window_start(
-            current_time, window_config)
+        window_start = self._calculate_window_start(current_time, window_config)
 
         # Filter events within window
         window_events = []
@@ -133,7 +210,7 @@ class WindowEvaluator:
         self,
         events: List[TemporalEvent],
         conditions: List[Condition],
-        window_config: WindowConfig
+        window_config: WindowConfig,
     ) -> Tuple[bool, float, List[TemporalEvent]]:
         """
         Evaluate conditions across a window of events.
@@ -145,16 +222,17 @@ class WindowEvaluator:
 
         for event in events:
             event_data = {
-                'event_type': event.event_type,
-                'source': event.source,
-                'payload': event.payload,
-                'metadata': event.metadata,
-                'created_at': event.created_at.isoformat(),
-                'id': event.id
+                "event_type": event.event_type,
+                "source": event.source,
+                "payload": event.payload,
+                "metadata": event.metadata,
+                "created_at": event.created_at.isoformat(),
+                "id": event.id,
             }
 
             matches, confidence = self.predicate_evaluator.evaluate_conditions(
-                conditions, event_data)
+                conditions, event_data
+            )
 
             if matches:
                 matching_events.append(event)
@@ -169,7 +247,9 @@ class WindowEvaluator:
 
         return overall_match, avg_confidence, matching_events
 
-    def _calculate_window_start(self, current_time: datetime, window_config: WindowConfig) -> datetime:
+    def _calculate_window_start(
+        self, current_time: datetime, window_config: WindowConfig
+    ) -> datetime:
         """Calculate the start time for the window."""
         window_size = timedelta(seconds=window_config.size)
 
@@ -178,8 +258,9 @@ class WindowEvaluator:
         elif window_config.type == "tumbling":
             # Align to window boundaries
             seconds_since_epoch = int(current_time.timestamp())
-            window_start_epoch = (seconds_since_epoch //
-                                  window_config.size) * window_config.size
+            window_start_epoch = (
+                seconds_since_epoch // window_config.size
+            ) * window_config.size
             return datetime.fromtimestamp(window_start_epoch)
         elif window_config.type == "session":
             # Session windows are more complex - for now, treat like sliding
@@ -200,47 +281,50 @@ class ContextEvaluator:
         events: List[TemporalEvent],
         conditions: List[Condition],
         window_config: WindowConfig,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Evaluate events with additional context information."""
         current_time = datetime.utcnow()
 
         # Get events in window
         window_events = self.window_evaluator.get_window_events(
-            events, window_config, current_time)
+            events, window_config, current_time
+        )
 
         # Evaluate conditions
-        matches, confidence, matching_events = self.window_evaluator.evaluate_window_conditions(
-            window_events, conditions, window_config
+        matches, confidence, matching_events = (
+            self.window_evaluator.evaluate_window_conditions(
+                window_events, conditions, window_config
+            )
         )
 
         # Build evaluation result
         result = {
-            'matches': matches,
-            'confidence': confidence,
-            'window_events_count': len(window_events),
-            'matching_events_count': len(matching_events),
-            'evaluation_time': current_time.isoformat(),
-            'window_config': {
-                'type': window_config.type,
-                'size': window_config.size,
-                'advance': window_config.advance,
-                'session_timeout': window_config.session_timeout
-            }
+            "matches": matches,
+            "confidence": confidence,
+            "window_events_count": len(window_events),
+            "matching_events_count": len(matching_events),
+            "evaluation_time": current_time.isoformat(),
+            "window_config": {
+                "type": window_config.type,
+                "size": window_config.size,
+                "advance": window_config.advance,
+                "session_timeout": window_config.session_timeout,
+            },
         }
 
         # Add context if provided
         if context:
-            result['context'] = context
+            result["context"] = context
 
         # Add event details if matches found
         if matching_events:
-            result['matching_events'] = [
+            result["matching_events"] = [
                 {
-                    'id': event.id,
-                    'event_type': event.event_type,
-                    'created_at': event.created_at.isoformat(),
-                    'payload_summary': self._summarize_payload(event.payload)
+                    "id": event.id,
+                    "event_type": event.event_type,
+                    "created_at": event.created_at.isoformat(),
+                    "payload_summary": self._summarize_payload(event.payload),
                 }
                 for event in matching_events[-5:]  # Last 5 matching events
             ]
@@ -252,8 +336,14 @@ class ContextEvaluator:
         summary = {}
 
         # Include key fields if they exist
-        key_fields = ['temperature', 'humidity', 'soil_moisture',
-                      'pest_type', 'disease_type', 'location']
+        key_fields = [
+            "temperature",
+            "humidity",
+            "soil_moisture",
+            "pest_type",
+            "disease_type",
+            "location",
+        ]
 
         for field in key_fields:
             if field in payload:
@@ -276,15 +366,13 @@ class RuleEvaluator:
         self,
         rule_data: Dict[str, Any],
         events: List[TemporalEvent],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Evaluate a complete rule against events."""
         try:
             # Parse rule components
-            conditions = [
-                Condition(**cond) for cond in rule_data.get('conditions', [])
-            ]
-            window_config = WindowConfig(**rule_data.get('window_config', {}))
+            conditions = [Condition(**cond) for cond in rule_data.get("conditions", [])]
+            window_config = WindowConfig(**rule_data.get("window_config", {}))
 
             # Evaluate with context
             evaluation_result = self.context_evaluator.evaluate_with_context(
@@ -292,37 +380,40 @@ class RuleEvaluator:
             )
 
             # Add rule metadata
-            evaluation_result['rule_name'] = rule_data.get('name', 'unknown')
-            evaluation_result['rule_id'] = rule_data.get('id')
+            evaluation_result["rule_name"] = rule_data.get("name", "unknown")
+            evaluation_result["rule_id"] = rule_data.get("id")
 
-            logger.info(f"Rule '{rule_data.get('name')}' evaluation: "
-                        f"matches={evaluation_result['matches']}, "
-                        f"confidence={evaluation_result['confidence']:.2f}")
+            logger.info(
+                f"Rule '{rule_data.get('name')}' evaluation: "
+                f"matches={evaluation_result['matches']}, "
+                f"confidence={evaluation_result['confidence']:.2f}"
+            )
 
             return evaluation_result
 
         except Exception as e:
             logger.error(
-                f"Error evaluating rule {rule_data.get('name', 'unknown')}: {e}")
+                f"Error evaluating rule {rule_data.get('name', 'unknown')}: {e}"
+            )
             return {
-                'matches': False,
-                'confidence': 0.0,
-                'error': str(e),
-                'rule_name': rule_data.get('name', 'unknown'),
-                'rule_id': rule_data.get('id')
+                "matches": False,
+                "confidence": 0.0,
+                "error": str(e),
+                "rule_name": rule_data.get("name", "unknown"),
+                "rule_id": rule_data.get("id"),
             }
 
     async def batch_evaluate_rules(
         self,
         rules: List[Dict[str, Any]],
         events: List[TemporalEvent],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """Evaluate multiple rules against the same set of events."""
         results = []
 
         for rule in rules:
-            if not rule.get('enabled', True):
+            if not rule.get("enabled", True):
                 continue
 
             result = await self.evaluate_rule(rule, events, context)

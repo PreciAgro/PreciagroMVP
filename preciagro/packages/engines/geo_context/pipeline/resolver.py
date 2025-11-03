@@ -1,318 +1,333 @@
-"""Main resolver for Field Context Objects - MVP version."""
-import asyncio
-from datetime import datetime
-from typing import Optional, Dict
-import hashlib
-import json
+"""Main resolver for Field Context Objects."""
 
-from ..contracts.v1.requests import FCORequest
-from ..contracts.v1.fco import FCOResponse, LocationInfo, ProvenanceEntry
-from .spatial_resolver import SpatialResolver
-from .soil_resolver import SoilResolver
-from .climate_resolver import ClimateResolver
-from .calendar_composer import CalendarComposer
-from ..storage.db import get_cached_fco, cache_fco
-from ..storage.cache import get_cache
-from ..telemetry.metrics import telemetry, structured_logger
+from __future__ import annotations
+
+import hashlib
+import inspect
+import json
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Union
+
 from ..config import settings
+from ..contracts.v1.fco import FCOResponse
+from ..contracts.v1.requests import FCORequest
+from ..storage.cache import get_cache
+from ..storage.db import cache_fco
+from .calendar_composer import CalendarComposer
+from .climate_resolver import ClimateResolver
+from .rules_engine import RulesEngine
+from .soil_resolver import SoilResolver
+from .spatial_resolver import SpatialResolver
 
 
 class GeoContextResolver:
-    """Main resolver for Field Context Objects - MVP version."""
+    """Primary orchestrator for geo-context resolutions."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.spatial_resolver = SpatialResolver()
         self.soil_resolver = SoilResolver()
         self.climate_resolver = ClimateResolver()
         self.calendar_composer = CalendarComposer()
+        self.rules_engine = RulesEngine()
 
     async def resolve_field_context(self, request: FCORequest) -> FCOResponse:
-        """Resolve complete field context for a location."""
+        """Resolve the full Field Context Object for the given request."""
+        start_time = datetime.now(timezone.utc)
+        centroid = request.get_location()
+        context_hash = self._generate_context_hash(centroid, request)
 
-        # Calculate centroid from field polygon
-        centroid = self._calculate_centroid(request.field.coordinates[0])
+        location_payload: Dict[str, Any] = {
+            "centroid": {"lat": centroid["lat"], "lon": centroid["lon"]},
+            "lat": centroid["lat"],
+            "lon": centroid["lon"],
+            "admin_l0": None,
+            "admin_l1": None,
+            "admin_l2": None,
+            "agro_zone": None,
+        }
 
-        # Generate context hash for caching
-        context_hash = self._generate_context_hash(request)
-
-        # Start telemetry tracking
-        async with telemetry.track_request("resolve_field_context", context_hash) as metrics:
-
-            # Log request start
-            structured_logger.log_request_start(context_hash, {
-                'crops': request.crops,
-                'date': request.date,
-                'forecast_days': request.forecast_days
-            })
-
-            # Check cache if enabled
-            cache = get_cache()
-            if request.use_cache:
-                cached_response = await cache.get(context_hash)
-                if cached_response:
-                    telemetry.track_cache_hit(context_hash)
-                    structured_logger.log_cache_operation(
-                        "get", context_hash, "hit")
-                    metrics['cache_hit'] = True
-                    structured_logger.log_request_end(context_hash, metrics)
-                    return cached_response
-                else:
-                    telemetry.track_cache_miss(context_hash)
-                    structured_logger.log_cache_operation(
-                        "get", context_hash, "miss")
-                    metrics['cache_hit'] = False
-
-            # Parse reference date
+        cache_hit = False
+        cache = None
+        if request.use_cache and cache:
             try:
-                reference_date = datetime.fromisoformat(request.date)
-            except:
-                reference_date = datetime.now()
+                cache = get_cache()
+                cached = await cache.get(context_hash)
+                if cached:
+                    cached.cache_hit = True
+                    return cached
+            except Exception:
+                cache = None
 
-            # Initialize response
-            response = FCOResponse(
-                context_hash=context_hash,
-                location=LocationInfo(
-                    centroid=centroid,
-                    admin_l0=None,
-                    admin_l1=None,
-                    admin_l2=None,
-                    agro_zone=None
+        soil = await self._resolve_soil(request, centroid)
+        climate = await self._resolve_climate(request, centroid)
+        spatial = await self._resolve_spatial(request, centroid)
+        calendar_events = await self._resolve_calendar(request, centroid)
+        planting_recommendations, spray_recommendations = (
+            await self._resolve_recommendations(request, centroid, soil, climate)
+        )
+
+        data_sources = [
+            source
+            for source, present in [
+                ("spatial_resolver", spatial is not None),
+                ("soil_resolver", soil is not None),
+                ("climate_resolver", climate is not None),
+                ("calendar_composer", bool(calendar_events)),
+                (
+                    "rules_engine",
+                    bool(planting_recommendations) or bool(spray_recommendations),
                 ),
-                provenance=[]
-            )
+            ]
+            if present
+        ]
 
-            # Collect non-dependent data concurrently
-            initial_tasks = []
-            initial_tasks.append(self._resolve_spatial(centroid))
-            initial_tasks.append(self._resolve_soil(centroid))
-            initial_tasks.append(self._resolve_climate(
-                centroid, reference_date, request.forecast_days))
+        provenance = []
+        updated_ts = datetime.now(timezone.utc).isoformat()
 
-            # Execute initial tasks
-            initial_results = await asyncio.gather(*initial_tasks, return_exceptions=True)
-
-            # Process initial results
-            spatial_result, soil_result, climate_result = initial_results
-
-            # Update location info with spatial data
-            if not isinstance(spatial_result, Exception) and spatial_result:
-                response.location.admin_l0 = spatial_result.get("admin_l0")
-                response.location.admin_l1 = spatial_result.get("admin_l1")
-                response.location.admin_l2 = spatial_result.get("admin_l2")
-                response.location.agro_zone = spatial_result.get("agro_zone")
-                response.provenance.append(ProvenanceEntry(
-                    source="spatial_resolver",
-                    version="v1.0",
-                    resolution="1km",
-                    last_updated=datetime.now()
-                ))
-
-            # Add soil data
-            if not isinstance(soil_result, Exception) and soil_result:
-                response.soil = soil_result
-                response.provenance.append(ProvenanceEntry(
-                    source="soil_resolver",
-                    version="v1.0",
-                    resolution="250m",
-                    last_updated=datetime.now()
-                ))
-
-            # Add climate data
-            climate_data_dict = {}
-            if not isinstance(climate_result, Exception) and climate_result:
-                response.climate = climate_result
-                response.provenance.append(ProvenanceEntry(
-                    source="climate_resolver",
-                    version="v1.0",
-                    resolution="1km",
-                    last_updated=datetime.now()
-                ))
-                # Prepare climate data for calendar resolution
-                climate_data_dict = {
-                    "et0_weekly_mm": getattr(climate_result, 'et0_weekly_mm', 25.0),
-                    "gdd_ytd": getattr(climate_result, 'gdd_ytd', 0),
-                    "temp_min": getattr(climate_result, 'temp_min_c', 10),
-                    "temp_max": getattr(climate_result, 'temp_max_c', 25)
+        if spatial:
+            location_payload.update(
+                {
+                    "admin_l0": spatial.admin_l0 or spatial.administrative_region,
+                    "admin_l1": spatial.admin_l1 or spatial.administrative_region,
+                    "admin_l2": spatial.admin_l2,
+                    "agro_zone": spatial.agro_zone,
                 }
-
-            # Now resolve calendars with climate data
-            calendar_result = await self._resolve_calendars(centroid, request.crops, climate_data_dict)
-
-            # Add calendar data
-            if not isinstance(calendar_result, Exception) and calendar_result:
-                response.calendars = calendar_result
-                response.provenance.append(ProvenanceEntry(
-                    source="calendar_composer",
-                    version="v1.0",
-                    resolution="rules_based",
-                    last_updated=datetime.now()
-                ))
-
-            # Cache result if enabled
-            if request.use_cache:
-                cache_success = await cache.set(context_hash, response)
-                telemetry.track_cache_set(context_hash, cache_success)
-                structured_logger.log_cache_operation(
-                    "set", context_hash, "success" if cache_success else "error")
-
-            # Set completion confidence
-            response.confidence = self._calculate_confidence(response)
-
-            # Add processing time from telemetry
-            response.processing_time_ms = metrics.get('duration_ms', 0)
-
-            # Log completion
-            structured_logger.log_request_end(context_hash, metrics)
-
-            return response
-
-    async def _resolve_spatial(self, location: Dict[str, float]):
-        """Resolve spatial context."""
-        try:
-            return await self.spatial_resolver.resolve(location)
-        except Exception as e:
-            print(f"Spatial resolution failed: {e}")
-            return None
-
-    async def _resolve_soil(self, location: Dict[str, float]):
-        """Resolve soil data."""
-        try:
-            return await self.soil_resolver.resolve(location)
-        except Exception as e:
-            print(f"Soil resolution failed: {e}")
-            return None
-
-    async def _resolve_climate(self, location: Dict[str, float], reference_date: datetime, forecast_days: int):
-        """Resolve climate data."""
-        try:
-            return await self.climate_resolver.resolve(location, reference_date, forecast_days)
-        except Exception as e:
-            print(f"Climate resolution failed: {e}")
-            return None
-
-    async def _resolve_calendars(self, location: Dict[str, float], crops: list, climate_data: Dict = None):
-        """Resolve calendar data for crops and return a single Calendars object."""
-        try:
-            from ..contracts.v1.fco import Calendars
-
-            all_planting = []
-            all_irrigation = []
-            all_no_spray = []
-
-            # Process each crop individually with the new interface
-            for crop in crops:
-                calendar_data = await self.calendar_composer.compose(
-                    location,
-                    crop,
-                    climate_data or {}
-                )
-                if calendar_data:
-                    # Aggregate windows from each crop
-                    if hasattr(calendar_data, 'planting_windows'):
-                        all_planting.extend(calendar_data.planting_windows)
-                    if hasattr(calendar_data, 'irrigation_baseline'):
-                        all_irrigation.extend(
-                            calendar_data.irrigation_baseline)
-                    if hasattr(calendar_data, 'no_spray_windows'):
-                        all_no_spray.extend(calendar_data.no_spray_windows)
-
-            # Return a single Calendars object with aggregated windows
-            return Calendars(
-                planting_windows=all_planting,
-                irrigation_baseline=all_irrigation,
-                no_spray_windows=all_no_spray
             )
-        except Exception as e:
-            print(f"Calendar composition failed: {e}")
-            # Return empty Calendars object on error
-            from ..contracts.v1.fco import Calendars
-            return Calendars()
+            provenance.append(
+                {
+                    "source": "spatial_resolver",
+                    "status": "ok",
+                    "last_updated": updated_ts,
+                }
+            )
 
-    def _calculate_centroid(self, coordinates: list) -> Dict[str, float]:
+        if soil:
+            provenance.append(
+                {"source": "soil_resolver", "status": "ok", "last_updated": updated_ts}
+            )
+
+        if climate:
+            provenance.append(
+                {
+                    "source": "climate_resolver",
+                    "status": "ok",
+                    "last_updated": updated_ts,
+                }
+            )
+
+        if calendar_events:
+            provenance.append(
+                {
+                    "source": "calendar_composer",
+                    "status": "ok",
+                    "last_updated": updated_ts,
+                }
+            )
+
+        if planting_recommendations or spray_recommendations:
+            provenance.append(
+                {"source": "rules_engine", "status": "ok", "last_updated": updated_ts}
+            )
+
+        response = FCOResponse(
+            context_hash=context_hash,
+            location=location_payload,
+            soil=soil,
+            climate=climate,
+            spatial=spatial,
+            calendar_events=calendar_events,
+            planting_recommendations=planting_recommendations,
+            spray_recommendations=spray_recommendations,
+            data_sources=data_sources,
+            cache_hit=cache_hit,
+            provenance=provenance,
+            timestamp=start_time,
+        )
+        confidence_value = self._calculate_confidence(response)
+        response.confidence = confidence_value
+        response.confidence_score = confidence_value
+        response.processing_time_ms = (
+            datetime.now(timezone.utc) - start_time
+        ).total_seconds() * 1000
+
+        if request.use_cache:
+            if cache:
+                try:
+                    await cache.set(context_hash, response)
+                except Exception:
+                    pass
+            elif getattr(settings, "ENABLE_POSTGIS", False):
+                try:
+                    await cache_fco(context_hash, response)
+                except Exception:
+                    pass
+
+        return response
+
+    async def _resolve_spatial(self, request: FCORequest, location: Dict[str, float]):
+        if not request.include_spatial:
+            return None
+        try:
+            return await self._maybe_await(self.spatial_resolver.resolve(location))
+        except Exception:
+            return None
+
+    async def _resolve_soil(self, request: FCORequest, location: Dict[str, float]):
+        if not request.include_soil:
+            return None
+        try:
+            return await self._maybe_await(self.soil_resolver.resolve(location))
+        except Exception:
+            return None
+
+    async def _resolve_climate(self, request: FCORequest, location: Dict[str, float]):
+        if not request.include_climate:
+            return None
+        try:
+            return await self._maybe_await(
+                self.climate_resolver.resolve(
+                    location,
+                    reference_date=request.get_reference_date(),
+                    forecast_days=request.forecast_days,
+                )
+            )
+        except Exception:
+            return None
+
+    async def _resolve_calendar(self, request: FCORequest, location: Dict[str, float]):
+        if not request.include_calendar:
+            return []
+        try:
+            result = await self._maybe_await(
+                self.calendar_composer.compose(location, request.crop_types)
+            )
+            return result or []
+        except Exception:
+            return []
+
+    async def _resolve_recommendations(
+        self,
+        request: FCORequest,
+        location: Dict[str, float],
+        soil,
+        climate,
+    ):
+        if not request.include_rules:
+            return [], []
+
+        try:
+            planting = await self._maybe_await(
+                self.rules_engine.get_planting_recommendations(
+                    location, soil, climate, request.crop_types
+                )
+            )
+        except Exception:
+            planting = []
+        try:
+            spray = await self._maybe_await(
+                self.rules_engine.get_spray_recommendations(
+                    location, climate, request.crop_types
+                )
+            )
+        except Exception:
+            spray = []
+        return planting or [], spray or []
+
+    def _calculate_centroid(self, coordinates: list[list[float]]) -> Dict[str, float]:
         """Calculate centroid of polygon coordinates."""
         if not coordinates:
             raise ValueError("Empty coordinates")
-
-        lons = [coord[0] for coord in coordinates]
         lats = [coord[1] for coord in coordinates]
+        lons = [coord[0] for coord in coordinates]
+        return {"lat": sum(lats) / len(lats), "lon": sum(lons) / len(lons)}
 
-        return {
-            "lat": sum(lats) / len(lats),
-            "lon": sum(lons) / len(lons)
+    def _generate_context_hash(
+        self,
+        location_or_request: Union[Dict[str, float], FCORequest],
+        request: Optional[FCORequest] = None,
+    ) -> str:
+        if isinstance(location_or_request, FCORequest) and request is None:
+            request = location_or_request
+            location = request.get_location()
+        else:
+            if request is None:
+                raise ValueError(
+                    "Request must be provided when passing explicit location"
+                )
+            location = location_or_request  # type: ignore[assignment]
+
+        payload = {
+            "lat": round(location["lat"], 5),
+            "lon": round(location["lon"], 5),
+            "crops": sorted(request.crop_types),
+            "date": request.get_reference_date().date().isoformat(),
+            "flags": {
+                "soil": request.include_soil,
+                "climate": request.include_climate,
+                "spatial": request.include_spatial,
+                "calendar": request.include_calendar,
+                "rules": request.include_rules,
+            },
         }
-
-    def _generate_context_hash(self, request: FCORequest) -> str:
-        """Generate deterministic context hash."""
-        # Normalize geometry for consistent hashing
-        normalized_coords = self._normalize_geometry(request.field.coordinates)
-
-        # Create hash input
-        hash_data = {
-            "geometry": normalized_coords,
-            "date_bucket": request.date[:7],  # YYYY-MM for monthly buckets
-            "crops": sorted(request.crops),
-            "layer_versions": {
-                "spatial": "v1.0",
-                "soil": "v1.0",
-                "climate": "v1.0",
-                "calendar": "v1.0"
-            }
-        }
-
-        hash_str = json.dumps(hash_data, sort_keys=True)
-        return hashlib.sha256(hash_str.encode()).hexdigest()[:16]  # Short hash
-
-    def _normalize_geometry(self, coordinates):
-        """Normalize geometry for consistent hashing regardless of vertex order/winding."""
-        # Simple normalization - round coordinates to reduce floating point variations
-        normalized = []
-        for ring in coordinates:
-            ring_normalized = []
-            for coord in ring:
-                ring_normalized.append(
-                    [round(coord[0], 6), round(coord[1], 6)])
-            normalized.append(ring_normalized)
-        return normalized
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()[:16]
 
     def _calculate_confidence(self, response: FCOResponse) -> float:
-        """Calculate overall confidence score based on data completeness."""
-        scores = []
+        """Calculate a simple confidence score based on available data."""
+        score = 0.0
+        total = 0.0
 
-        # Spatial data confidence
-        if response.location.admin_l0 and response.location.agro_zone:
-            scores.append(1.0)
-        elif response.location.admin_l0:
-            scores.append(0.7)
-        else:
-            scores.append(0.3)
+        if response.spatial:
+            score += 0.2
+            total += 0.2
 
-        # Soil data confidence
-        if response.soil and response.soil.texture and response.soil.ph_range:
-            scores.append(1.0)
-        elif response.soil:
-            scores.append(0.6)
-        else:
-            scores.append(0.2)
+        if response.soil:
+            soil_score = 0.1
+            if (
+                response.soil.ph is not None
+                and response.soil.organic_matter is not None
+            ):
+                soil_score = 0.2
+            score += soil_score
+            total += 0.2
 
-        # Climate data confidence
-        if response.climate and response.climate.et0_mm_day and response.climate.gdd_base10_ytd:
-            scores.append(1.0)
-        elif response.climate and response.climate.forecast_summary:
-            scores.append(0.8)
-        else:
-            scores.append(0.3)
+        if response.climate:
+            climate_score = 0.15
+            if (
+                response.climate.temperature_avg is not None
+                and response.climate.humidity is not None
+            ):
+                climate_score = 0.2
+            score += climate_score
+            total += 0.2
 
-        # Calendar data confidence
-        if response.calendars and (response.calendars.planting_windows or response.calendars.irrigation_baseline):
-            scores.append(0.9)
-        else:
-            scores.append(0.1)
+        if response.calendar_events:
+            score += 0.2
+            total += 0.2
 
-        # Data recency factor (favor recent data)
-        recency_score = 0.9  # Assume relatively fresh data for MVP
+        if response.planting_recommendations:
+            score += 0.15
+            total += 0.15
 
-        # Overall score weighted by completeness and recency
-        overall_score = (sum(scores) / len(scores)) * \
-            recency_score if scores else 0.0
+        if response.spray_recommendations:
+            score += 0.05
+            total += 0.05
 
-        return min(1.0, max(0.0, overall_score))
+        if total == 0:
+            return 0.0
+
+        normalized = min(1.0, max(0.0, score / total))
+        return round(normalized, 2)
+
+    async def _maybe_await(self, candidate):
+        """Await coroutine results while supporting synchronous stubs used in tests."""
+        if inspect.isawaitable(candidate):
+            return await candidate
+        return candidate
+
+
+class FieldContextResolver(GeoContextResolver):
+    """Backwards-compatible alias."""
+
+    pass
