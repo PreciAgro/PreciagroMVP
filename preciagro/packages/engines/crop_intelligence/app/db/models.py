@@ -49,7 +49,8 @@ class SoilBaseline(Base):
     field_id: Mapped[str] = mapped_column(
         sa.String(100), sa.ForeignKey("cie_fields.field_id", ondelete="CASCADE"), nullable=False
     )
-    recorded_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False)
     source: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     texture: Mapped[str | None] = mapped_column(sa.String(50))
     whc_mm: Mapped[float | None] = mapped_column(sa.Float)
@@ -107,7 +108,8 @@ class CropType(Base):
     region_tags: Mapped[list[str] | None] = mapped_column(JSONType)
     maturity_class: Mapped[str | None] = mapped_column(sa.String(40))
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONType)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
@@ -115,10 +117,12 @@ class CropType(Base):
 
 class GrowthStage(Base):
     __tablename__ = "cie_growth_stages"
-    __table_args__ = (sa.UniqueConstraint("crop_code", "stage_code", name="uix_crop_stage_code"),)
+    __table_args__ = (sa.UniqueConstraint(
+        "crop_code", "stage_code", name="uix_crop_stage_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    crop_code: Mapped[str] = mapped_column(sa.String(60), sa.ForeignKey("cie_crop_types.crop_code"), nullable=False)
+    crop_code: Mapped[str] = mapped_column(
+        sa.String(60), sa.ForeignKey("cie_crop_types.crop_code"), nullable=False)
     stage_code: Mapped[str] = mapped_column(sa.String(60), nullable=False)
     display_name: Mapped[str] = mapped_column(sa.String(120), nullable=False)
     order_index: Mapped[int] = mapped_column(sa.Integer, nullable=False)
@@ -135,7 +139,8 @@ class StageRequirement(Base):
     stage_id: Mapped[int] = mapped_column(
         sa.Integer, sa.ForeignKey("cie_growth_stages.id", ondelete="CASCADE"), nullable=False
     )
-    requirement_type: Mapped[str] = mapped_column(sa.String(40), nullable=False)
+    requirement_type: Mapped[str] = mapped_column(
+        sa.String(40), nullable=False)
     payload: Mapped[dict] = mapped_column(JSONType, nullable=False)
 
 
@@ -143,7 +148,8 @@ class ManagementTemplate(Base):
     __tablename__ = "cie_management_templates"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    crop_code: Mapped[str] = mapped_column(sa.String(60), sa.ForeignKey("cie_crop_types.crop_code"), nullable=False)
+    crop_code: Mapped[str] = mapped_column(
+        sa.String(60), sa.ForeignKey("cie_crop_types.crop_code"), nullable=False)
     template_name: Mapped[str] = mapped_column(sa.String(120), nullable=False)
     sequence: Mapped[dict] = mapped_column(JSONType, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONType)
@@ -180,7 +186,8 @@ class Recommendation(Base):
     source: Mapped[str] = mapped_column(sa.String(40), nullable=False)
     impact_score: Mapped[float | None] = mapped_column(sa.Float)
     expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False)
 
 
 class ActionFeedback(Base):
@@ -188,19 +195,22 @@ class ActionFeedback(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     recommendation_id: Mapped[str] = mapped_column(
-        sa.String(36), sa.ForeignKey("cie_recommendations.id", ondelete="SET NULL")
+        sa.String(36), sa.ForeignKey(
+            "cie_recommendations.id", ondelete="SET NULL")
     )
     field_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     action_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     decision: Mapped[str] = mapped_column(sa.String(20), nullable=False)
     note: Mapped[str | None] = mapped_column(sa.Text)
-    recorded_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONType)
 
 
 class ModelRegistry(Base):
     __tablename__ = "cie_model_registry"
-    __table_args__ = (sa.UniqueConstraint("model_name", "crop_code", "region", name="uix_model_scope"),)
+    __table_args__ = (sa.UniqueConstraint(
+        "model_name", "crop_code", "region", name="uix_model_scope"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     model_name: Mapped[str] = mapped_column(sa.String(80), nullable=False)
@@ -210,7 +220,8 @@ class ModelRegistry(Base):
     artifact_uri: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     checksum: Mapped[str | None] = mapped_column(sa.String(64))
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONType)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False)
 
 
 class StageEvidence(Base):
@@ -223,4 +234,5 @@ class StageEvidence(Base):
     evidence_source: Mapped[str] = mapped_column(sa.String(30), nullable=False)
     score: Mapped[float | None] = mapped_column(sa.Float)
     payload: Mapped[dict | None] = mapped_column(JSONType)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False)
