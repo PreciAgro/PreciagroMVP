@@ -25,6 +25,6 @@ warn_unused_configs = true
 ignore_missing_imports = true
 allow_redefinition = true
 
-[tool pytest.ini_options]
+[tool.pytest.ini_options]
 addopts = "-ra"
 python_files = ["test_*.py"]
