@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from .contracts import (Clause, Dedupe, EngineEvent, Message, Preconditions,
                         Rule, Trigger, Window)
-from .models import ScheduleItem, async_session
+from .models import ScheduledTask, async_session
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,8 @@ class TemporalLogicEngine:
             message=Message(
                 short="🦠 Disease risk detected! Take preventive action within 6-24 hours.",
                 long="Disease risk analysis indicates potential threat. Apply preventive treatments within 6-24 hours during daylight hours to protect your crops.",
-                buttons=["Apply Treatment", "Get Expert Advice", "Monitor Closely"],
+                buttons=["Apply Treatment",
+                         "Get Expert Advice", "Monitor Closely"],
             ),
         )
 
@@ -147,11 +148,13 @@ class TemporalLogicEngine:
             if await self._check_preconditions(rule, event, context):
                 logger.info(f"Preconditions passed for rule: {rule.id}")
                 if not await self._is_deduplicated(rule, event):
-                    logger.info(f"Not deduplicated, creating task for rule: {rule.id}")
+                    logger.info(
+                        f"Not deduplicated, creating task for rule: {rule.id}")
                     task_id = await self._create_scheduled_task(rule, event)
                     if task_id:
                         task_ids.append(task_id)
-                        logger.info(f"Created task {task_id} for rule {rule.id}")
+                        logger.info(
+                            f"Created task {task_id} for rule {rule.id}")
                 else:
                     logger.info(f"Task deduplicated for rule {rule.id}")
 
@@ -162,18 +165,22 @@ class TemporalLogicEngine:
         """Find rules that match the event topic and conditions."""
         matching_rules = []
 
-        logger.info(f"Checking {len(self.rules)} rules for event topic: {event.topic}")
+        logger.info(
+            f"Checking {len(self.rules)} rules for event topic: {event.topic}")
 
         for rule in self.rules:
             logger.info(f"Rule {rule.id} has topic: {rule.trigger.topic}")
             if rule.trigger.topic == event.topic:
-                logger.info(f"Topic matches for rule {rule.id}, checking conditions...")
+                logger.info(
+                    f"Topic matches for rule {rule.id}, checking conditions...")
                 # Check trigger conditions
                 if self._evaluate_clauses(rule.trigger.when, event):
                     matching_rules.append(rule)
-                    logger.info(f"Rule {rule.id} fully matches event {event.id}")
+                    logger.info(
+                        f"Rule {rule.id} fully matches event {event.id}")
                 else:
-                    logger.info(f"Rule {rule.id} topic matches but conditions failed")
+                    logger.info(
+                        f"Rule {rule.id} topic matches but conditions failed")
             else:
                 logger.debug(
                     f"Rule {rule.id} topic mismatch: {rule.trigger.topic} != {event.topic}"
@@ -239,7 +246,8 @@ class TemporalLogicEngine:
     ) -> bool:
         """Check if rule preconditions are met."""
         # TEMPORARILY DISABLE PRECONDITIONS FOR TESTING
-        logger.info(f"Preconditions temporarily disabled for testing rule: {rule.id}")
+        logger.info(
+            f"Preconditions temporarily disabled for testing rule: {rule.id}")
         return True
 
         # For now, assume preconditions are met (would need farm metadata integration)
@@ -257,7 +265,7 @@ class TemporalLogicEngine:
             async with async_session() as session:
                 from sqlalchemy import func, select
 
-                from .models import ScheduleItem
+                from .models import ScheduledTask
 
                 # Check for recent tasks with same dedupe key
                 dedupe_key = f"{rule.dedupe.scope}_{event.farm_id}"
@@ -307,11 +315,11 @@ class TemporalLogicEngine:
                 "original_event": self._make_json_serializable(event.dict()),
             }
 
-            logger.info(f"Creating ScheduleItem with task_id: {task_id}")
+            logger.info(f"Creating ScheduledTask with task_id: {task_id}")
 
             # Use provided session or create new one
             if session:
-                scheduled_item = ScheduleItem(
+                scheduled_item = ScheduledTask(
                     id=task_id,
                     user_id=f"farmer_{event.farm_id}",
                     rule_id=rule.id,
@@ -321,15 +329,16 @@ class TemporalLogicEngine:
                     dedupe_key=dedupe_key,
                 )
 
-                logger.info("Adding ScheduleItem to provided session...")
+                logger.info("Adding ScheduledTask to provided session...")
                 session.add(scheduled_item)
                 logger.info("Committing provided session...")
                 await session.commit()
-                logger.info("Task committed successfully with provided session!")
+                logger.info(
+                    "Task committed successfully with provided session!")
                 return task_id
             else:
                 async with async_session() as new_session:
-                    scheduled_item = ScheduleItem(
+                    scheduled_item = ScheduledTask(
                         id=task_id,
                         user_id=f"farmer_{event.farm_id}",
                         rule_id=rule.id,
@@ -343,7 +352,8 @@ class TemporalLogicEngine:
                     new_session.add(scheduled_item)
                     logger.info("Committing new session...")
                     await new_session.commit()
-                    logger.info("Task committed successfully with new session!")
+                    logger.info(
+                        "Task committed successfully with new session!")
 
             logger.info(f"Scheduled task {task_id} for {schedule_time}")
             return task_id
@@ -382,7 +392,8 @@ class TemporalLogicEngine:
 
         # Apply offset
         if window.start_offset_hours:
-            schedule_time = base_time + timedelta(hours=window.start_offset_hours)
+            schedule_time = base_time + \
+                timedelta(hours=window.start_offset_hours)
         else:
             schedule_time = base_time
 
@@ -402,16 +413,16 @@ class TemporalLogicEngine:
         async with async_session() as session:
             from sqlalchemy import select
 
-            from .models import ScheduleItem
+            from .models import ScheduledTask
 
             end_date = datetime.utcnow() + timedelta(days=days_ahead)
 
             result = await session.execute(
-                select(ScheduleItem)
-                .where(ScheduleItem.user_id == user_id)
-                .where(ScheduleItem.schedule_time >= datetime.utcnow())
-                .where(ScheduleItem.schedule_time <= end_date)
-                .order_by(ScheduleItem.schedule_time)
+                select(ScheduledTask)
+                .where(ScheduledTask.user_id == user_id)
+                .where(ScheduledTask.schedule_time >= datetime.utcnow())
+                .where(ScheduledTask.schedule_time <= end_date)
+                .order_by(ScheduledTask.schedule_time)
             )
 
             items = result.scalars().all()

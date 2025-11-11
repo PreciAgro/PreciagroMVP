@@ -66,7 +66,8 @@ class DSLLoader:
             try:
                 file_rules = self.load_rules_from_file(yaml_file)
                 rules.extend(file_rules)
-                logger.info(f"Loaded {len(file_rules)} rules from {yaml_file.name}")
+                logger.info(
+                    f"Loaded {len(file_rules)} rules from {yaml_file.name}")
             except Exception as e:
                 logger.error(f"Failed to load rules from {yaml_file}: {e}")
 
@@ -243,7 +244,8 @@ class DSLLoader:
         # Validate action type
         valid_types = ["message", "webhook", "schedule", "alert"]
         if "type" in action and action["type"] not in valid_types:
-            errors.append(f"{path}.type: Invalid action type '{action['type']}'")
+            errors.append(
+                f"{path}.type: Invalid action type '{action['type']}'")
 
         return errors
 
@@ -254,7 +256,8 @@ class DSLLoader:
         # Validate window type
         valid_types = ["sliding", "tumbling", "session"]
         if "type" in window and window["type"] not in valid_types:
-            errors.append(f"{path}.type: Invalid window type '{window['type']}'")
+            errors.append(
+                f"{path}.type: Invalid window type '{window['type']}'")
 
         # Validate size
         if "size" in window:

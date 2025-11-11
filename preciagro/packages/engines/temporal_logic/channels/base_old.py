@@ -126,7 +126,8 @@ class BaseChannel(ABC):
 
             # Record metrics
             duration = (datetime.utcnow() - start_time).total_seconds()
-            engine_metrics.message_sent(self.channel_name, result.success, duration)
+            engine_metrics.message_sent(
+                self.channel_name, result.success, duration)
 
             if result.success:
                 logger.info(
@@ -332,7 +333,8 @@ class ChannelManager:
                 result = await self.send_message(channel_name, message_request)
                 results[channel_name] = result
             except Exception as e:
-                results[channel_name] = MessageResult(success=False, error=str(e))
+                results[channel_name] = MessageResult(
+                    success=False, error=str(e))
 
         return results
 

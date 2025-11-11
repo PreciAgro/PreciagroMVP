@@ -78,7 +78,8 @@ class RuleEvaluator:
             "gte": operator.ge,
             "lt": operator.lt,
             "lte": operator.le,
-            "in": lambda left_value, right_value: left_value in right_value,  # FIX: Ruff E741 lint — expand parameter names for readability.
+            # FIX: Ruff E741 lint — expand parameter names for readability.
+            "in": lambda left_value, right_value: left_value in right_value,
             "not_in": lambda left_value, right_value: left_value not in right_value,
             "contains": lambda left_value, right_value: right_value in left_value if left_value else False,
         }

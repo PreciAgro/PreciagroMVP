@@ -1,5 +1,7 @@
 from fastapi import FastAPI
-from .api.router import router as cie_router
+from prometheus_client import make_asgi_app
+from .api.router import router as cie_router, crop_router
+from .core.config import settings
 
 app = FastAPI(
     title="PreciAgro Crop Intelligence Engine (MVP)",
@@ -8,6 +10,9 @@ app = FastAPI(
 )
 
 app.include_router(cie_router)
+app.include_router(crop_router)
+if settings.ENABLE_PROMETHEUS:
+    app.mount("/metrics", make_asgi_app())
 
 
 @app.get("/")

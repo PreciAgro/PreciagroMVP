@@ -21,3 +21,14 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 5
+
+  cie:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - preciagro/packages/engines/crop_intelligence/.env.example
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres

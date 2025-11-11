@@ -9,10 +9,10 @@ from fastapi.security import HTTPBearer
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..contracts import IntentCreate, IntentResponse, PaginatedResponse
-from ..models import UserIntent
-from ..security.auth import Permission, security_middleware
-from ..telemetry.metrics import engine_metrics
+from ...contracts import IntentCreate, IntentResponse, PaginatedResponse
+from ...models import UserIntent
+from ...security.auth_old import Permission, security_middleware
+from ...telemetry.metrics import engine_metrics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/intents", tags=["intents"])
@@ -60,7 +60,8 @@ async def create_intent(
         await db.refresh(intent)
 
         # Record metrics
-        engine_metrics.intent_created(intent_data.intent_type, intent_data.channel)
+        engine_metrics.intent_created(
+            intent_data.intent_type, intent_data.channel)
 
         logger.info(
             f"Created intent {intent.id} for user {intent_data.user_id}: {intent_data.intent_type}"
@@ -88,9 +89,11 @@ async def get_intents(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    intent_type: Optional[str] = Query(None, description="Filter by intent type"),
+    intent_type: Optional[str] = Query(
+        None, description="Filter by intent type"),
     channel: Optional[str] = Query(None, description="Filter by channel"),
-    processed: Optional[bool] = Query(None, description="Filter by processing status"),
+    processed: Optional[bool] = Query(
+        None, description="Filter by processing status"),
     recorded_after: Optional[datetime] = Query(
         None, description="Filter intents recorded after this date"
     ),
@@ -319,7 +322,8 @@ async def get_user_intents(
     limit: int = Query(
         50, ge=1, le=200, description="Maximum number of intents to return"
     ),
-    days: int = Query(30, ge=1, le=365, description="Number of days to look back"),
+    days: int = Query(30, ge=1, le=365,
+                      description="Number of days to look back"),
     db: AsyncSession = Depends(get_db_session),
     current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
@@ -389,7 +393,8 @@ async def parse_user_input(
         context = user_input.get("context", {})
 
         if not text or not user_id:
-            raise HTTPException(status_code=400, detail="Text and user_id are required")
+            raise HTTPException(
+                status_code=400, detail="Text and user_id are required")
 
         # Simple rule-based intent classification
         # In a real implementation, this would use NLP/ML models
@@ -588,7 +593,8 @@ async def get_intents_summary(
 
         # Calculate averages
         avg_confidence = (
-            sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
+            sum(confidence_scores) /
+            len(confidence_scores) if confidence_scores else 0
         )
         processing_rate = processed_count / len(intents) if intents else 0
 
@@ -599,7 +605,8 @@ async def get_intents_summary(
             "intent_types": intent_type_counts,
             "channels": channel_counts,
             "top_users": dict(
-                sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                sorted(user_counts.items(),
+                       key=lambda x: x[1], reverse=True)[:10]
             ),
             "daily_counts": daily_counts,
             "average_confidence": avg_confidence,

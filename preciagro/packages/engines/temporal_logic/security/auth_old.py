@@ -1,10 +1,11 @@
 """Authentication and authorization for temporal logic engine."""
 
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-import jwt
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from ..config import config
@@ -28,9 +29,11 @@ class TokenManager:
     """Manages JWT tokens for API authentication."""
 
     def __init__(self, secret_key: Optional[str] = None):
-        self.secret_key = secret_key or config.secret_key
+        self.secret_key = secret_key or os.getenv(
+            "TEMPORAL_JWT_SECRET", "dev-secret-key")
         self.algorithm = "HS256"
-        self.access_token_expire_minutes = config.access_token_expire_minutes
+        self.access_token_expire_minutes = int(
+            os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
     def create_access_token(
         self,
@@ -69,7 +72,8 @@ class TokenManager:
     def verify_token(self, token: str) -> Dict[str, Any]:
         """Verify and decode a JWT token."""
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            payload = jwt.decode(token, self.secret_key,
+                                 algorithms=[self.algorithm])
 
             # Check token type
             if payload.get("type") != "access":
@@ -247,7 +251,8 @@ class AuthorizationManager:
             and permission in self.user_permissions[user_id]
         ):
             self.user_permissions[user_id].remove(permission)
-            logger.info(f"Revoked permission '{permission}' from user {user_id}")
+            logger.info(
+                f"Revoked permission '{permission}' from user {user_id}")
 
     def get_user_permissions(self, user_id: str) -> List[str]:
         """Get all permissions for a user (from roles and direct grants)."""
@@ -293,7 +298,8 @@ class SecurityMiddleware:
     def authenticate_token(self, authorization_header: str) -> Dict[str, Any]:
         """Authenticate using Bearer token."""
         if not authorization_header or not authorization_header.startswith("Bearer "):
-            raise AuthenticationError("Missing or invalid authorization header")
+            raise AuthenticationError(
+                "Missing or invalid authorization header")
 
         token = authorization_header[7:]  # Remove "Bearer " prefix
         payload = self.token_manager.verify_token(token)

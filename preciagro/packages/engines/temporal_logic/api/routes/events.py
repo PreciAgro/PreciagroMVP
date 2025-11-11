@@ -9,11 +9,15 @@ from fastapi.security import HTTPBearer
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..contracts import (BulkOperationResponse, EventCreate, EventResponse,
-                         PaginatedResponse)
-from ..models import TemporalEvent
-from ..security.auth import Permission, security_middleware
-from ..telemetry.metrics import engine_metrics
+from ...contracts import (
+    BulkOperationResponse,
+    EventCreate,
+    EventResponse,
+    PaginatedResponse,
+)
+from ...models import TemporalEvent
+from ...security.auth_old import Permission, security_middleware
+from ...telemetry.metrics import engine_metrics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events", tags=["events"])
@@ -81,7 +85,8 @@ async def create_event(
 async def get_events(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    event_type: Optional[str] = Query(
+        None, description="Filter by event type"),
     source: Optional[str] = Query(None, description="Filter by source"),
     start_date: Optional[datetime] = Query(
         None, description="Filter events after this date"
@@ -119,7 +124,8 @@ async def get_events(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(TemporalEvent.id).select_from(query.alias().subquery())
+        count_query = select(TemporalEvent.id).select_from(
+            query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -234,7 +240,8 @@ async def create_bulk_events(
 
             except Exception as e:
                 errors.append(
-                    {"index": i, "error": str(e), "event_data": event_data.dict()}
+                    {"index": i, "error": str(
+                        e), "event_data": event_data.dict()}
                 )
 
         await db.commit()
@@ -331,7 +338,8 @@ async def get_event_types_summary(
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get events from the last N days
-        stmt = select(TemporalEvent).where(TemporalEvent.created_at >= start_date)
+        stmt = select(TemporalEvent).where(
+            TemporalEvent.created_at >= start_date)
 
         result = await db.execute(stmt)
         events = result.scalars().all()

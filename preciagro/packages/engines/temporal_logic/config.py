@@ -47,6 +47,7 @@ class Settings(BaseSettings):
                 "1", "true", "yes") else None
         )
         case_sensitive = False
+        extra = "ignore"  # Allow extra fields from .env file
 
 
 # Create global settings instance

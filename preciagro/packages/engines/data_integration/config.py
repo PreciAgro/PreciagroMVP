@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     Use a .env file in development. Secrets must not be committed to git.
     """
 
-    OPENWEATHER_API_KEY: str | None = Field(None, description="OpenWeather API key")
+    OPENWEATHER_API_KEY: str | None = Field(
+        None, description="OpenWeather API key")
     DATABASE_URL: str = Field(
         "postgresql+asyncpg://postgres:postgres@localhost:5432/preciagro",
         description="Async DB URL",
@@ -25,8 +26,10 @@ class Settings(BaseSettings):
         # For local development set the `DEV` env var to true and the
         # module will load `.env` below before instantiating Settings.
         env_file = (
-            ".env" if os.getenv("DEV", "").lower() in ("1", "true", "yes") else None
+            ".env" if os.getenv("DEV", "").lower() in (
+                "1", "true", "yes") else None
         )
+        extra = "ignore"  # Allow extra fields from .env file
 
 
 settings = Settings()

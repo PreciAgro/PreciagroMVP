@@ -313,7 +313,14 @@ def assess_disease_risk(
         avg_rh / model["rh_threshold"])
 
     # Calculate risk score
-    wetness_score = min(1.0, total_wetness / model["critical_wetness_hours"])
+    crit_wet = model.get("critical_wetness_hours", 0) or 0
+    # Some pathogens (e.g., powdery mildew) do not require free water. In such cases,
+    # avoid division by zero and let wetness contribute modestly, scaled by RH favorability
+    # so overall risk remains moderate/high under favorable RH/temperature but not "critical".
+    if crit_wet <= 0:
+        wetness_score = 0.4 * rh_favorability
+    else:
+        wetness_score = min(1.0, total_wetness / crit_wet)
     risk_score = (wetness_score * 0.5 + temp_favorability *
                   0.3 + rh_favorability * 0.2)
 

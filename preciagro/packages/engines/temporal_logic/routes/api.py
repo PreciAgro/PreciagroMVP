@@ -61,7 +61,8 @@ async def cancel_task(task_id: str):
     if cancelled:
         return {"status": "cancelled"}
     else:
-        raise HTTPException(status_code=404, detail="Task not found or not cancellable")
+        raise HTTPException(
+            status_code=404, detail="Task not found or not cancellable")
 
 
 @router.get("/intents")
@@ -171,12 +172,12 @@ async def debug_test_task_creation():
     import uuid
     from datetime import datetime
 
-    from ..models import ScheduleItem, async_session
+    from ..models import ScheduledTask, async_session
 
     try:
         async with async_session() as session:
             task_id = str(uuid.uuid4())
-            test_task = ScheduleItem(
+            test_task = ScheduledTask(
                 id=task_id,
                 user_id="test_user",
                 rule_id="test_rule",  # Add the missing rule_id field

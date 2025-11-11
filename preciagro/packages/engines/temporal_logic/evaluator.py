@@ -172,7 +172,8 @@ class PredicateEvaluator:
         try:
             return bool(eval(normalized, {"__builtins__": {}}, context))
         except Exception as exc:  # noqa: BLE001 - broad for safety
-            logger.warning("Predicate evaluation error for %s: %s", predicate, exc)
+            logger.warning(
+                "Predicate evaluation error for %s: %s", predicate, exc)
             return False
 
     def _validate_predicate(self, predicate: str) -> bool:
@@ -196,7 +197,8 @@ class WindowEvaluator:
         if current_time is None:
             current_time = datetime.utcnow()
 
-        window_start = self._calculate_window_start(current_time, window_config)
+        window_start = self._calculate_window_start(
+            current_time, window_config)
 
         # Filter events within window
         window_events = []
@@ -371,7 +373,8 @@ class RuleEvaluator:
         """Evaluate a complete rule against events."""
         try:
             # Parse rule components
-            conditions = [Condition(**cond) for cond in rule_data.get("conditions", [])]
+            conditions = [Condition(**cond)
+                          for cond in rule_data.get("conditions", [])]
             window_config = WindowConfig(**rule_data.get("window_config", {}))
 
             # Evaluate with context

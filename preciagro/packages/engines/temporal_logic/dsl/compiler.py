@@ -49,7 +49,8 @@ class TaskCompiler:
         }
 
         # Build target
-        target = {"phone_e164": context.get("phone") or event.metadata.get("phone")}
+        target = {"phone_e164": context.get(
+            "phone") or event.metadata.get("phone")}
 
         # Generate deduplication key
         dedupe_key = (
@@ -117,7 +118,8 @@ class TaskCompiler:
         self, rule: Rule, event: EngineEvent, window: Window
     ) -> str:
         """Generate deduplication key."""
-        key_parts = [rule.id, window.id, str(event.user_id), str(event.farm_id)]
+        key_parts = [rule.id, window.id, str(
+            event.user_id), str(event.farm_id)]
         existing_values = set(key_parts)
 
         # Add deduplication fields

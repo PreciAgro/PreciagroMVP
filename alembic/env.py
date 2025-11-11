@@ -4,6 +4,8 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 from sqlalchemy import text
+import pathlib
+import sys
 
 # If the URL references an async dialect (eg. postgresql+asyncpg) we will
 # create an async engine and run migrations in an async context. This avoids
@@ -24,11 +26,14 @@ database_url = os.getenv("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
-# add your model's MetaData object here for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
+# Ensure project root is on the path so we can import the CIE models
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 
-target_metadata = None
+from preciagro.packages.engines.crop_intelligence.app.db.base import Base  # noqa: E402
+
+target_metadata = Base.metadata
 
 
 def run_migrations_offline():

@@ -12,6 +12,18 @@ PyYAML>=6.0
 python-jose[cryptography]  # For JWT handling
 aiohttp
 arq
+requests>=2.31  # HTTP client used in tests and demo scripts
+passlib>=1.7.4  # Password hashing context (requires bcrypt)
+bcrypt>=4.0  # Passlib bcrypt backend
+twilio>=9.0  # SMS channel integration
+pytz>=2024.1  # Legacy timezone handling (quiet hours logic)
+psutil>=5.9  # Optional system metrics (telemetry)
+psycopg2-binary>=2.9  # Postgres driver for CIE service
+
+# data / ML (crop intelligence engine)
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
 
 # testing
 pytest

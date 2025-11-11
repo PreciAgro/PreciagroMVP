@@ -73,6 +73,7 @@ crop_intelligence/
 Register a new field with crop and management details.
 
 **Request:**
+
 ```json
 {
   "field_id": "f_1",
@@ -162,6 +163,40 @@ Submit farmer feedback on recommended actions.
 }
 ```
 
+### 6. GET `/crop/status`
+Return stage, vigor trend, health score, rotation hint, and risk flags.
+
+### 7. POST `/crop/yield`
+Provide baseline and scenario projections with expected deltas and top drivers.
+
+### 8. POST `/crop/plan`
+Return a 14–30 day plan that merges Temporal Logic schedules and recommendations.
+
+### 9. GET `/crop/windows`
+Fetch localized planting/harvest windows per crop and region.
+
+### 10. POST `/crop/explain`
+Generate plain-language rationales suitable for NLP/conversational interfaces.
+
+**Yield scenario example**
+```json
+{
+  "field_id": "f_1",
+  "baseline_features": {"cumulative_rain_mm": 120},
+  "scenarios": [
+    {"name": "irrigation_on", "adjustments": {"rain_forecast_mm": 25}}
+  ]
+}
+```
+
+**Plan example**
+```json
+{
+  "field_id": "f_1",
+  "horizon_days": 21
+}
+```
+
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
@@ -180,6 +215,12 @@ Or using the pyproject.toml:
 ```powershell
 pip install -e .
 ```
+
+### Docker (production parity)
+```powershell
+docker compose up --build cie
+```
+This builds the CIE image, runs Alembic migrations, and exposes the API at `http://localhost:8082`.
 
 ## 🏃 Running the Service
 
@@ -300,6 +341,27 @@ Edit `app/core/config.py` to modify:
 - Feature flags
 - Environment settings
 
+### Pretrained Models & Dataset Export
+- Model metadata is tracked in `config/models.json`. Drop pretrained artifacts (for example `models/stage_detector_v0.1.0.pkl`) anywhere inside the repo and point the `model_file` field at the relative path. The service attempts to load these artifacts on demand and automatically falls back to physics heuristics when the files are missing.
+- After each pilot run, export training data directly from the CIE database:
+
+```powershell
+python -m preciagro.packages.engines.crop_intelligence.data.export_datasets `
+  --output-dir artifacts/cie_exports `
+  --datasets actions telemetry
+```
+
+This writes:
+- `cie_actions_dataset.csv` – recommendations + feedback for bandit/recommender tuning.
+- `cie_telemetry_daily.csv` – aggregated weather/VI/soil series for growth-stage & yield models.
+
+Use these CSVs as the seed datasets when you retrain models post-pilot, then update `models.json` with the new artifact paths and semantic versions.
+
+### Auth & Observability
+- All `/cie/*` and `/crop/*` endpoints expect the header `X-PreciAgro-Token` to match `API_AUTH_TOKEN`. Leave the env blank to disable auth in local dev.
+- Metrics are exposed at `/metrics` (Prometheus format) when `ENABLE_PROMETHEUS=true`.
+- Structured metrics + events flow through `app/core/metrics.py`; scrape `/metrics` or route logs to your observability stack for dashboards.
+
 ## 🤝 Contributing
 
 When adding features:
@@ -322,8 +384,4 @@ For questions or support, contact the PreciAgro development team.
 **Version**: 0.1.0  
 **Status**: MVP - Production Lean  
 **Last Updated**: October 2025
-
-```
-
-You can now copy this entire README content and paste it into your file manually!You can now copy this entire README content and paste it into your file manually!
 ```

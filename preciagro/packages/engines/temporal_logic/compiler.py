@@ -25,10 +25,12 @@ class ActionCompiler:
         """Compile a single action into a scheduled task."""
 
         # Calculate execution time
-        execution_time = datetime.now(timezone.utc) + timedelta(seconds=action.delay)
+        execution_time = datetime.now(
+            timezone.utc) + timedelta(seconds=action.delay)
 
         # Compile task configuration based on action type
-        task_config = self._compile_task_config(action, rule, triggering_event, context)
+        task_config = self._compile_task_config(
+            action, rule, triggering_event, context)
 
         return ScheduledTaskCreate(
             rule_id=rule.id,
@@ -51,7 +53,8 @@ class ActionCompiler:
         config = action.config.copy()
 
         # Build variable context for substitution
-        variables = self._build_variable_context(rule, triggering_event, context)
+        variables = self._build_variable_context(
+            rule, triggering_event, context)
 
         # Substitute variables in configuration
         substituted_config = self._substitute_variables(config, variables)
@@ -172,10 +175,12 @@ class ScheduleCompiler:
         matching_events = evaluation_result.get("matching_events", [])
         if matching_events:
             # Use the most recent matching event as trigger
-            latest_event_data = max(matching_events, key=lambda x: x["created_at"])
+            latest_event_data = max(
+                matching_events, key=lambda x: x["created_at"])
             # Note: In real implementation, you'd fetch the actual event object
             # For now, we'll work with the event data we have
-            triggering_event = latest_event_data  # FIX: Ruff F841 lint — triggering_event should mirror most recent match — keeps scheduling context without loading full ORM object.
+            # FIX: Ruff F841 lint — triggering_event should mirror most recent match — keeps scheduling context without loading full ORM object.
+            triggering_event = latest_event_data
 
         for action_data in actions:
             try:
@@ -194,7 +199,8 @@ class ScheduleCompiler:
                 )
 
             except Exception as e:
-                logger.error(f"Error compiling action for rule '{rule.name}': {e}")
+                logger.error(
+                    f"Error compiling action for rule '{rule.name}': {e}")
 
         return tasks
 
@@ -209,7 +215,8 @@ class ScheduleCompiler:
 
         for rule, evaluation_result in rules_with_evaluations:
             try:
-                tasks = self.compile_rule_to_schedule(rule, evaluation_result, context)
+                tasks = self.compile_rule_to_schedule(
+                    rule, evaluation_result, context)
                 all_tasks.extend(tasks)
             except Exception as e:
                 logger.error(f"Error compiling rule '{rule.name}': {e}")
@@ -322,10 +329,12 @@ class CompilationOptimizer:
 
         # Sort rules by complexity (simpler rules first)
         def rule_complexity(rule):
-            condition_complexity = len(rule.conditions) if rule.conditions else 0
+            condition_complexity = len(
+                rule.conditions) if rule.conditions else 0
             action_complexity = len(rule.actions) if rule.actions else 0
             window_complexity = (
-                rule.window_config.get("size", 3600) if rule.window_config else 3600
+                rule.window_config.get(
+                    "size", 3600) if rule.window_config else 3600
             )
 
             return condition_complexity + action_complexity + (window_complexity / 3600)
@@ -371,7 +380,8 @@ class CompilationOptimizer:
             return None
 
         cached = self.compilation_cache[cache_key]
-        age = (datetime.now(timezone.utc) - cached["timestamp"]).total_seconds()
+        age = (datetime.now(timezone.utc) -
+               cached["timestamp"]).total_seconds()
 
         if age > max_age_seconds:
             del self.compilation_cache[cache_key]

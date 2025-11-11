@@ -130,6 +130,20 @@ def get_metrics_collector() -> MetricsCollector:
     return _metrics
 
 
+def log_recommendation_batch(field_id: str, count: int) -> None:
+    """Record number of actions generated for a field."""
+    metrics = get_metrics_collector()
+    metrics.record_metric("actions_generated", count, {"field_id": field_id})
+    metrics.record_event("actions_generated", {"field_id": field_id, "count": count})
+
+
+def log_stage_estimate(field_id: str, stage: str, confidence: float) -> None:
+    """Record stage estimator outputs for later offline evaluation."""
+    metrics = get_metrics_collector()
+    metrics.record_metric("stage_estimate_confidence", confidence, {"field_id": field_id, "stage": stage})
+    metrics.record_event("stage_estimate", {"field_id": field_id, "stage": stage, "confidence": confidence})
+
+
 # ===================================
 # CIE-Specific Metric Trackers
 # ===================================

@@ -9,12 +9,12 @@ from fastapi.security import HTTPBearer
 from sqlalchemy import and_, desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..contracts import (BulkOperationResponse, PaginatedResponse,
-                         ScheduledTaskCreate, ScheduledTaskResponse,
-                         ScheduledTaskUpdate)
-from ..models import ScheduledTask, TaskStatus, TemporalRule
-from ..security.auth import Permission, security_middleware
-from ..telemetry.metrics import engine_metrics
+from ...contracts import (BulkOperationResponse, PaginatedResponse,
+                          ScheduledTaskCreate, ScheduledTaskResponse,
+                          ScheduledTaskUpdate)
+from ...models import ScheduledTask, TaskStatus, TemporalRule
+from ...security.auth_old import Permission, security_middleware
+from ...telemetry.metrics import engine_metrics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/schedules", tags=["schedules"])
@@ -79,7 +79,8 @@ async def get_scheduled_tasks(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(ScheduledTask.id).select_from(query.alias().subquery())
+        count_query = select(ScheduledTask.id).select_from(
+            query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -186,7 +187,8 @@ async def create_scheduled_task(
         )
 
         # Validate rule exists
-        rule_stmt = select(TemporalRule).where(TemporalRule.id == task_data.rule_id)
+        rule_stmt = select(TemporalRule).where(
+            TemporalRule.id == task_data.rule_id)
         rule_result = await db.execute(rule_stmt)
         rule = rule_result.scalar_one_or_none()
 
@@ -369,7 +371,8 @@ async def get_tasks_summary(
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get tasks from the last N days
-        stmt = select(ScheduledTask).where(ScheduledTask.created_at >= start_date)
+        stmt = select(ScheduledTask).where(
+            ScheduledTask.created_at >= start_date)
 
         result = await db.execute(stmt)
         tasks = result.scalars().all()

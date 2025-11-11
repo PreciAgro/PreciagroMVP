@@ -16,15 +16,45 @@ DATABASE_URL = settings.DATABASE_URL
 
 # Convert to async URL if needed
 if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql://", "postgresql+asyncpg://", 1)
 
-engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Lazy-load engine to avoid asyncpg import errors at module load time
+_engine = None
+_AsyncSessionLocal = None
+
+
+def _init_engine():
+    """Lazily initialize the async engine."""
+    global _engine, _AsyncSessionLocal
+    if _engine is None:
+        try:
+            _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+            _AsyncSessionLocal = sessionmaker(
+                _engine, class_=AsyncSession, expire_on_commit=False)
+        except Exception as e:
+            # If engine creation fails (e.g., asyncpg not available), log and continue
+            import logging
+            logging.warning(f"Failed to initialize async database engine: {e}")
+    return _engine
+
+
+# These will be initialized on first use
+engine = None
+AsyncSessionLocal = None
 
 
 async def get_db_session():
     """Get database session."""
-    async with AsyncSessionLocal() as session:
+    global _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        _init_engine()
+
+    if _AsyncSessionLocal is None:
+        raise RuntimeError(
+            "Database engine not initialized. Check DATABASE_URL and dependencies.")
+
+    async with _AsyncSessionLocal() as session:
         yield session
 
 
@@ -247,7 +277,15 @@ async def get_cached_fco(cache_key: str) -> Optional[FCOResponse]:
 
 async def cache_fco(cache_key: str, response: FCOResponse) -> None:
     """Cache Field Context Object."""
-    async with AsyncSessionLocal() as session:
+    global _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        _init_engine()
+
+    if _AsyncSessionLocal is None:
+        raise RuntimeError(
+            "Database engine not initialized. Check DATABASE_URL and dependencies.")
+
+    async with _AsyncSessionLocal() as session:
         expires_at = datetime.now() + timedelta(seconds=settings.CACHE_TTL)
 
         # Convert response to dict for JSON storage
@@ -281,7 +319,14 @@ async def cache_fco(cache_key: str, response: FCOResponse) -> None:
 
 async def cleanup_expired_cache() -> None:
     """Clean up expired cache entries."""
-    async with AsyncSessionLocal() as session:
+    global _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        _init_engine()
+
+    if _AsyncSessionLocal is None:
+        return  # Skip cleanup if DB not available
+
+    async with _AsyncSessionLocal() as session:
         query = text(
             """
             DELETE FROM field_context_cache 

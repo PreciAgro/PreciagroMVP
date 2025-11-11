@@ -10,7 +10,7 @@ from .contracts import EngineEvent
 from .dsl.compiler import TaskCompiler
 from .dsl.evaluator import RuleEvaluator
 from .dsl.loader import DSLLoader
-from .models import ScheduleItem, TaskOutcome, async_session
+from .models import ScheduledTask, TaskOutcome, async_session
 from .telemetry.metrics import events_processed, tasks_created
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,8 @@ class EventDispatcher:
         async with async_session() as session:
             for rule in rules:
                 if self.evaluator.should_trigger(rule, event, context):
-                    logger.info(f"Rule {rule.id} triggered for event {event.id}")
+                    logger.info(
+                        f"Rule {rule.id} triggered for event {event.id}")
 
                     # Compile tasks
                     tasks = self.compiler.compile_tasks(rule, event, context)
@@ -48,8 +49,8 @@ class EventDispatcher:
                     for task_data in tasks:
                         # Check for existing task with same dedupe key
                         if task_data.get("dedupe_key"):
-                            existing_stmt = select(ScheduleItem).where(
-                                ScheduleItem.dedupe_key == task_data["dedupe_key"]
+                            existing_stmt = select(ScheduledTask).where(
+                                ScheduledTask.dedupe_key == task_data["dedupe_key"]
                             )
                             existing = await session.execute(existing_stmt)
                             if existing.scalar():
@@ -59,7 +60,7 @@ class EventDispatcher:
                                 continue
 
                         # Create schedule item
-                        item = ScheduleItem(
+                        item = ScheduledTask(
                             id=task_data["id"],
                             user_id=task_data["user_id"],
                             rule_id=task_data["rule_id"],
@@ -90,15 +91,15 @@ class EventDispatcher:
             end_time = datetime.now(timezone.utc) + timedelta(days=days_ahead)
 
             stmt = (
-                select(ScheduleItem)
+                select(ScheduledTask)
                 .where(
                     and_(
-                        ScheduleItem.user_id == user_id,
-                        ScheduleItem.schedule_time <= end_time,
-                        ScheduleItem.status == "pending",
+                        ScheduledTask.user_id == user_id,
+                        ScheduledTask.schedule_time <= end_time,
+                        ScheduledTask.status == "pending",
                     )
                 )
-                .order_by(ScheduleItem.schedule_time)
+                .order_by(ScheduledTask.schedule_time)
             )
 
             result = await session.execute(stmt)
@@ -118,7 +119,7 @@ class EventDispatcher:
     async def cancel_scheduled_task(self, task_id: str) -> bool:
         """Cancel a scheduled task."""
         async with async_session() as session:
-            stmt = select(ScheduleItem).where(ScheduleItem.id == task_id)
+            stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
             result = await session.execute(stmt)
             item = result.scalar()
 
@@ -136,7 +137,8 @@ class EventDispatcher:
         async with async_session() as session:
             start_time = datetime.now(timezone.utc) - timedelta(days=days_back)
 
-            stmt = select(TaskOutcome).where(TaskOutcome.timestamp >= start_time)
+            stmt = select(TaskOutcome).where(
+                TaskOutcome.timestamp >= start_time)
 
             if user_id:
                 stmt = stmt.where(TaskOutcome.user_id == user_id)

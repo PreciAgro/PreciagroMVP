@@ -96,3 +96,121 @@ class FeedbackIn(BaseModel):
     action_id: str
     decision: Literal["accepted", "modified", "ignored"]
     note: Optional[str] = None
+
+
+class CropStatusResponse(BaseModel):
+    field_id: str
+    stage: Optional[str]
+    health_score: float
+    confidence: float
+    vigor_trend: Optional[str] = None
+    rotation_hint: Optional[str] = None
+    risk_flags: List[str] = Field(default_factory=list)
+    last_update: Optional[str] = None
+    explanations: List[str] = Field(default_factory=list)
+
+
+class YieldScenario(BaseModel):
+    name: str
+    adjustments: dict = Field(default_factory=dict)
+
+
+class YieldScenarioResult(BaseModel):
+    name: str
+    p10: float
+    p50: float
+    p90: float
+    delta: float
+    drivers: List[str] = Field(default_factory=list)
+
+
+class CropYieldRequest(BaseModel):
+    field_id: str
+    baseline_features: dict = Field(default_factory=dict)
+    scenarios: List[YieldScenario] = Field(default_factory=list)
+
+
+class CropYieldResponse(BaseModel):
+    field_id: str
+    baseline: YieldScenarioResult
+    scenarios: List[YieldScenarioResult] = Field(default_factory=list)
+    model_version: str
+    explanations: List[str] = Field(default_factory=list)
+
+
+class CropPlanRequest(BaseModel):
+    field_id: str
+    horizon_days: int = 21
+    strategy: Optional[str] = None
+
+
+class CropPlanItem(BaseModel):
+    task: str
+    stage_hint: Optional[str] = None
+    start_at: Optional[str] = None
+    end_at: Optional[str] = None
+    sources: List[str] = Field(default_factory=list)
+    rationale: List[str] = Field(default_factory=list)
+
+
+class CropPlanResponse(BaseModel):
+    field_id: str
+    horizon_days: int
+    items: List[CropPlanItem]
+    explanations: List[str] = Field(default_factory=list)
+
+
+class CropWindowsResponse(BaseModel):
+    crop: str
+    region: Optional[str]
+    planting_window: List[str]
+    harvest_window: List[str]
+    notes: List[str] = Field(default_factory=list)
+
+
+class ExplainRequest(BaseModel):
+    field_id: str
+    topic: Literal["status", "yield", "plan"] = "status"
+    context: dict = Field(default_factory=dict)
+
+
+class ExplainResponse(BaseModel):
+    field_id: str
+    topic: str
+    explanations: List[str]
+
+
+class FieldStatusResponse(BaseModel):
+    field_id: str
+    state: FieldStateOut
+
+
+class YieldPredictIn(BaseModel):
+    field_id: str
+    season_features: dict = Field(default_factory=dict)
+
+
+class YieldPredictOut(BaseModel):
+    field_id: str
+    p10: float
+    p50: float
+    p90: float
+    model_version: str = "heuristic_v0"
+
+
+class RecommendActionsIn(BaseModel):
+    field_id: str
+    constraints: Optional[dict] = None
+
+
+class ScheduleItem(BaseModel):
+    task: str
+    stage_hint: Optional[str] = None
+    earliest: Optional[str] = None
+    latest: Optional[str] = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class ScheduleOut(BaseModel):
+    field_id: str
+    items: List[ScheduleItem] = Field(default_factory=list)

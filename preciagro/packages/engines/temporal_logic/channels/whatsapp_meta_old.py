@@ -119,7 +119,8 @@ class WhatsAppMetaChannel(BaseChannel):
                     response_data = await response.json()
 
                     if response.status == 200:
-                        message_id = response_data.get("messages", [{}])[0].get("id")
+                        message_id = response_data.get(
+                            "messages", [{}])[0].get("id")
                         return MessageResult(
                             success=True,
                             message_id=message_id,
@@ -221,9 +222,11 @@ class WhatsAppMetaChannel(BaseChannel):
                         text_value = param["text"]
                         for key, value in params.items():
                             placeholder = f"{{{{{key}}}}}"
-                            text_value = text_value.replace(placeholder, str(value))
+                            text_value = text_value.replace(
+                                placeholder, str(value))
 
-                        new_parameters.append({"type": "text", "text": text_value})
+                        new_parameters.append(
+                            {"type": "text", "text": text_value})
                     else:
                         new_parameters.append(param)
 
@@ -273,7 +276,8 @@ class WhatsAppMetaChannel(BaseChannel):
                 status_value = status.get("status")
                 timestamp = status.get("timestamp")
 
-                logger.info(f"WhatsApp message {message_id} status: {status_value}")
+                logger.info(
+                    f"WhatsApp message {message_id} status: {status_value}")
 
                 # Here you would typically update your database with the status
                 # For now, just log it
@@ -294,7 +298,8 @@ class WhatsAppMetaChannel(BaseChannel):
 
                 if message_type == "text":
                     text_body = message.get("text", {}).get("body", "")
-                    logger.info(f"Received WhatsApp message from {sender}: {text_body}")
+                    logger.info(
+                        f"Received WhatsApp message from {sender}: {text_body}")
 
                     return {
                         "processed": True,
