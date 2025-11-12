@@ -1,0 +1,20 @@
+{
+  "disease_prompts": [
+    "soybean leaf with frogeye leaf spot",
+    "soybean rust pustules on underside",
+    "healthy soybean trifoliate",
+    "soybean leaf bacterial blight lesions",
+    "soybean leaf with cercospora purple seed stain"
+  ],
+  "nutrient_prompts": [
+    "soybean nitrogen deficiency pale leaves",
+    "potassium deficiency soybean marginal scorch",
+    "magnesium deficiency soybean interveinal pale",
+    "sulfur deficiency soybean yellow new leaves",
+    "iron deficiency soybean chlorosis"
+  ],
+  "general_prompts": [
+    "blurry soybean canopy photo",
+    "overexposed soybean field image"
+  ]
+}

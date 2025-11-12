@@ -1,0 +1,20 @@
+{
+  "disease_prompts": [
+    "wheat leaf rust pustules on leaf",
+    "wheat septoria blotch rectangular lesions",
+    "healthy wheat leaf green",
+    "wheat leaf yellow streak mosaic",
+    "wheat canopy with powdery mildew"
+  ],
+  "nutrient_prompts": [
+    "nitrogen deficiency in wheat leaves",
+    "potassium deficiency wheat chlorosis",
+    "sulfur deficiency wheat pale new leaves",
+    "phosphorus deficiency wheat purpling",
+    "magnesium deficiency wheat interveinal"
+  ],
+  "general_prompts": [
+    "drone wheat field image low contrast",
+    "blurred wheat closeup"
+  ]
+}

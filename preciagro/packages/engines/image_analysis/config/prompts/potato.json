@@ -1,0 +1,20 @@
+{
+  "disease_prompts": [
+    "potato leaf with late blight sporulation",
+    "potato leaf early blight brown concentric lesions",
+    "potato foliar healthy green",
+    "potato leaf showing blackleg symptoms",
+    "potato leaf with leaf spot generic"
+  ],
+  "nutrient_prompts": [
+    "potato nitrogen deficiency pale leaves",
+    "potassium deficiency potato marginal scorch",
+    "magnesium deficiency potato interveinal",
+    "calcium deficiency potato curling",
+    "sulfur deficiency potato upper leaves yellow"
+  ],
+  "general_prompts": [
+    "blurry potato field photo",
+    "overexposed potato canopy image"
+  ]
+}

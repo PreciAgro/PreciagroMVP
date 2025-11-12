@@ -1,0 +1,136 @@
+crops:
+  maize:
+    classifier:
+      name: efficientnet_v2_s
+      weights_path: az://preciagro-models/image-analysis/maize/efficientnet_v2_s.pt
+      threshold: 0.62
+      top_k: 3
+      tta: true
+    clip:
+      enabled: true
+      model_name: ViT-B-32
+      pretrained: openai
+      similarity_threshold: 0.55
+      prompt_file: maize.json
+    segmentation:
+      enabled: true
+      model: sam2_hiera_small
+      weights_path: cache://sam2/sam2_hiera_small.pt
+      weights_uri: https://dl.fbaipublicfiles.com/sam2/checkpoints/sam2_hiera_small.pt
+    counting:
+      enabled: false
+    quality:
+      blur_threshold: 140.0
+      exposure_min: 0.18
+      exposure_max: 0.82
+      min_resolution: 720
+      center_focus_min: 0.88
+  tomato:
+    classifier:
+      name: convnext_tiny
+      weights_path: az://preciagro-models/image-analysis/tomato/convnext_tiny.pt
+      threshold: 0.6
+      top_k: 3
+      tta: false
+    clip:
+      enabled: true
+      model_name: ViT-B-32
+      pretrained: openai
+      similarity_threshold: 0.58
+      prompt_file: tomato.json
+    segmentation:
+      enabled: true
+      model: sam2_hiera_small
+      weights_path: cache://sam2/sam2_hiera_small.pt
+      weights_uri: https://dl.fbaipublicfiles.com/sam2/checkpoints/sam2_hiera_small.pt
+    counting:
+      enabled: true
+      model: yolov8s
+      weights_path: cache://yolo/yolov8s_fruit.pt
+      weights_uri: https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8s.pt
+      classes:
+        - fruit
+    quality:
+      blur_threshold: 135.0
+      exposure_min: 0.2
+      exposure_max: 0.8
+      min_resolution: 720
+      center_focus_min: 0.9
+  potato:
+    classifier:
+      name: efficientnet_v2_s
+      weights_path: az://preciagro-models/image-analysis/potato/efficientnet_v2_s.pt
+      threshold: 0.6
+      top_k: 3
+      tta: true
+    clip:
+      enabled: true
+      model_name: ViT-B-32
+      pretrained: laion2b_s34b_b79k
+      similarity_threshold: 0.52
+      prompt_file: potato.json
+    segmentation:
+      enabled: true
+      model: sam2_hiera_small
+      weights_path: cache://sam2/sam2_hiera_small.pt
+      weights_uri: https://dl.fbaipublicfiles.com/sam2/checkpoints/sam2_hiera_small.pt
+    counting:
+      enabled: false
+    quality:
+      blur_threshold: 130.0
+      exposure_min: 0.2
+      exposure_max: 0.78
+      min_resolution: 700
+      center_focus_min: 0.86
+  wheat:
+    classifier:
+      name: convnext_tiny
+      weights_path: az://preciagro-models/image-analysis/wheat/convnext_tiny.pt
+      threshold: 0.58
+      top_k: 3
+      tta: false
+    clip:
+      enabled: true
+      model_name: ViT-B-16
+      pretrained: openai
+      similarity_threshold: 0.5
+      prompt_file: wheat.json
+    segmentation:
+      enabled: false
+    counting:
+      enabled: true
+      model: yolov8n
+      weights_path: cache://yolo/yolov8n_pest.pt
+      weights_uri: https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt
+      classes:
+        - pest
+    quality:
+      blur_threshold: 125.0
+      exposure_min: 0.22
+      exposure_max: 0.78
+      min_resolution: 680
+      center_focus_min: 0.85
+  soybean:
+    classifier:
+      name: efficientnet_b3
+      weights_path: az://preciagro-models/image-analysis/soybean/efficientnet_b3.pt
+      threshold: 0.57
+      top_k: 3
+      tta: false
+    clip:
+      enabled: true
+      model_name: ViT-B-32
+      pretrained: openai
+      similarity_threshold: 0.52
+      prompt_file: soybean.json
+    segmentation:
+      enabled: false
+    counting:
+      enabled: false
+    quality:
+      blur_threshold: 120.0
+      exposure_min: 0.2
+      exposure_max: 0.8
+      min_resolution: 650
+      center_focus_min: 0.82
+default_crop: maize

@@ -1,0 +1,66 @@
+diseases:
+  - code: CIE.DZ.GRAY_LEAF_SPOT
+    label: gray leaf spot
+    aliases: [gray_leaf_spot, gls]
+    crops: [maize]
+  - code: CIE.DZ.NORTHERN_LEAF_BLIGHT
+    label: northern leaf blight
+    aliases: [northern_leaf_blight, nlb]
+    crops: [maize]
+  - code: CIE.DZ.MAIZE_RUST
+    label: common rust
+    aliases: [maize_rust, rust]
+    crops: [maize]
+  - code: CIE.DZ.TOMATO_EARLY_BLIGHT
+    label: early blight
+    aliases: [early_blight]
+    crops: [tomato, potato]
+  - code: CIE.DZ.TOMATO_LATE_BLIGHT
+    label: late blight
+    aliases: [late_blight]
+    crops: [tomato, potato]
+  - code: CIE.DZ.SEPTORIA_LEAF_SPOT
+    label: septoria leaf spot
+    aliases: [septoria_leaf_spot, septoria]
+    crops: [tomato]
+  - code: CIE.DZ.BACTERIAL_SPOT
+    label: bacterial spot
+    aliases: [bacterial_spot]
+    crops: [tomato, pepper]
+  - code: CIE.DZ.WHEAT_LEAF_RUST
+    label: wheat leaf rust
+    aliases: [leaf_rust]
+    crops: [wheat]
+  - code: CIE.DZ.WHEAT_SEPTORIA
+    label: septoria tritici blotch
+    aliases: [stb, wheat_septoria]
+    crops: [wheat]
+  - code: CIE.DZ.SOYBEAN_BLIGHT
+    label: frogeye leaf spot
+    aliases: [frogeye_leaf_spot, soybean_blight]
+    crops: [soybean]
+  - code: CIE.DZ.SOYBEAN_RUST
+    label: soybean rust
+    aliases: [soybean_rust]
+    crops: [soybean]
+  - code: CIE.DZ.LEAF_SPOT_GENERIC
+    label: leaf spot
+    aliases: [leaf_spot]
+    crops: [maize, tomato, potato, wheat, soybean]
+
+growth_stages:
+  - code: STAGE.VEGETATIVE
+    label: vegetative
+    crops: [maize, corn]
+  - code: STAGE.REPRODUCTIVE
+    label: reproductive
+    crops: [tomato]
+  - code: STAGE.BULKING
+    label: bulking
+    crops: [potato]
+  - code: STAGE.TILLERING
+    label: tillering
+    crops: [wheat]
+  - code: STAGE.POD_FILL
+    label: pod fill
+    crops: [soybean]

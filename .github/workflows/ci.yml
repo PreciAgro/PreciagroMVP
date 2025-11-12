@@ -15,12 +15,19 @@ jobs:
           - name: data-integration
             path: preciagro/packages/engines/data_integration
             test: pytest preciagro/packages/engines/data_integration/tests -q
+            extra_requirements: ""
           - name: temporal-logic
             path: preciagro/packages/engines/temporal_logic
             test: pytest preciagro/packages/engines/temporal_logic/tests -q
+            extra_requirements: ""
           - name: geo-context
             path: preciagro/packages/engines/geo_context
             test: pytest preciagro/packages/engines/geo_context/tests -q
+            extra_requirements: ""
+          - name: image-analysis
+            path: preciagro/packages/engines/image_analysis
+            test: pytest preciagro/packages/engines/image_analysis/tests -q
+            extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -33,9 +40,17 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install black isort ruff mypy pip-audit
+      - name: Install engine extras
+        if: ${{ matrix.extra_requirements != '' }}
+        run: pip install -r ${{ matrix.extra_requirements }}
+      - name: Prefetch SAM2 checkpoints
+        if: ${{ matrix.name == 'image-analysis' }}
+        run: python -m preciagro.packages.engines.image_analysis.scripts.prefetch_checkpoints
       - name: Lint
+        if: ${{ hashFiles(format('{0}/Makefile', matrix.path)) != '' }}
         run: make -C ${{ matrix.path }} lint
       - name: Type check (soft fail)
+        if: ${{ hashFiles(format('{0}/Makefile', matrix.path)) != '' }}
         run: make -C ${{ matrix.path }} type
         continue-on-error: true
       - name: Tests
