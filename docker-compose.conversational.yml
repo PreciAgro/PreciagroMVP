@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  conversational-nlp:
+    build:
+      context: .
+      dockerfile: preciagro/packages/engines/conversational_nlp/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8103:8103"
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8103/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      # Prometheus scrape annotation (if using docker_sd_configs)
+      prometheus_job: "conversational-nlp"
+      prometheus_port: "8103"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped

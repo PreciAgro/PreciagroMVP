@@ -1,0 +1,42 @@
+replicaCount: 1
+image:
+  repository: conversational-nlp
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 8103
+env:
+  ENVIRONMENT: production
+  DEBUG: "false"
+  RAG_ENABLED: "true"
+  RAG_BACKEND: qdrant
+  QDRANT_HOST: your-qdrant
+  QDRANT_PORT: "6333"
+  AGROLLM_CLASSIFY_URL: https://agrollm/intent
+  AGROLLM_GENERATE_URL: https://agrollm/generate
+  INTERNAL_API_KEY: your-shared-key
+  CONVERSATIONAL_API_KEY: your-inbound-key
+  RATE_LIMIT_PER_MINUTE: "120"
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8103
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8103
+metrics:
+  enabled: true
+  path: /metrics
+trace:
+  enabled: true
+  otlpEndpoint: http://otel-collector:4318
+  otlpProtocol: http/protobuf

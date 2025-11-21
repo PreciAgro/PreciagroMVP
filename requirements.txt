@@ -24,6 +24,7 @@ psycopg2-binary>=2.9  # Postgres driver for CIE service
 numpy>=1.26
 pandas>=2.2
 scikit-learn>=1.5
+sentence-transformers>=2.7
 
 # testing
 pytest
@@ -33,3 +34,6 @@ tenacity
 prometheus_client
 python-dotenv
 pydantic-settings
+qdrant-client>=1.12.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-exporter-otlp>=1.25.0

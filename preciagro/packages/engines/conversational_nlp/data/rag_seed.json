@@ -1,0 +1,17 @@
+[
+  {
+    "id": "zim_maize_window",
+    "keywords": ["plan_planting", "maize", "zimbabwe", "plant", "window"],
+    "snippet": "For central Zimbabwe, plant maize between mid-November and early December when soil moisture is adequate."
+  },
+  {
+    "id": "pesticide_label_safety",
+    "keywords": ["diagnose_disease", "spray", "safety", "wind"],
+    "snippet": "Always follow pesticide labels and local regulations; avoid spraying during high wind or temperature inversions."
+  },
+  {
+    "id": "inventory_best_practice",
+    "keywords": ["inventory_status", "stock", "inputs"],
+    "snippet": "Track seed and fertilizer stock weekly; reorder when below two-week buffer."
+  }
+]

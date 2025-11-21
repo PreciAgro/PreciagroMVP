@@ -32,9 +32,10 @@ make -C preciagro/packages/engines/data_integration lint
 | data-integration | ACTIVE | Python | `uvicorn preciagro.apps.api_gateway.main:app --host 0.0.0.0 --port 8101 --reload` | `pytest preciagro/packages/engines/data_integration/tests -q` |
 | temporal-logic | ACTIVE | Python | `uvicorn preciagro.packages.engines.temporal_logic.app:app --host 0.0.0.0 --port 8100 --reload` | `pytest preciagro/packages/engines/temporal_logic/tests -q` |
 | geo-context | ACTIVE | Python | `uvicorn preciagro.packages.engines.geo_context.api.main:app --host 0.0.0.0 --port 8102 --reload` | `pytest preciagro/packages/engines/geo_context/tests -q` |
-| crop-intelligence | SKELETON | Python | — | — |
-| image-analysis | SKELETON | Python | — | — |
-| inventory | SKELETON | Python | — | — |
+| conversational-nlp | EXPERIMENTAL | Python | `uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload` | - |
+| crop-intelligence | SKELETON | Python | - | - |
+| image-analysis | SKELETON | Python | - | - |
+| inventory | SKELETON | Python | - | - |
 
 Detailed run books live under each engine: `preciagro/packages/engines/<engine>/docs/` (see `RUN.md` and, when applicable, `API.md`).
 

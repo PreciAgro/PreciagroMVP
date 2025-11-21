@@ -24,6 +24,14 @@
     "test_cmd": "pytest preciagro/packages/engines/geo_context/tests -q"
   },
   {
+    "name": "conversational-nlp",
+    "path": "preciagro/packages/engines/conversational_nlp",
+    "status": "EXPERIMENTAL",
+    "language": "Python",
+    "run_cmd": "uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload",
+    "test_cmd": null
+  },
+  {
     "name": "crop-intelligence",
     "path": "preciagro/packages/engines/crop_intelligence",
     "status": "SKELETON",
