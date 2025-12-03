@@ -15,19 +15,23 @@ jobs:
           - name: data-integration
             path: preciagro/packages/engines/data_integration
             test: pytest preciagro/packages/engines/data_integration/tests -q
-            extra_requirements: ""
           - name: temporal-logic
             path: preciagro/packages/engines/temporal_logic
             test: pytest preciagro/packages/engines/temporal_logic/tests -q
-            extra_requirements: ""
           - name: geo-context
             path: preciagro/packages/engines/geo_context
             test: pytest preciagro/packages/engines/geo_context/tests -q
-            extra_requirements: ""
           - name: image-analysis
             path: preciagro/packages/engines/image_analysis
             test: pytest preciagro/packages/engines/image_analysis/tests -q
             extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
+          - name: conversational-nlp
+            path: preciagro/packages/engines/conversational_nlp
+            test: pytest preciagro/packages/engines/conversational_nlp/tests -q
+          - name: crop-intelligence
+            path: preciagro/packages/engines/crop_intelligence
+            test: pytest preciagro/packages/engines/crop_intelligence/tests -q
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -43,15 +47,39 @@ jobs:
       - name: Install engine extras
         if: ${{ matrix.extra_requirements != '' }}
         run: pip install -r ${{ matrix.extra_requirements }}
+      
+      # Prefetch for image-analysis
       - name: Prefetch SAM2 checkpoints
         if: ${{ matrix.name == 'image-analysis' }}
         run: python -m preciagro.packages.engines.image_analysis.scripts.prefetch_checkpoints
+      
+      # Linting (fallback to direct commands if Makefile missing)
       - name: Lint
-        if: ${{ hashFiles(format('{0}/Makefile', matrix.path)) != '' }}
-        run: make -C ${{ matrix.path }} lint
-      - name: Type check (soft fail)
-        if: ${{ hashFiles(format('{0}/Makefile', matrix.path)) != '' }}
-        run: make -C ${{ matrix.path }} type
+        run: |
+          if [ -f "${{ matrix.path }}/Makefile" ]; then
+            make -C ${{ matrix.path }} lint
+          else
+            ruff check ${{ matrix.path }} --select=E9,F63,F7,F82 --target-version=py311
+            black --check ${{ matrix.path }}
+          fi
+
+      # Type check (soft fail)
+      - name: Type check
+        run: |
+          if [ -f "${{ matrix.path }}/Makefile" ]; then
+            make -C ${{ matrix.path }} type
+          else
+            mypy ${{ matrix.path }}
+          fi
         continue-on-error: true
+
       - name: Tests
         run: ${{ matrix.test }}
+
+  docker-build:
+    needs: engines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build . --file Dockerfile --tag preciagro-cie:latest

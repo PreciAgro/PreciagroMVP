@@ -45,8 +45,10 @@ from ..repos.telemetry import TelemetryRepository
 from ..integrations import integration_hub
 from ..security.deps import require_service_token
 
-router = APIRouter(prefix="/cie", tags=["CIE"], dependencies=[Depends(require_service_token)])
-crop_router = APIRouter(prefix="/crop", tags=["Crop Intelligence"], dependencies=[Depends(require_service_token)])
+router = APIRouter(
+    prefix="/cie", tags=["CIE"], dependencies=[Depends(require_service_token)])
+crop_router = APIRouter(
+    prefix="/crop", tags=["Crop Intelligence"], dependencies=[Depends(require_service_token)])
 
 
 @router.post("/field/register")
@@ -188,7 +190,8 @@ def predict_yield(
         raise HTTPException(status_code=404, detail="Field not found")
     features = tele_repo.season_summary(payload.field_id)
     features.update(payload.season_features or {})
-    features.setdefault("whc_mm", fields_repo.latest_soil_whc(payload.field_id) or 0.0)
+    features.setdefault(
+        "whc_mm", fields_repo.latest_soil_whc(payload.field_id) or 0.0)
     features.setdefault("crop", field.crop)
     p10, p50, p90, version = yo.p_bands(field.crop, features)
     return YieldPredictOut(field_id=payload.field_id, p10=p10, p50=p50, p90=p90, model_version=version)
@@ -244,7 +247,8 @@ def crop_status(
     ctx, field = _build_action_context(field_id, db)
     rotation = rotation_service.assess(field)
     state = ctx.state
-    health_score = min(1.0, (rotation.health_score + (state.stage_confidence or 0)) / 2)
+    health_score = min(1.0, (rotation.health_score +
+                       (state.stage_confidence or 0)) / 2)
     return CropStatusResponse(
         field_id=field_id,
         stage=state.stage,
@@ -254,7 +258,8 @@ def crop_status(
         rotation_hint=rotation.hint,
         risk_flags=rotation.risk_flags,
         last_update=None,
-        explanations=explanation_service.status_explanation(field_id, state, rotation.hint, health_score),
+        explanations=explanation_service.status_explanation(
+            field_id, state, rotation.hint, health_score),
     )
 
 
@@ -266,14 +271,17 @@ def crop_yield(
     ctx, field = _build_action_context(payload.field_id, db)
     features = ctx.season_features.copy()
     features.update(payload.baseline_features or {})
-    name, p10, p50, p90, drivers, version = _yield_result("baseline", field.crop, features)
-    baseline = YieldScenarioResult(name=name, p10=p10, p50=p50, p90=p90, delta=0.0, drivers=drivers)
+    name, p10, p50, p90, drivers, version = _yield_result(
+        "baseline", field.crop, features)
+    baseline = YieldScenarioResult(
+        name=name, p10=p10, p50=p50, p90=p90, delta=0.0, drivers=drivers)
 
     scenarios: List[YieldScenarioResult] = []
     for scenario in payload.scenarios:
         scenario_features = features.copy()
         scenario_features.update(scenario.adjustments or {})
-        s_name, s_p10, s_p50, s_p90, s_drivers, _ = _yield_result(scenario.name, field.crop, scenario_features)
+        s_name, s_p10, s_p50, s_p90, s_drivers, _ = _yield_result(
+            scenario.name, field.crop, scenario_features)
         scenarios.append(
             YieldScenarioResult(
                 name=s_name,
@@ -290,7 +298,8 @@ def crop_yield(
         baseline=baseline,
         scenarios=scenarios,
         model_version=version,
-        explanations=explanation_service.yield_explanation(features, baseline.p50),
+        explanations=explanation_service.yield_explanation(
+            features, baseline.p50),
     )
 
 
@@ -303,8 +312,10 @@ def crop_plan(
     schedule = planner.compose(payload.field_id, ctx.state)
     schedule_items = [item.model_dump() for item in schedule.items]
     actions = action_recommender.recommend(ctx)
-    plan = plan_builder.build(payload.field_id, ctx.state, schedule_items, actions, payload.horizon_days)
-    plan.explanations = explanation_service.plan_explanation([item.task for item in plan.items])
+    plan = plan_builder.build(
+        payload.field_id, ctx.state, schedule_items, actions, payload.horizon_days)
+    plan.explanations = explanation_service.plan_explanation(
+        [item.task for item in plan.items])
     return plan
 
 
@@ -331,7 +342,8 @@ def crop_explain(
     ctx, _ = _build_action_context(payload.field_id, db)
     explanations: List[str]
     if payload.topic == "yield":
-        explanations = explanation_service.yield_explanation(ctx.season_features, ctx.season_features.get("expected_yield", 0))
+        explanations = explanation_service.yield_explanation(
+            ctx.season_features, ctx.season_features.get("expected_yield", 0))
     elif payload.topic == "plan":
         schedule = planner.compose(payload.field_id, ctx.state)
         tasks = [item.task for item in schedule.items]
@@ -339,5 +351,6 @@ def crop_explain(
     else:
         field = ctx.field_repo.get(payload.field_id)
         rotation = rotation_service.assess(field)
-        explanations = explanation_service.status_explanation(payload.field_id, ctx.state, rotation.hint, rotation.health_score)
+        explanations = explanation_service.status_explanation(
+            payload.field_id, ctx.state, rotation.hint, rotation.health_score)
     return ExplainResponse(field_id=payload.field_id, topic=payload.topic, explanations=explanations)

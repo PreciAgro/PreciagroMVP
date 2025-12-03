@@ -32,7 +32,7 @@ make -C preciagro/packages/engines/data_integration lint
 | data-integration | ACTIVE | Python | `uvicorn preciagro.apps.api_gateway.main:app --host 0.0.0.0 --port 8101 --reload` | `pytest preciagro/packages/engines/data_integration/tests -q` |
 | temporal-logic | ACTIVE | Python | `uvicorn preciagro.packages.engines.temporal_logic.app:app --host 0.0.0.0 --port 8100 --reload` | `pytest preciagro/packages/engines/temporal_logic/tests -q` |
 | geo-context | ACTIVE | Python | `uvicorn preciagro.packages.engines.geo_context.api.main:app --host 0.0.0.0 --port 8102 --reload` | `pytest preciagro/packages/engines/geo_context/tests -q` |
-| conversational-nlp | EXPERIMENTAL | Python | `uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload` | - |
+| conversational-nlp | EXPERIMENTAL | Python | `uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload` | `pytest preciagro/packages/engines/conversational_nlp/tests -q` |
 | crop-intelligence | SKELETON | Python | - | - |
 | image-analysis | SKELETON | Python | - | - |
 | inventory | SKELETON | Python | - | - |
@@ -43,6 +43,16 @@ Detailed run books live under each engine: `preciagro/packages/engines/<engine>/
 - `.editorconfig` and `pyproject.toml` define formatting, linting, and type-check settings shared across engines.
 - `mypy.ini` enables gradual typing with strict rules opt-in per module.
 - `.github/workflows/ci.yml` executes install → lint → type → test across active engines.
+
+## Secrets Management
+The project uses `python-dotenv` and `pydantic-settings` for configuration and secret management.
+1.  Copy `.env.example` to `.env`:
+    ```bash
+    cp .env.example .env
+    ```
+2.  Update `.env` with your local secrets (API keys, DB credentials).
+3.  **Never commit `.env` to version control.** It is already in `.gitignore`.
+4.  For production (e.g., GitHub Actions, Docker), set these values as environment variables or secrets.
 
 ## Security and Auditing
 Run `make audit` in each engine directory (wrapper around `pip-audit`). Current known vulnerability: `ecdsa` 0.19.1 (transitive dependency of `python-jose`) — upstream fix pending.

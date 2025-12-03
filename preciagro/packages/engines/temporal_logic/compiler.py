@@ -306,14 +306,14 @@ class RuleCompiler:
 
         return tasks
 
-    def compile_single_rule(
+    async def compile_single_rule(
         self,
         rule: TemporalRule,
         events: List[TemporalEvent],
         context: Optional[Dict[str, Any]] = None,
     ) -> List[ScheduledTaskCreate]:
         """Compile a single rule against events."""
-        return self.compile_rules_for_events([rule], events, context)
+        return await self.compile_rules_for_events([rule], events, context)
 
 
 class CompilationOptimizer:

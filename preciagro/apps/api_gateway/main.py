@@ -50,7 +50,10 @@ from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 import os as _os
 import asyncio
 
+from preciagro.packages.shared.logging import configure_logging
+
 # Configure logging
+configure_logging(service_name="api-gateway")
 logger = logging.getLogger(__name__)
 
 # Set DEV environment variable early to ensure .env file is loaded BEFORE importing config
@@ -90,13 +93,19 @@ INGEST_COUNTER = Counter('preciagro_ingest_jobs_total',
 
 
 @app.get('/healthz')
-async def healthz():
-    """Health check that verifies DB and Redis connectivity when available.
+async def healthz(response: Response):
+    """Health check that verifies DB connectivity when available.
 
-    Returns 200 when both are reachable or when the environment doesn't provide
-    DB/Redis (best-effort). Returns 503 when a reachable service is down.
+    Returns 200 when reachable or when the environment doesn't provide
+    DB (best-effort). Returns 503 when a reachable service is down.
     """
-    return {"status": "ok", "message": "Service is running"}
+    db_ok = await ping_db()
+    
+    if not db_ok:
+        response.status_code = 503
+        return {"status": "error", "details": {"database": "unreachable"}}
+        
+    return {"status": "ok", "details": {"database": "connected"}}
 
 
 @app.get('/test')

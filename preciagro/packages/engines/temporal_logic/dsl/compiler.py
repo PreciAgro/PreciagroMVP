@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..contracts import EngineEvent, Rule, Window
 
@@ -11,7 +11,7 @@ class TaskCompiler:
     """Compiles rules into scheduled notification tasks."""
 
     def compile_tasks(
-        self, rule: Rule, event: EngineEvent, context: Dict[str, Any] = None
+        self, rule: Rule, event: EngineEvent, context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Compile rule into scheduled tasks."""
         context = context or {}

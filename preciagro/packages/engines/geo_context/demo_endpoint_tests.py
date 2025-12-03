@@ -317,7 +317,7 @@ class MockGeoContextTester:
                         print("   ✅ Metrics endpoint passed")
                         print(f"   📊 Found metrics: {found_metrics}")
                         print(
-                            f"   📈 Total metrics lines: {len(metrics_text.split('\n'))}"
+                            f"   📈 Total metrics lines: {len(metrics_text.splitlines())}"
                         )
                     else:
                         print(

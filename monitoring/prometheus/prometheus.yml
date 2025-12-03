@@ -1,0 +1,72 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'preciagro-mvp'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - 'alerts.yml'
+  - 'recording_rules.yml'
+  - 'slo_alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+    metrics_path: '/metrics'
+
+  # Temporal Logic Engine
+  - job_name: 'temporal-logic'
+    static_configs:
+      - targets: ['host.docker.internal:8100']
+    metrics_path: '/prometheus'
+
+  # Conversational NLP Engine
+  - job_name: 'conversational-nlp'
+    static_configs:
+      - targets: ['host.docker.internal:8101']
+    metrics_path: '/prometheus'
+
+  # Geo Context Engine
+  - job_name: 'geo-context'
+    static_configs:
+      - targets: ['host.docker.internal:8102']
+    metrics_path: '/prometheus'
+
+  # Crop Intelligence Engine
+  - job_name: 'crop-intelligence'
+    static_configs:
+      - targets: ['host.docker.internal:8104']
+    metrics_path: '/prometheus'
+
+  # Image Analysis Engine
+  - job_name: 'image-analysis'
+    static_configs:
+      - targets: ['host.docker.internal:8106']
+    metrics_path: '/prometheus'
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # PostgreSQL Exporter
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']

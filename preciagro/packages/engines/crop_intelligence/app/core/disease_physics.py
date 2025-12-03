@@ -327,13 +327,13 @@ def assess_disease_risk(
     # Risk level classification
     if risk_score >= 0.75:
         risk_level = "critical"
-        recommendation = f"High infection risk - scout within 24h, prepare fungicide application"
+        recommendation = "High infection risk - scout within 24h, prepare fungicide application"
     elif risk_score >= 0.50:
         risk_level = "high"
         recommendation = f"Scout field within 48h - conditions favor {model['pathogen']}"
     elif risk_score >= 0.25:
         risk_level = "moderate"
-        recommendation = f"Monitor conditions - wetness approaching threshold"
+        recommendation = "Monitor conditions - wetness approaching threshold"
     else:
         risk_level = "low"
         recommendation = "Conditions not favorable for infection"

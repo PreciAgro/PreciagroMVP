@@ -365,7 +365,7 @@ rules:
 
 
 # Utility function to save sample YAML
-def save_sample_rules(file_path: str = None) -> None:
+def save_sample_rules(file_path: Optional[str] = None) -> None:
     """Save sample rules to a file."""
     if file_path is None:
         file_path = Path(__file__).parent / "rules" / "temporal_rules.yaml"

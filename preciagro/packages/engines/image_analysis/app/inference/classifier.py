@@ -80,15 +80,13 @@ class ClassifierHead:
             LOGGER.info("Classifier head running in heuristic mode (no image or timm unavailable)")
             return self._heuristic_labels(payload)
 
-    def get_bundle(self, crop_config: CropModelConfig) -> dict:
-        """Expose the cached model bundle for auxiliary tasks (e.g., Grad-CAM)."""
-
-        return self._load_model(crop_config)
-
         try:
             bundle = self._load_model(crop_config)
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("Failed to load classifier backbone; falling back to heuristic", exc_info=exc)
+            LOGGER.warning(
+                "Failed to load classifier backbone; falling back to heuristic",
+                exc_info=exc,
+            )
             return self._heuristic_labels(payload)
 
         try:
@@ -99,12 +97,23 @@ class ClassifierHead:
                 model_version=bundle["model_version"],
                 used_stub=False,
                 raw_topk=[
-                    (int(idx), float(prob)) for idx, prob in self._topk_indices(logits, crop_config.classifier.top_k)
+                    (int(idx), float(prob))
+                    for idx, prob in self._topk_indices(
+                        logits, crop_config.classifier.top_k
+                    )
                 ],
             )
         except Exception as exc:  # noqa: BLE001
-            LOGGER.exception("Classifier inference failed; using heuristic fallback", exc_info=exc)
+            LOGGER.exception(
+                "Classifier inference failed; using heuristic fallback",
+                exc_info=exc,
+            )
             return self._heuristic_labels(payload)
+
+    def get_bundle(self, crop_config: CropModelConfig) -> dict:
+        """Expose the cached model bundle for auxiliary tasks (e.g., Grad-CAM)."""
+
+        return self._load_model(crop_config)
 
     def _timm_available(self) -> bool:
         return torch is not None and create_model is not None and create_transform is not None

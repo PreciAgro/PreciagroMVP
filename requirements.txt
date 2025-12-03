@@ -29,11 +29,18 @@ sentence-transformers>=2.7
 # testing
 pytest
 pytest-asyncio
+pytest-cov>=4.1.0
+coverage[toml]>=7.0.0
+locust>=2.15.0
+faker>=20.0.0
 alembic
 tenacity
 prometheus_client
+psutil>=5.9.0
 python-dotenv
 pydantic-settings
 qdrant-client>=1.12.0
 opentelemetry-sdk>=1.25.0
 opentelemetry-exporter-otlp>=1.25.0
+sentry-sdk[fastapi]>=1.40.0
+slowapi>=0.1.9

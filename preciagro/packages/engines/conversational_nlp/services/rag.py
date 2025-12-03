@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
-import json
 from typing import List, Tuple
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from ..models import Citation, IntentResult
-
+from ..models import Citation, IntentResult, ToolsContext
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +23,17 @@ class RAGRetriever:
         self._docs = self._load_index(index_path) if index_path else self._seed_docs()
         self._vectorizer, self._doc_matrix = self._build_index(self._docs)
 
-    async def retrieve(self, intent: IntentResult) -> List[Citation]:
+    async def retrieve(
+        self,
+        intent: IntentResult,
+        tools_context: ToolsContext,
+        user_message: str,
+    ) -> List[Citation]:
         """Return citations if RAG is enabled."""
         if not self.enabled:
             return []
 
-        keywords = self._collect_keywords(intent)
+        keywords = self._collect_keywords(intent, tools_context, user_message)
         ranked = self._rank_docs(keywords)
 
         results = []
@@ -44,8 +48,12 @@ class RAGRetriever:
         return results
 
     @staticmethod
-    def _collect_keywords(intent: IntentResult) -> List[str]:
-        """Derive keywords from intent/entities for naive matching."""
+    def _collect_keywords(
+        intent: IntentResult,
+        tools_context: ToolsContext,
+        user_message: str,
+    ) -> List[str]:
+        """Derive keywords from intent/entities plus user text and tool context."""
         kws = [intent.intent]
         ent = intent.entities
         for value in [
@@ -57,6 +65,11 @@ class RAGRetriever:
         ]:
             if value:
                 kws.extend(str(value).lower().split())
+        if user_message:
+            kws.extend(user_message.lower().split())
+        region = tools_context.geo_context.get("region")
+        if region:
+            kws.extend(str(region).lower().split())
         return [kw for kw in kws if kw]
 
     def _rank_docs(self, query_keywords: List[str]) -> List[dict[str, str | List[str]]]:

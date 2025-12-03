@@ -7,7 +7,6 @@ from typing import List, Optional
 
 from sklearn.feature_extraction.text import HashingVectorizer
 
-
 logger = logging.getLogger(__name__)
 
 

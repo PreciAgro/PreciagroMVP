@@ -5,21 +5,31 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from typing import Any
+
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from prometheus_client import make_asgi_app
 
 from .api.routes import router as api_router
 from .core.config import settings
+from preciagro.packages.shared.logging import configure_logging
 from .services.orchestrator import ConversationOrchestrator
 from .services.session import SessionStore
 from .services.tracing import init_tracer
 
-
 logger = logging.getLogger(__name__)
 
-session_store = SessionStore(redis_url=settings.redis_url, ttl_seconds=settings.session_ttl_seconds)
+configure_logging(debug=settings.debug)
+
+session_store = SessionStore(
+    redis_url=settings.redis_url,
+    ttl_seconds=settings.session_ttl_seconds,
+    max_turns=settings.session_history_turns,
+    history_enabled=settings.conversation_history_enabled,
+    retention_hours=settings.session_retention_hours,
+)
 orchestrator = ConversationOrchestrator(session_store=session_store)
 
 
@@ -41,7 +51,7 @@ def create_app() -> FastAPI:
     """Application factory."""
     app = FastAPI(
         title="Conversational / NLP Engine",
-        version="0.1.0",
+        version=settings.engine_api_version,
         description="Intent-aware chat engine in front of AgroLLM and internal tools.",
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
@@ -70,7 +80,26 @@ def create_app() -> FastAPI:
             "engine": "conversational-nlp",
             "version": app.version,
             "environment": settings.environment,
+            "intent_schema": settings.intent_schema_version,
+            "response_schema": settings.response_schema_version,
         }
+    
+    @app.get("/health", tags=["system"])
+    async def health(response: Response) -> dict[str, Any]:
+        """Health check that verifies Redis connectivity."""
+        status = {"status": "ok", "details": {"redis": "disabled"}}
+        
+        store = app.state.orchestrator.session_store
+        if store.redis:
+            try:
+                await store.redis.ping()
+                status["details"]["redis"] = "connected"
+            except Exception:
+                status["status"] = "error"
+                status["details"]["redis"] = "unreachable"
+                response.status_code = 503
+        
+        return status
 
     return app
 

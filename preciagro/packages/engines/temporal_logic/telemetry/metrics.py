@@ -1,7 +1,7 @@
 """Telemetry and metrics for temporal logic engine."""
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Dict
 
 from prometheus_client import Counter, Histogram
 
@@ -28,11 +28,11 @@ class EngineMetrics:
     """Lightweight facade providing structured access to Prometheus counters."""
 
     def __init__(self) -> None:
-        self._system_snapshot = {
+        self._system_snapshot: Dict[str, float] = {
             "cpu_usage": 0.0,
             "memory_usage": 0.0,
         }
-        self._business_snapshot = {
+        self._business_snapshot: Dict[str, Dict[str, int]] = {
             "events": {},
             "tasks": {},
             "messages": {},
@@ -111,9 +111,6 @@ class EngineMetrics:
     def request_failed(self, method: str, endpoint: str, error: str) -> None:
         """Record request failure."""
         pass
-        message_counter = self._business_snapshot["messages"].setdefault(
-            channel, 0)
-        self._business_snapshot["messages"][channel] = message_counter + 1
 
     def task_scheduled(
         self, task_type: str, channel: str, delay_seconds: float

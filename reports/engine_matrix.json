@@ -29,7 +29,7 @@
     "status": "EXPERIMENTAL",
     "language": "Python",
     "run_cmd": "uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload",
-    "test_cmd": null
+    "test_cmd": "pytest preciagro/packages/engines/conversational_nlp/tests -q"
   },
   {
     "name": "crop-intelligence",
@@ -42,10 +42,10 @@
   {
     "name": "image-analysis",
     "path": "preciagro/packages/engines/image_analysis",
-    "status": "SKELETON",
+    "status": "ACTIVE",
     "language": "Python",
-    "run_cmd": null,
-    "test_cmd": null
+    "run_cmd": "uvicorn preciagro.packages.engines.image_analysis.app.main:app --host 0.0.0.0 --port 8102 --reload",
+    "test_cmd": "pytest preciagro/packages/engines/image_analysis/tests -q"
   },
   {
     "name": "inventory",

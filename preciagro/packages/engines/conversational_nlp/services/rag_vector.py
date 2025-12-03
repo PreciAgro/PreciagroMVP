@@ -12,10 +12,9 @@ except Exception:  # noqa: BLE001
     QdrantClient = None  # type: ignore[assignment]
     qmodels = None  # type: ignore[assignment]
 
-from ..models import Citation, IntentResult
+from ..models import Citation, IntentResult, ToolsContext
 from .embedding import Embedder
 from .rag import RAGRetriever
-
 
 logger = logging.getLogger(__name__)
 
@@ -97,14 +96,27 @@ class VectorDBRetriever:
         if points:
             self.client.upsert(collection_name=self.collection, points=points)
 
-    async def retrieve(self, intent: IntentResult) -> List[Citation]:
+    async def retrieve(
+        self,
+        intent: IntentResult,
+        tools_context: ToolsContext,
+        user_message: str,
+    ) -> List[Citation]:
         """Retrieve citations using vector search or fallback."""
         if not self.enabled:
             return []
         if not self.client:
-            return await self.keyword_fallback.retrieve(intent)
+            return await self.keyword_fallback.retrieve(
+                intent=intent,
+                tools_context=tools_context,
+                user_message=user_message,
+            )
 
-        keywords = self.keyword_fallback._collect_keywords(intent)  # type: ignore[attr-defined]
+        keywords = self.keyword_fallback._collect_keywords(  # type: ignore[attr-defined]
+            intent=intent,
+            tools_context=tools_context,
+            user_message=user_message,
+        )
         query_text = " ".join(keywords) or intent.intent
         vector = self.embedder.embed(query_text)
         try:
@@ -128,4 +140,8 @@ class VectorDBRetriever:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Vector search failed, falling back to keyword retriever: %s", exc)
 
-        return await self.keyword_fallback.retrieve(intent)
+        return await self.keyword_fallback.retrieve(
+            intent=intent,
+            tools_context=tools_context,
+            user_message=user_message,
+        )

@@ -1,0 +1,76 @@
+groups:
+  # Latency aggregations - pre-compute expensive percentile queries
+  - name: latency_aggregations
+    interval: 30s
+    rules:
+      # P50 latency per service
+      - record: http:request_duration_seconds:p50
+        expr: histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))
+      
+      # P95 latency per service
+      - record: http:request_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))
+      
+      # P99 latency per service
+      - record: http:request_duration_seconds:p99
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))
+      
+      # P95 latency per endpoint
+      - record: http:request_duration_seconds:p95:by_endpoint
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, endpoint, le))
+
+  # Database connection metrics
+  - name: database_aggregations
+    interval: 30s
+    rules:
+      # DB connection usage ratio
+      - record: db:connections:usage_ratio
+        expr: db_connections_active / (db_connections_active + db_connections_idle)
+      
+      # DB connection pool utilization percentage
+      - record: db:connections:utilization_percent
+        expr: (db_connections_active / db_connections_total) * 100
+
+  # Error rate aggregations
+  - name: error_rate_aggregations
+    interval: 30s
+    rules:
+      # Overall error rate (all errors)
+      - record: http:errors:rate
+        expr: sum(rate(http_errors_total[5m])) by (service)
+      
+      # 4xx error rate
+      - record: http:errors:rate:4xx
+        expr: sum(rate(http_errors_total{error_type="4xx"}[5m])) by (service)
+      
+      # 5xx error rate
+      - record: http:errors:rate:5xx
+        expr: sum(rate(http_errors_total{error_type="5xx"}[5m])) by (service)
+      
+      # Error ratio (errors / total requests)
+      - record: http:errors:ratio
+        expr: sum(rate(http_errors_total[5m])) by (service) / sum(rate(http_requests_total[5m])) by (service)
+
+  # Request rate aggregations
+  - name: request_rate_aggregations
+    interval: 30s
+    rules:
+      # Request rate per service
+      - record: http:requests:rate
+        expr: sum(rate(http_requests_total[5m])) by (service)
+      
+      # Request rate per service and endpoint
+      - record: http:requests:rate:by_endpoint
+        expr: sum(rate(http_requests_total[5m])) by (service, endpoint)
+
+  # Business metrics aggregations
+  - name: business_aggregations
+    interval: 60s
+    rules:
+      # Tool call success rate
+      - record: tools:calls:success_rate
+        expr: sum(rate(tool_calls_total{success="true"}[5m])) by (tool_name) / sum(rate(tool_calls_total[5m])) by (tool_name)
+      
+      # Average RAG relevance score
+      - record: rag:relevance:avg
+        expr: sum(rate(rag_relevance_score_sum[5m])) / sum(rate(rag_relevance_score_count[5m]))

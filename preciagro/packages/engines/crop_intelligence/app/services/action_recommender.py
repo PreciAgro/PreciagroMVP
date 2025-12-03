@@ -29,7 +29,8 @@ class ActionRecommender:
         cards: List[ActionOut] = []
         stage = ctx.state.stage
 
-        water = pw.water_need_message(ctx.soil_whc, ctx.season_features.get("rain_forecast_mm"))
+        water = pw.water_need_message(
+            ctx.soil_whc, ctx.season_features.get("rain_forecast_mm"))
         if "irrigate_mm" in water or "skip_if_rain_mm" in water:
             why = [
                 f"stage={stage or 'unknown'}",
@@ -50,7 +51,8 @@ class ActionRecommender:
             )
 
         if stage:
-            n_start, n_end, why_n = nt.n_topdress_window(stage, rain_forecast_mm=ctx.season_features.get("rain_forecast_mm", 0))
+            n_start, n_end, why_n = nt.n_topdress_window(
+                stage, rain_forecast_mm=ctx.season_features.get("rain_forecast_mm", 0))
             if n_start:
                 cards.append(
                     ActionOut(

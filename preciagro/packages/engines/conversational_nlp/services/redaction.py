@@ -5,7 +5,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict
 
-
 SENSITIVE_KEYS = {"user", "user_id", "farm_ids", "location", "lat", "lon", "latitude", "longitude", "attachments"}
 
 

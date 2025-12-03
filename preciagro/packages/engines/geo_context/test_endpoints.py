@@ -354,7 +354,7 @@ class GeoContextEndpointTester:
                         "metrics_missing": [
                             m for m in expected_metrics if m not in found_metrics
                         ],
-                        "total_metrics_lines": len(metrics_text.split("\n")),
+                        "total_metrics_lines": len(metrics_text.splitlines()),
                     }
 
                     if found_metrics:
@@ -363,7 +363,7 @@ class GeoContextEndpointTester:
                         )
                         print(f"   METRICS Found metrics: {found_metrics}")
                         print(
-                            f"   TREND Total metrics lines: {len(metrics_text.split('\n'))}"
+                            f"   TREND Total metrics lines: {len(metrics_text.splitlines())}"
                         )
                     else:
                         print("   FAIL No expected metrics found")

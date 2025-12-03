@@ -6,10 +6,16 @@ from datetime import datetime, timedelta, timezone
 from arq.connections import RedisSettings
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 from ..channels.twilio_sms import TwilioSMSSender
 from ..channels.whatsapp_meta import WhatsAppMetaSender
-from ..config import REDIS_URL
+from ..config import REDIS_URL, config
 from ..models import NotificationJob, ScheduleItem, async_session
 from ..policies.quiet_hours import is_quiet_hours
 from ..policies.rate_limits import should_rate_limit
@@ -20,6 +26,17 @@ logger = logging.getLogger(__name__)
 
 # Channel registry
 CHANNELS = {"whatsapp": WhatsAppMetaSender(), "sms": TwilioSMSSender()}
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((Exception,)),
+    reraise=True,
+)
+async def send_with_retry(channel, target, payload):
+    """Send notification with automatic retry on failure."""
+    return await channel.send(target, payload)
 
 
 async def process_due_notifications(ctx):
@@ -88,7 +105,7 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
     notification_attempts.labels(channel=channel_name).inc()
 
     try:
-        result = await channel.send(item.target, item.payload)
+        result = await send_with_retry(channel, item.target, item.payload)
 
         job.status = "sent"
         job.result = result
@@ -111,10 +128,27 @@ async def process_notification_item(session: AsyncSession, item: ScheduleItem):
     await session.commit()
 
 
+def get_redis_settings():
+    """Get Redis settings, supporting Sentinel configuration if provided."""
+    if config.redis_sentinels:
+        # Parse sentinel hosts
+        sentinel_hosts = [
+            (host.split(":")[0], int(host.split(":")[1]))
+            for host in config.redis_sentinels.split(",")
+        ]
+        return RedisSettings(
+            sentinels=sentinel_hosts,
+            sentinel_master=config.redis_sentinel_master,
+        )
+    else:
+        # Use direct Redis URL
+        return RedisSettings.from_dsn(REDIS_URL or "redis://localhost:6379/0")
+
+
 class WorkerSettings:
     """ARQ worker settings."""
 
-    redis_settings = RedisSettings.from_dsn(REDIS_URL)
+    redis_settings = get_redis_settings()
     functions = [process_due_notifications]
     cron_jobs = [
         # Check for due notifications every minute

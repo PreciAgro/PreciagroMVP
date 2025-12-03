@@ -276,9 +276,9 @@ class TemporalLogicEngine:
                 )
 
                 result = await session.execute(
-                    select(func.count(ScheduleItem.id))
-                    .where(ScheduleItem.dedupe_key == dedupe_key)
-                    .where(ScheduleItem.schedule_time >= cutoff_time)
+                    select(func.count(ScheduledTask.id))
+                    .where(ScheduledTask.dedupe_key == dedupe_key)
+                    .where(ScheduledTask.schedule_time >= cutoff_time)
                 )
 
                 count = result.scalar()
@@ -365,27 +365,6 @@ class TemporalLogicEngine:
             logger.error(f"Full traceback: {traceback.format_exc()}")
             return None
 
-            async with async_session() as session:
-                scheduled_item = ScheduleItem(
-                    id=task_id,
-                    user_id=f"farmer_{event.farm_id}",
-                    rule_id=rule.id,  # Add the missing rule_id field
-                    schedule_time=schedule_time,
-                    payload=payload,
-                    target="notification_service",
-                    dedupe_key=dedupe_key,
-                )
-
-                session.add(scheduled_item)
-                await session.commit()
-
-            logger.info(f"Scheduled task {task_id} for {schedule_time}")
-            return task_id
-
-        except Exception as e:
-            logger.error(f"Failed to create scheduled task: {e}")
-            return None
-
     def _calculate_schedule_time(self, window: Window, event: EngineEvent) -> dt:
         """Calculate when the task should be scheduled based on window rules."""
         base_time = event.ts_utc
@@ -448,13 +427,13 @@ class TemporalLogicEngine:
         async with async_session() as session:
             from sqlalchemy import delete, select
 
-            from .models import ScheduleItem
+            from .models import ScheduledTask
 
             # Check if task exists and is future
             result = await session.execute(
-                select(ScheduleItem)
-                .where(ScheduleItem.id == task_id)
-                .where(ScheduleItem.schedule_time > datetime.utcnow())
+                select(ScheduledTask)
+                .where(ScheduledTask.task_id == task_id)
+                .where(ScheduledTask.schedule_for > datetime.utcnow())
             )
 
             item = result.scalar_one_or_none()
@@ -463,7 +442,7 @@ class TemporalLogicEngine:
 
             # Delete the scheduled item
             await session.execute(
-                delete(ScheduleItem).where(ScheduleItem.id == task_id)
+                delete(ScheduledTask).where(ScheduledTask.task_id == task_id)
             )
             await session.commit()
 

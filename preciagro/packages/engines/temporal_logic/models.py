@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import (DeclarativeBase, Mapped, mapped_column,
                             reconstructor, relationship)
 
-from .config import DATABASE_URL
+from .config import DATABASE_URL, DB_POOL_SIZE, DB_MAX_OVERFLOW
 
 
 def utcnow() -> datetime:
@@ -256,7 +256,12 @@ def get_engine():
     """Create (or reuse) the async SQLAlchemy engine."""
     global _engine
     if _engine is None and DATABASE_URL:
-        _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+        _engine = create_async_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_size=DB_POOL_SIZE,
+            max_overflow=DB_MAX_OVERFLOW,
+        )
     return _engine
 
 

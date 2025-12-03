@@ -103,7 +103,7 @@ def main():
     state = response.json()
     pretty_print(state)
 
-    print(f"\n📊 Field Analysis:")
+    print("\n📊 Field Analysis:")
     print(
         f"   Stage: {state.get('stage', 'Unknown')} (confidence: {state.get('stage_confidence', 0):.1%})")
     print(f"   Vigor Trend: {state.get('vigor_trend', 'Unknown')}")
@@ -117,12 +117,12 @@ def main():
     actions = response.json()
     pretty_print(actions)
 
-    print(f"\n🎯 Action Summary:")
+    print("\n🎯 Action Summary:")
     for idx, action in enumerate(actions.get('items', []), 1):
         print(
             f"\n   {idx}. {action['action']} (Impact: {action['impact_score']:.1%})")
         print(f"      Uncertainty: {action['uncertainty']}")
-        print(f"      Reasoning:")
+        print("      Reasoning:")
         for reason in action['why']:
             print(f"        - {reason}")
         if action.get('window_start'):

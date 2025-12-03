@@ -10,7 +10,9 @@ class Settings(BaseSettings):
     """Configuration settings for Temporal Logic Engine."""
 
     database_url: Optional[str] = os.getenv("DATABASE_URL")
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_url: Optional[str] = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_sentinels: Optional[str] = os.getenv("REDIS_SENTINELS")  # e.g., "host1:26379,host2:26379"
+    redis_sentinel_master: Optional[str] = os.getenv("REDIS_SENTINEL_MASTER", "mymaster")
     jwt_pubkey: Optional[str] = os.getenv("SERVICE_JWT_PUBLIC_KEY")
     whatsapp_token: Optional[str] = os.getenv("WHATSAPP_TOKEN")
     whatsapp_phone_id: Optional[str] = os.getenv("WHATSAPP_PHONE_ID")
@@ -20,6 +22,10 @@ class Settings(BaseSettings):
     max_notifications_per_day: int = int(os.getenv("MAX_NOTIFS_PER_DAY", "5"))
     digest_hour_local: int = int(os.getenv("DIGEST_HOUR_LOCAL", "19"))
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+    # Database config
+    db_pool_size: int = int(os.getenv("DB_POOL_SIZE", "5"))
+    db_max_overflow: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
 
     # FastAPI app config
     debug: bool = os.getenv("DEBUG", "false").lower() == "true"
@@ -69,3 +75,5 @@ ARQ_MAX_RETRIES = config.arq_max_retries
 ARQ_MAX_JOBS = config.arq_max_jobs
 ARQ_RETRY_JOBS = config.arq_retry_jobs
 ARQ_MAX_TRIES = config.arq_max_tries
+DB_POOL_SIZE = config.db_pool_size
+DB_MAX_OVERFLOW = config.db_max_overflow

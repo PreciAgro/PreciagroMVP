@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     ENV: str = "dev"
     CIE_ENGINE_NAME: str = "crop_intelligence"
     DATABASE_URL: str = "sqlite:///./cie.db"
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
     AUTO_CREATE_SCHEMA: bool = True
     SERVICE_AUTH_TOKEN: str = ""
     HTTP_TIMEOUT_SECONDS: float = 5.0
