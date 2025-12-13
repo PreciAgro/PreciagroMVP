@@ -202,9 +202,62 @@ Explanations support multiple languages:
 
 Specify via `language` field in requests.
 
-## Phase 2 Features (Coming Soon)
+## Phase 2 Features
 
-- Counterfactual explanations
-- Example-based retrieval
-- Cryptographic audit signatures
-- Advanced uncertainty calibration
+### Counterfactual Explanations
+
+"What if" scenarios showing minimal changes to improve confidence:
+
+```python
+from preciagro.packages.engines.trust_explainability.strategies import CounterfactualExplainer
+
+explainer = CounterfactualExplainer()
+result = explainer.generate_counterfactuals(
+    features={"pH": 5.5, "nitrogen": 30},
+    current_prediction="rust",
+    current_confidence=0.7
+)
+# Returns actionable suggestions like "Increase nitrogen by 30%"
+```
+
+**API endpoint**: `POST /api/v1/explain/counterfactual`
+
+### Example-Based Retrieval
+
+Find similar historical cases:
+
+```python
+from preciagro.packages.engines.trust_explainability.strategies import ExampleRetriever
+
+retriever = ExampleRetriever()
+cases = retriever.find_similar_cases(
+    features={"pH": 5.8, "nitrogen": 45},
+    diagnosis="leaf_blight"
+)
+# Returns similar cases with treatments and outcomes
+```
+
+**API endpoint**: `GET /api/v1/explain/examples/{trace_id}`
+
+### Cryptographic Signatures
+
+Sign and verify traces for audit compliance:
+
+```python
+from preciagro.packages.engines.trust_explainability.core.crypto import TraceSigner
+
+signer = TraceSigner()
+signed = signer.sign(trace)
+result = signer.verify(trace, signed.signature)
+# result.valid == True
+```
+
+**API endpoints**: 
+- `POST /api/v1/trace/{id}/sign`
+- `POST /api/v1/trace/verify`
+
+### Storage Backends
+
+- **SQLite**: Development and single-node (`SQLiteTraceStore`)
+- **PostgreSQL**: Production multi-node (`PostgresTraceStore`)
+

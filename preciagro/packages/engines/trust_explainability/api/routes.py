@@ -269,3 +269,185 @@ async def delete_trace(
         raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
     
     return {"deleted": True, "trace_id": trace_id}
+
+
+# =============================================================================
+# Phase 2 Endpoints
+# =============================================================================
+
+
+class CounterfactualRequest(BaseModel):
+    """Request for counterfactual explanation."""
+    model_type: str
+    model_id: str
+    model_outputs: dict
+    features: dict
+    target_confidence: float = 0.9
+    max_changes: int = 3
+
+
+class SignTraceRequest(BaseModel):
+    """Request to sign a trace."""
+    trace_id: str
+
+
+class VerifyTraceRequest(BaseModel):
+    """Request to verify a trace signature."""
+    trace_id: str
+    signature: str
+    key_id: Optional[str] = None
+
+
+@router.post("/explain/counterfactual", response_model=dict)
+async def explain_counterfactual(
+    request: CounterfactualRequest,
+    service: ExplanationService = Depends(get_explanation_service)
+) -> dict:
+    """Generate counterfactual 'what if' explanation.
+    
+    Shows minimal feature changes needed to improve confidence.
+    
+    Args:
+        request: Counterfactual request with features
+        
+    Returns:
+        Counterfactual explanation with suggested changes
+    """
+    from ..strategies.counterfactual import CounterfactualExplainer
+    from ..contracts.v1.enums import ExplanationLevel
+    
+    explainer = CounterfactualExplainer()
+    
+    cf_set = explainer.generate_counterfactuals(
+        features=request.features,
+        current_prediction=request.model_outputs.get("diagnosis", "unknown"),
+        current_confidence=request.model_outputs.get("confidence", 0.5),
+        target_confidence=request.target_confidence,
+        max_changes=request.max_changes
+    )
+    
+    return {
+        "original_confidence": cf_set.original_confidence,
+        "potential_confidence": cf_set.original_confidence + cf_set.combined_impact,
+        "feasibility": cf_set.feasibility_score,
+        "counterfactuals": [
+            {
+                "feature": cf.feature,
+                "current": cf.original_value,
+                "suggested": cf.suggested_value,
+                "impact": cf.impact,
+                "actionable": cf.actionable,
+                "explanation": cf.explanation
+            }
+            for cf in cf_set.counterfactuals
+        ]
+    }
+
+
+@router.get("/explain/examples/{trace_id}", response_model=dict)
+async def get_similar_examples(
+    trace_id: str,
+    top_k: int = Query(default=3, ge=1, le=10),
+    trace_service: TraceService = Depends(get_trace_service)
+) -> dict:
+    """Get similar historical cases for a trace.
+    
+    Args:
+        trace_id: Trace to find similar cases for
+        top_k: Number of similar cases to return
+        
+    Returns:
+        Similar historical cases
+    """
+    from ..strategies.example_retriever import ExampleRetriever
+    
+    trace = await trace_service.retrieve(trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
+    
+    # Extract features from trace
+    features = {}
+    for ev in trace.evidence:
+        if ev.metadata:
+            for key in ["soil", "weather", "features"]:
+                if key in ev.metadata and isinstance(ev.metadata[key], dict):
+                    features.update(ev.metadata[key])
+    
+    # Get similar cases
+    retriever = ExampleRetriever()
+    diagnosis = trace.decision_summary or ""
+    
+    similar = retriever.find_similar_cases(
+        features=features,
+        diagnosis=diagnosis,
+        top_k=top_k
+    )
+    
+    return {
+        "trace_id": trace_id,
+        "query_diagnosis": diagnosis,
+        "similar_cases": [c.to_dict() for c in similar]
+    }
+
+
+@router.post("/trace/{trace_id}/sign", response_model=dict)
+async def sign_trace(
+    trace_id: str,
+    trace_service: TraceService = Depends(get_trace_service)
+) -> dict:
+    """Sign a trace for audit compliance.
+    
+    Args:
+        trace_id: Trace ID to sign
+        
+    Returns:
+        Signed trace with signature
+    """
+    from ..core.crypto import get_trace_signer
+    
+    trace = await trace_service.retrieve(trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
+    
+    signer = get_trace_signer()
+    signed = signer.sign(trace)
+    
+    return {
+        "trace_id": signed.trace_id,
+        "signature": signed.signature,
+        "algorithm": signed.algorithm,
+        "signed_at": signed.signed_at.isoformat(),
+        "key_id": signed.key_id
+    }
+
+
+@router.post("/trace/verify", response_model=dict)
+async def verify_trace(
+    request: VerifyTraceRequest,
+    trace_service: TraceService = Depends(get_trace_service)
+) -> dict:
+    """Verify a trace signature.
+    
+    Args:
+        request: Verification request with trace ID and signature
+        
+    Returns:
+        Verification result
+    """
+    from ..core.crypto import get_trace_signer
+    
+    trace = await trace_service.retrieve(request.trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {request.trace_id} not found")
+    
+    signer = get_trace_signer()
+    result = signer.verify(trace, request.signature, request.key_id)
+    
+    return {
+        "valid": result.valid,
+        "trace_id": result.trace_id,
+        "verified_at": result.verified_at.isoformat(),
+        "message": result.message,
+        "key_id": result.key_id
+    }
+
