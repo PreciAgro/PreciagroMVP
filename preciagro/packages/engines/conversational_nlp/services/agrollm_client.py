@@ -80,6 +80,284 @@ class HTTPAgroLLMBackend:
             return None
 
 
+class OpenAIBackend:
+    """Backend for OpenAI API (GPT-4, GPT-3.5, etc.)."""
+
+    name = "openai"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4",
+        classify_model: str | None = None,
+        generate_model: str | None = None,
+        timeout_seconds: float = 30.0,
+        base_url: str | None = None,
+    ) -> None:
+        self.api_key = api_key
+        self.classify_model = classify_model or model
+        self.generate_model = generate_model or model
+        self.timeout_seconds = timeout_seconds
+        self.base_url = base_url or "https://api.openai.com/v1"
+        # TODO: Import openai library when ready
+        # import openai
+        # self.client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=timeout_seconds)
+
+    @property
+    def available(self) -> bool:
+        return bool(self.api_key)
+
+    async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        TODO: Implement OpenAI classification call.
+        
+        Expected payload structure:
+        - prompt: JSON string with instructions, message, session_context, examples
+        
+        Expected response format:
+        {
+            "intent": "plan_planting",
+            "entities": {"crop": "maize", "location": "Murewa"},
+            "confidence": 0.85,
+            "schema_version": "v0"
+        }
+        
+        Implementation steps:
+        1. Parse prompt from payload
+        2. Build OpenAI chat completion request with system/user messages
+        3. Use JSON mode or function calling to ensure structured output
+        4. Parse and validate response
+        5. Return structured dict or None on error
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual OpenAI API call
+        # Example structure:
+        # response = await self.client.chat.completions.create(
+        #     model=self.classify_model,
+        #     messages=[
+        #         {"role": "system", "content": "You are an intent classifier..."},
+        #         {"role": "user", "content": payload.get("prompt", "")}
+        #     ],
+        #     response_format={"type": "json_object"},
+        #     temperature=0.1
+        # )
+        # return json.loads(response.choices[0].message.content)
+        logger.warning("OpenAI backend not yet implemented - returning None")
+        return None
+
+    async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
+        """
+        TODO: Implement OpenAI generation call.
+        
+        Expected payload structure:
+        - prompt: Full prompt string with system/user/tools/RAG context
+        - message, intent, session_context, tools_context, rag_context
+        
+        Expected response format:
+        {
+            "summary": "Main answer text",
+            "steps": ["step1", "step2"],
+            "warnings": ["warning1"],
+            "extras": {}
+        }
+        
+        Implementation steps:
+        1. Build chat messages from prompt and context
+        2. Call OpenAI chat completion with appropriate model
+        3. Use JSON mode for structured output
+        4. Parse and return structured dict
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual OpenAI API call
+        logger.warning("OpenAI backend not yet implemented - returning None")
+        return None
+
+
+class AnthropicBackend:
+    """Backend for Anthropic Claude API."""
+
+    name = "anthropic"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "claude-3-opus-20240229",
+        classify_model: str | None = None,
+        generate_model: str | None = None,
+        timeout_seconds: float = 30.0,
+        base_url: str | None = None,
+    ) -> None:
+        self.api_key = api_key
+        self.classify_model = classify_model or model
+        self.generate_model = generate_model or model
+        self.timeout_seconds = timeout_seconds
+        self.base_url = base_url or "https://api.anthropic.com/v1"
+        # TODO: Import anthropic library when ready
+        # import anthropic
+        # self.client = anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url)
+
+    @property
+    def available(self) -> bool:
+        return bool(self.api_key)
+
+    async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        TODO: Implement Anthropic classification call.
+        
+        Use Claude's structured output capabilities or prompt engineering
+        to return JSON with intent, entities, confidence.
+        
+        Implementation steps:
+        1. Build messages array from payload
+        2. Call messages.create() with model and system prompt
+        3. Parse JSON from response content
+        4. Validate and return structured dict
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual Anthropic API call
+        logger.warning("Anthropic backend not yet implemented - returning None")
+        return None
+
+    async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
+        """
+        TODO: Implement Anthropic generation call.
+        
+        Use Claude for response generation with tools/RAG context.
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual Anthropic API call
+        logger.warning("Anthropic backend not yet implemented - returning None")
+        return None
+
+
+class OllamaBackend:
+    """Backend for local Ollama models (Llama, Mistral, etc.)."""
+
+    name = "ollama"
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434",
+        model: str = "llama2",
+        classify_model: str | None = None,
+        generate_model: str | None = None,
+        timeout_seconds: float = 60.0,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.classify_model = classify_model or model
+        self.generate_model = generate_model or model
+        self.timeout_seconds = timeout_seconds
+
+    @property
+    def available(self) -> bool:
+        # TODO: Add health check to verify Ollama is running
+        return True
+
+    async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        TODO: Implement Ollama classification call.
+        
+        Ollama uses a simple HTTP API:
+        POST /api/generate or /api/chat
+        
+        Implementation steps:
+        1. Build prompt from payload
+        2. POST to {base_url}/api/chat with model and messages
+        3. Parse JSON response (may need to extract JSON from text)
+        4. Return structured dict
+        
+        Note: Ollama models may not always return valid JSON, so add parsing/validation.
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual Ollama API call
+        # Example:
+        # async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+        #     response = await client.post(
+        #         f"{self.base_url}/api/chat",
+        #         json={
+        #             "model": self.classify_model,
+        #             "messages": [{"role": "user", "content": prompt}],
+        #             "format": "json"
+        #         }
+        #     )
+        #     return response.json()
+        logger.warning("Ollama backend not yet implemented - returning None")
+        return None
+
+    async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
+        """
+        TODO: Implement Ollama generation call.
+        
+        Similar to classify but with full context for response generation.
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual Ollama API call
+        logger.warning("Ollama backend not yet implemented - returning None")
+        return None
+
+
+class VLLMBackend:
+    """Backend for vLLM server (high-performance local inference)."""
+
+    name = "vllm"
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8000",
+        model: str | None = None,
+        classify_model: str | None = None,
+        generate_model: str | None = None,
+        timeout_seconds: float = 60.0,
+        api_key: str | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.classify_model = classify_model or model
+        self.generate_model = generate_model or model
+        self.timeout_seconds = timeout_seconds
+        self.api_key = api_key
+
+    @property
+    def available(self) -> bool:
+        # TODO: Add health check
+        return True
+
+    async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        TODO: Implement vLLM classification call.
+        
+        vLLM typically exposes OpenAI-compatible API at /v1/chat/completions
+        
+        Implementation steps:
+        1. Build OpenAI-format request
+        2. POST to {base_url}/v1/chat/completions
+        3. Parse response (OpenAI-compatible format)
+        4. Extract and parse JSON from content
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual vLLM API call
+        logger.warning("vLLM backend not yet implemented - returning None")
+        return None
+
+    async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
+        """
+        TODO: Implement vLLM generation call.
+        
+        Use OpenAI-compatible endpoint for response generation.
+        """
+        if not self.available:
+            return None
+        # TODO: Replace with actual vLLM API call
+        logger.warning("vLLM backend not yet implemented - returning None")
+        return None
+
+
 class StubAgroLLMBackend:
     """Deterministic backend used in lieu of a real model."""
 
@@ -347,16 +625,84 @@ class AgroLLMClient:
 
 
 def build_agrollm_client(config: Settings) -> AgroLLMClient:
-    """Factory that selects HTTP or stub backend based on settings."""
+    """
+    Factory that selects backend based on AGROLLM_BACKEND setting.
+    
+    Supported backends:
+    - stub: Deterministic fallback (default)
+    - http/remote: Generic HTTP endpoints
+    - openai: OpenAI API (GPT-4, GPT-3.5, etc.)
+    - anthropic: Anthropic Claude API
+    - ollama: Local Ollama models
+    - vllm: vLLM inference server
+    
+    See RUNBOOK_LLM_INTEGRATION.md for detailed setup instructions.
+    """
     backend_choice = (config.agrollm_backend or "").lower()
-    http_backend = HTTPAgroLLMBackend(
-        classify_url=config.agrollm_classify_url,
-        generate_url=config.agrollm_generate_url,
-        api_key=config.agrollm_api_key,
-        timeout_seconds=config.agrollm_timeout_seconds,
-    )
-    if backend_choice in {"http", "remote"} and http_backend.available:
-        return AgroLLMClient(backend=http_backend, fallback_backend=StubAgroLLMBackend())
-    if backend_choice not in {"stub", ""} and http_backend.available:
-        return AgroLLMClient(backend=http_backend, fallback_backend=StubAgroLLMBackend())
-    return AgroLLMClient(backend=StubAgroLLMBackend())
+    fallback = StubAgroLLMBackend()
+    
+    # OpenAI backend
+    if backend_choice == "openai":
+        openai_backend = OpenAIBackend(
+            api_key=config.agrollm_api_key or getattr(config, "openai_api_key", ""),
+            model=getattr(config, "openai_model", "gpt-4"),
+            classify_model=getattr(config, "openai_classify_model", None),
+            generate_model=getattr(config, "openai_generate_model", None),
+            timeout_seconds=config.agrollm_timeout_seconds,
+            base_url=getattr(config, "openai_base_url", None),
+        )
+        if openai_backend.available:
+            return AgroLLMClient(backend=openai_backend, fallback_backend=fallback)
+        logger.warning("OpenAI backend configured but API key missing, using stub")
+    
+    # Anthropic backend
+    elif backend_choice == "anthropic":
+        anthropic_backend = AnthropicBackend(
+            api_key=config.agrollm_api_key or getattr(config, "anthropic_api_key", ""),
+            model=getattr(config, "anthropic_model", "claude-3-opus-20240229"),
+            classify_model=getattr(config, "anthropic_classify_model", None),
+            generate_model=getattr(config, "anthropic_generate_model", None),
+            timeout_seconds=config.agrollm_timeout_seconds,
+            base_url=getattr(config, "anthropic_base_url", None),
+        )
+        if anthropic_backend.available:
+            return AgroLLMClient(backend=anthropic_backend, fallback_backend=fallback)
+        logger.warning("Anthropic backend configured but API key missing, using stub")
+    
+    # Ollama backend
+    elif backend_choice == "ollama":
+        ollama_backend = OllamaBackend(
+            base_url=getattr(config, "ollama_base_url", "http://localhost:11434"),
+            model=getattr(config, "ollama_model", "llama2"),
+            classify_model=getattr(config, "ollama_classify_model", None),
+            generate_model=getattr(config, "ollama_generate_model", None),
+            timeout_seconds=config.agrollm_timeout_seconds,
+        )
+        return AgroLLMClient(backend=ollama_backend, fallback_backend=fallback)
+    
+    # vLLM backend
+    elif backend_choice == "vllm":
+        vllm_backend = VLLMBackend(
+            base_url=getattr(config, "vllm_base_url", "http://localhost:8000"),
+            model=getattr(config, "vllm_model", None),
+            classify_model=getattr(config, "vllm_classify_model", None),
+            generate_model=getattr(config, "vllm_generate_model", None),
+            timeout_seconds=config.agrollm_timeout_seconds,
+            api_key=getattr(config, "vllm_api_key", None),
+        )
+        return AgroLLMClient(backend=vllm_backend, fallback_backend=fallback)
+    
+    # HTTP/Remote backend (generic)
+    elif backend_choice in {"http", "remote"}:
+        http_backend = HTTPAgroLLMBackend(
+            classify_url=config.agrollm_classify_url,
+            generate_url=config.agrollm_generate_url,
+            api_key=config.agrollm_api_key,
+            timeout_seconds=config.agrollm_timeout_seconds,
+        )
+        if http_backend.available:
+            return AgroLLMClient(backend=http_backend, fallback_backend=fallback)
+        logger.warning("HTTP backend configured but URLs missing, using stub")
+    
+    # Stub backend (default)
+    return AgroLLMClient(backend=fallback)

@@ -4,6 +4,7 @@ Intent-aware router in front of AgroLLM plus internal engines (GeoContext, Tempo
 
 ## Highlights
 - **AgroLLM interface layer** (`services/agrollm_client.py`) with pluggable backends. The default `StubAgroLLMBackend` produces deterministic answers so `/chat/message` works locally without a real model. Switch to the HTTP backend by setting `AGROLLM_BACKEND=http` and providing real URLs/API keys.
+- **Multiple LLM provider support**: Placeholder implementations for OpenAI, Anthropic, Ollama, and vLLM backends. See [`RUNBOOK_LLM_INTEGRATION.md`](./RUNBOOK_LLM_INTEGRATION.md) for detailed integration instructions.
 - **Response builder + guardrails** (`services/response_builder.py`) builds structured prompts, merges tool + RAG context, enforces JSON output, and blocks unsafe instructions before returning a schema-compliant `AnswerPayload` with versions/error codes.
 - **Tenant-aware auth + rate limiting** (`services/auth.py`, `services/security.py`) extract `tenant_id`, `farm_id`, `user_id`, and `user_role` from payloads/headers, enforce per-tenant/user limits, and propagate identity tags through logs and tool payloads.
 - **Standard error & degradation contract** (`models.ErrorDetail`) covers upstream engine failures, attachment policy errors, degraded NLP fallbacks, and RAG gaps with explicit codes surfaced in responses/metrics/logs.
@@ -26,7 +27,8 @@ Key environment knobs (see `core/config.py` / `.env.example`):
 - Downstream engines: `GEO_CONTEXT_URL`, `TEMPORAL_LOGIC_URL`, `CROP_INTELLIGENCE_URL`, `INVENTORY_URL`, `IMAGE_ANALYSIS_URL`, `INTERNAL_API_KEY`
 - RAG/vector: `FLAG_ENABLE_RAG`, `RAG_BACKEND`, `RAG_INDEX_PATH`, `QDRANT_HOST/PORT/API_KEY`, `RAG_EMBEDDER_MODEL`
 - Feature flags: `FLAG_ENABLE_IMAGE_ENGINE`, `FLAG_ENABLE_TEMPORAL_ENGINE`, `FLAG_ENABLE_GEO_ENGINE`, `FLAG_FORCE_RULE_BASED_MODE`
-- LLM: `AGROLLM_BACKEND`, `AGROLLM_CLASSIFY_URL`, `AGROLLM_GENERATE_URL`, `AGROLLM_API_KEY`, `CONVERSATION_SYSTEM_PROMPT`
+- LLM: `AGROLLM_BACKEND` (stub|http|openai|anthropic|ollama|vllm), `AGROLLM_CLASSIFY_URL`, `AGROLLM_GENERATE_URL`, `AGROLLM_API_KEY`, `CONVERSATION_SYSTEM_PROMPT`
+  - Provider-specific settings: `OPENAI_*`, `ANTHROPIC_*`, `OLLAMA_*`, `VLLM_*` (see `RUNBOOK_LLM_INTEGRATION.md`)
 - Observability: `CONVERSATION_LOG_PATH`, `LOG_RETENTION_DAYS`, `/metrics` exposes `conversational_engine_version`
 
 If URLs are not set, connectors return graceful stubs and the AgroLLM stub keeps the pipeline working.
@@ -118,6 +120,16 @@ python scripts/ingest_rag_vector.py \
   --collection conversational_rag
 ```
 Set `QDRANT_HOST`/`PORT`/`API_KEY` to target a real Qdrant instance. Use `--embedder-model auto` (default) for in-memory dev; set to your sentence-transformer model when targeting a real service.
+
+## Integrating Real LLM Models
+
+To replace the stub backend with a real LLM provider, see **[`RUNBOOK_LLM_INTEGRATION.md`](./RUNBOOK_LLM_INTEGRATION.md)** for:
+- Step-by-step integration guides for OpenAI, Anthropic, Ollama, and vLLM
+- Code examples for implementing backend methods
+- Configuration instructions
+- Testing and troubleshooting tips
+
+The engine includes placeholder implementations for all major providers - you just need to fill in the API calls.
 
 ## Debugging & retention
 - JSONL logs at `CONVERSATION_LOG_PATH` are scrubbed via `ANONYMIZE_LOGS` and truncated after `LOG_RETENTION_DAYS`. Use `python scripts/dump_conversation_turns.py -n 5 --log reports/conversation_turns.jsonl` to inspect the last N turns.

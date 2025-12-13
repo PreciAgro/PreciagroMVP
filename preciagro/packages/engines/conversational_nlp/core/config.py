@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     session_retention_hours: int = int(os.getenv("SESSION_RETENTION_HOURS", "24"))
     conversation_history_enabled: bool = _as_bool(os.getenv("CONVERSATION_HISTORY_ENABLED"), True)
 
-    # AgroLLM endpoints
+    # AgroLLM endpoints (generic HTTP backend)
     agrollm_backend: str = os.getenv("AGROLLM_BACKEND", "stub")
     agrollm_generate_url: str = os.getenv("AGROLLM_GENERATE_URL", "")
     agrollm_classify_url: str = os.getenv("AGROLLM_CLASSIFY_URL", "")
@@ -56,6 +56,33 @@ class Settings(BaseSettings):
     agrollm_timeout_seconds: float = float(os.getenv("AGROLLM_TIMEOUT_SECONDS", "15.0"))
     response_system_prompt: str = os.getenv("CONVERSATION_SYSTEM_PROMPT", "")
     flag_force_rule_based_mode: bool = _as_bool(os.getenv("FLAG_FORCE_RULE_BASED_MODE"), False)
+    
+    # OpenAI-specific settings (when AGROLLM_BACKEND=openai)
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4")
+    openai_classify_model: str = os.getenv("OPENAI_CLASSIFY_MODEL", "")
+    openai_generate_model: str = os.getenv("OPENAI_GENERATE_MODEL", "")
+    openai_base_url: str = os.getenv("OPENAI_BASE_URL", "")
+    
+    # Anthropic-specific settings (when AGROLLM_BACKEND=anthropic)
+    anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
+    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-3-opus-20240229")
+    anthropic_classify_model: str = os.getenv("ANTHROPIC_CLASSIFY_MODEL", "")
+    anthropic_generate_model: str = os.getenv("ANTHROPIC_GENERATE_MODEL", "")
+    anthropic_base_url: str = os.getenv("ANTHROPIC_BASE_URL", "")
+    
+    # Ollama-specific settings (when AGROLLM_BACKEND=ollama)
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "llama2")
+    ollama_classify_model: str = os.getenv("OLLAMA_CLASSIFY_MODEL", "")
+    ollama_generate_model: str = os.getenv("OLLAMA_GENERATE_MODEL", "")
+    
+    # vLLM-specific settings (when AGROLLM_BACKEND=vllm)
+    vllm_base_url: str = os.getenv("VLLM_BASE_URL", "http://localhost:8000")
+    vllm_model: str = os.getenv("VLLM_MODEL", "")
+    vllm_classify_model: str = os.getenv("VLLM_CLASSIFY_MODEL", "")
+    vllm_generate_model: str = os.getenv("VLLM_GENERATE_MODEL", "")
+    vllm_api_key: str = os.getenv("VLLM_API_KEY", "")
 
     # Engine endpoints (optional; stubs used when absent)
     geo_context_url: str = os.getenv("GEO_CONTEXT_URL", "")

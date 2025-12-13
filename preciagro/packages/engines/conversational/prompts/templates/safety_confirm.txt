@@ -1,0 +1,7 @@
+The user has requested an action that requires safety confirmation: {action_description}
+
+Please confirm if you want to proceed with this action.
+Potential Risks:
+{risks}
+
+Type 'CONFIRM' to proceed or 'CANCEL' to abort.

@@ -1,0 +1,51 @@
+# Region Compliance Matrix
+# Defines valid region codes and their constraints
+
+valid_regions:
+  - "LK-01"  # Sri Lanka - Central Province
+  - "LK-02"  # Sri Lanka - North Central Province
+  - "LK-03"  # Sri Lanka - Northern Province
+  - "LK-04"  # Sri Lanka - Eastern Province
+  - "LK-05"  # Sri Lanka - North Western Province
+  - "LK-06"  # Sri Lanka - Sabaragamuwa Province
+  - "LK-07"  # Sri Lanka - Southern Province
+  - "LK-08"  # Sri Lanka - Uva Province
+  - "LK-09"  # Sri Lanka - Western Province
+
+region_constraints:
+  "LK-01":
+    allowed_crops:
+      - "maize"
+      - "rice"
+      - "vegetables"
+    banned_chemicals:
+      - "DDT"
+      - "Paraquat"
+    season_rules:
+      yala: ["March", "April", "May", "June", "July", "August"]
+      maha: ["September", "October", "November", "December", "January", "February"]
+  
+  "LK-02":
+    allowed_crops:
+      - "maize"
+      - "rice"
+      - "soybean"
+    banned_chemicals:
+      - "DDT"
+      - "Paraquat"
+    season_rules:
+      yala: ["March", "April", "May", "June", "July", "August"]
+      maha: ["September", "October", "November", "December", "January", "February"]
+
+# Default constraints for unknown regions
+default_constraints:
+  allowed_crops: []
+  banned_chemicals:
+    - "DDT"
+    - "Paraquat"
+  season_rules: {}
+
+
+
+
+

@@ -1,0 +1,26 @@
+[
+  {
+    "region_code": "LK-01",
+    "crop_variety": "maize",
+    "rule_type": "season",
+    "rule_data": {
+      "planting_season": "Yala",
+      "optimal_months": ["March", "April", "May"],
+      "description": "Maize planting season for Yala in region LK-01"
+    }
+  },
+  {
+    "region_code": "LK-01",
+    "crop_variety": null,
+    "rule_type": "pest",
+    "rule_data": {
+      "common_pests": ["Fall Armyworm", "Stem Borer"],
+      "prevention": "Use resistant varieties and early detection"
+    }
+  }
+]
+
+
+
+
+

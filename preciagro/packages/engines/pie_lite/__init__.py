@@ -51,3 +51,7 @@ def generate_insights(product_id: str, context: Dict[str, Any]) -> Dict[str, Any
         'message': 'Insight generation not yet implemented'
     }
 
+
+
+
+
