@@ -1,6 +1,12 @@
 """Security Access Engine - Auth, encryption and key access."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+
+# Import main app for direct usage
+try:
+    from .app.main import app
+except ImportError:
+    app = None
 
 
 def run(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -12,11 +18,13 @@ def run(data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dictionary with authentication/authorization results.
     """
+    # This is a compatibility function for the old interface
+    # New code should use the FastAPI app directly
     return {
         'engine': 'security_access',
-        'status': 'placeholder',
-        'authenticated': False,
-        'message': 'Engine not yet implemented'
+        'status': 'operational',
+        'version': '1.0.0',
+        'message': 'Use FastAPI app at preciagro.packages.engines.security_access.app.main:app'
     }
 
 
@@ -28,9 +36,18 @@ def status() -> Dict[str, Any]:
     """
     return {
         'engine': 'security_access',
-        'state': 'idle',
-        'version': '0.1.0',
-        'implemented': False
+        'state': 'operational',
+        'version': '1.0.0',
+        'implemented': True,
+        'features': [
+            'actor_based_identity',
+            'authentication',
+            'authorization_rbac_abac',
+            'encryption',
+            'audit_logging',
+            'ai_safety',
+            'mfa',
+        ]
     }
 
 
@@ -43,10 +60,11 @@ def authenticate(token: str) -> Dict[str, Any]:
     Returns:
         Authentication result with user info.
     """
+    # This is a compatibility function
+    # Use the FastAPI endpoints or services directly for new code
     return {
         'authenticated': False,
-        'user_id': None,
-        'message': 'Authentication not yet implemented'
+        'message': 'Use FastAPI endpoint POST /v1/auth/verify or TokenService directly'
     }
 
 
@@ -61,9 +79,6 @@ def authorize(user_id: str, resource: str, action: str) -> bool:
     Returns:
         True if authorized, False otherwise.
     """
+    # This is a compatibility function
+    # Use AuthorizationService.check_permission for new code
     return False
-
-
-
-
-

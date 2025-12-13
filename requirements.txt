@@ -15,6 +15,8 @@ arq
 requests>=2.31  # HTTP client used in tests and demo scripts
 passlib>=1.7.4  # Password hashing context (requires bcrypt)
 bcrypt>=4.0  # Passlib bcrypt backend
+pyotp>=2.9.0  # TOTP for MFA
+cryptography>=41.0.0  # Encryption and key management
 twilio>=9.0  # SMS channel integration
 pytz>=2024.1  # Legacy timezone handling (quiet hours logic)
 psutil>=5.9  # Optional system metrics (telemetry)
