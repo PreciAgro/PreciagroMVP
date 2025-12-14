@@ -1,0 +1,20 @@
+{
+  "disease_prompts": [
+    "tomato leaf with early blight concentric rings",
+    "tomato leaf with late blight water soaked lesions",
+    "tomato canopy suffering septoria spots",
+    "healthy tomato leaf deep green",
+    "tomato leaf bacterial spot small dark lesions"
+  ],
+  "nutrient_prompts": [
+    "tomato plant nitrogen deficiency yellowing",
+    "calcium deficiency blossom end rot tomato",
+    "magnesium deficiency tomato interveinal chlorosis",
+    "potassium deficiency marginal burn tomato leaf",
+    "boron deficiency tomato distorted growth"
+  ],
+  "general_prompts": [
+    "blurry tomato leaf closeup",
+    "low light greenhouse tomato photo"
+  ]
+}

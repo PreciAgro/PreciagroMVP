@@ -1,0 +1,82 @@
+# AgroLLM Engine Configuration
+
+model_provider:
+  mode: "pretrained"
+  model_name: "agrollm-pretrained-v1"
+  api_endpoint: null
+  api_key: null
+  temperature: 0.7
+  max_tokens: 1000
+
+safety_rules:
+  banned_chemicals:
+    - "DDT"
+    - "Paraquat"
+  strict_mode: true
+  require_warnings_for_high_severity: true
+
+region_rules:
+  default_region: "unknown"
+  rules_directory: "local_rules"
+  compliance_matrix_file: "config/region_compliance.yaml"
+
+thresholds:
+  low_confidence: 0.6
+  high_confidence: 0.8
+  human_review_required: 0.5
+
+temporal_safety:
+  enabled: true
+  phi_rules:
+    - chemical: "pesticide"
+      crop: "maize"
+      days: 21
+    - chemical: "herbicide"
+      crop: "maize"
+      days: 14
+    - chemical: "fungicide"
+      crop: "maize"
+      days: 7
+  crop_stage_rules: []
+
+fallback:
+  enabled: true
+  mode: "basic"  # basic, safe_default
+  activate_on_llm_failure: true
+  activate_on_rag_failure: false
+  activate_on_api_failure: false
+
+event_emission:
+  enabled: true
+  feedback_endpoint: null
+  event_bus_endpoint: null
+
+orchestrator:
+  enabled: false
+  endpoint: null
+  timeout_seconds: 30
+
+feature_flags:
+  use_pretrained: true
+  use_finetuned: false
+  use_local: true
+  enable_rag: true
+  enable_kg: true
+  enable_feedback: true
+
+# Engine endpoints (configure as needed)
+image_analysis_endpoint: null
+geo_context_endpoint: null
+temporal_logic_endpoint: null
+crop_intelligence_endpoint: null
+data_integration_endpoint: null
+inventory_endpoint: null
+security_access_endpoint: null
+
+# RAG/KG settings
+rag_endpoint: null
+kg_endpoint: null
+
+# Storage
+feedback_storage_endpoint: null
+

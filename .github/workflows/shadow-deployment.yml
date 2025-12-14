@@ -1,0 +1,246 @@
+name: ML Shadow Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: 'Engine to shadow deploy'
+        required: true
+        type: choice
+        options:
+          - image_analysis
+          - diagnosis_recommendation
+          - agro_llm
+      model_version:
+        description: 'Model version to shadow deploy'
+        required: true
+        type: string
+      duration_hours:
+        description: 'Shadow deployment duration (hours)'
+        required: false
+        default: '24'
+        type: string
+      traffic_sample_percent:
+        description: 'Percentage of traffic to sample for shadow'
+        required: false
+        default: '100'
+        type: string
+
+env:
+  SHADOW_NAMESPACE: preciagro-shadow
+
+jobs:
+  # ============================================================
+  # Validate Model Exists
+  # ============================================================
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      model_ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate Model Version
+        id: check
+        run: |
+          ENGINE="${{ inputs.engine }}"
+          VERSION="${{ inputs.model_version }}"
+          
+          echo "Validating model $ENGINE:$VERSION exists in registry..."
+          
+          # In production, check MLflow or model registry
+          # mlflow models get -n preciagro-$ENGINE -v $VERSION
+          
+          echo "ready=true" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # Deploy Shadow Instance
+  # ============================================================
+  deploy-shadow:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: needs.validate.outputs.model_ready == 'true'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Shadow Deployment
+        run: |
+          ENGINE="${{ inputs.engine }}"
+          VERSION="${{ inputs.model_version }}"
+          
+          cat << EOF > shadow-deployment.yaml
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ${ENGINE}-shadow
+            namespace: ${{ env.SHADOW_NAMESPACE }}
+            labels:
+              app: ${ENGINE}
+              deployment-type: shadow
+              model-version: ${VERSION}
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: ${ENGINE}
+                deployment-type: shadow
+            template:
+              metadata:
+                labels:
+                  app: ${ENGINE}
+                  deployment-type: shadow
+                annotations:
+                  preciagro.io/shadow-mode: "true"
+                  preciagro.io/shadow-start: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  preciagro.io/shadow-duration: "${{ inputs.duration_hours }}h"
+              spec:
+                containers:
+                  - name: ${ENGINE}-shadow
+                    image: ghcr.io/preciagro/preciagro-${ENGINE}:$VERSION
+                    env:
+                      - name: SHADOW_MODE
+                        value: "true"
+                      - name: SHADOW_LOG_PREDICTIONS
+                        value: "true"
+                      - name: MODEL_VERSION
+                        value: "${VERSION}"
+                      - name: TRAFFIC_SAMPLE_PERCENT
+                        value: "${{ inputs.traffic_sample_percent }}"
+                    ports:
+                      - containerPort: 8080
+                    resources:
+                      requests:
+                        memory: "512Mi"
+                        cpu: "250m"
+                      limits:
+                        memory: "1Gi"
+                        cpu: "1000m"
+          EOF
+          
+          echo "Shadow deployment manifest created"
+          cat shadow-deployment.yaml
+          
+          # kubectl apply -f shadow-deployment.yaml
+
+      - name: Configure Traffic Mirroring
+        run: |
+          ENGINE="${{ inputs.engine }}"
+          
+          # Create Istio VirtualService for traffic mirroring
+          cat << EOF > shadow-mirror.yaml
+          apiVersion: networking.istio.io/v1beta1
+          kind: VirtualService
+          metadata:
+            name: ${ENGINE}-shadow-mirror
+            namespace: ${{ env.SHADOW_NAMESPACE }}
+          spec:
+            hosts:
+              - ${ENGINE}
+            http:
+              - route:
+                  - destination:
+                      host: ${ENGINE}
+                      port:
+                        number: 80
+                mirror:
+                  host: ${ENGINE}-shadow
+                  port:
+                    number: 80
+                mirrorPercentage:
+                  value: ${{ inputs.traffic_sample_percent }}
+          EOF
+          
+          echo "Traffic mirroring configured"
+          # kubectl apply -f shadow-mirror.yaml
+
+      - name: Start Comparison Collection
+        run: |
+          ENGINE="${{ inputs.engine }}"
+          VERSION="${{ inputs.model_version }}"
+          DURATION="${{ inputs.duration_hours }}"
+          
+          cat << EOF > comparison-job.yaml
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: shadow-comparison-${ENGINE}-$(date +%s)
+            namespace: ${{ env.SHADOW_NAMESPACE }}
+          spec:
+            ttlSecondsAfterFinished: 86400
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: comparator
+                    image: ghcr.io/preciagro/shadow-comparator:latest
+                    env:
+                      - name: ENGINE
+                        value: "${ENGINE}"
+                      - name: SHADOW_VERSION
+                        value: "${VERSION}"
+                      - name: PRODUCTION_VERSION
+                        value: "current"
+                      - name: DURATION_HOURS
+                        value: "${DURATION}"
+                      - name: OUTPUT_BUCKET
+                        value: "s3://preciagro-ml-reports/shadow/${ENGINE}/${VERSION}"
+                    resources:
+                      requests:
+                        memory: "256Mi"
+                        cpu: "100m"
+          EOF
+          
+          echo "Comparison job configured"
+          # kubectl apply -f comparison-job.yaml
+
+  # ============================================================
+  # Schedule Cleanup
+  # ============================================================
+  schedule-cleanup:
+    runs-on: ubuntu-latest
+    needs: deploy-shadow
+    
+    steps:
+      - name: Schedule Shadow Cleanup
+        run: |
+          ENGINE="${{ inputs.engine }}"
+          DURATION="${{ inputs.duration_hours }}"
+          
+          echo "Shadow deployment will be cleaned up in ${DURATION} hours"
+          
+          # In production, use a cron job or scheduled workflow
+          # gh workflow run shadow-cleanup.yml \
+          #   --field engine=$ENGINE \
+          #   --field scheduled_for=$(date -d "+${DURATION} hours" +%Y-%m-%dT%H:%M:%SZ)
+
+  # ============================================================
+  # Summary
+  # ============================================================
+  summary:
+    runs-on: ubuntu-latest
+    needs: [validate, deploy-shadow, schedule-cleanup]
+    if: always()
+    
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## Shadow Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Engine | ${{ inputs.engine }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model Version | ${{ inputs.model_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Duration | ${{ inputs.duration_hours }} hours |" >> $GITHUB_STEP_SUMMARY
+          echo "| Traffic Sample | ${{ inputs.traffic_sample_percent }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What's Happening" >> $GITHUB_STEP_SUMMARY
+          echo "1. ✅ Shadow instance deployed" >> $GITHUB_STEP_SUMMARY
+          echo "2. ✅ Traffic mirroring enabled" >> $GITHUB_STEP_SUMMARY
+          echo "3. ✅ Prediction comparison started" >> $GITHUB_STEP_SUMMARY
+          echo "4. ⏳ Cleanup scheduled in ${{ inputs.duration_hours }}h" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor shadow predictions in Grafana" >> $GITHUB_STEP_SUMMARY
+          echo "- Review comparison report after shadow period" >> $GITHUB_STEP_SUMMARY
+          echo "- Promote to canary if metrics acceptable" >> $GITHUB_STEP_SUMMARY

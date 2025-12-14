@@ -1,39 +1,63 @@
-# PreciAgro MVP Skeleton (Vertical Slice)
-This is a tiny, runnable skeleton to help you understand the end-to-end flow.
+﻿# PreciAgro Monorepo
 
-## What it does
-Single endpoint: **POST /v1/diagnose-and-plan**
-It simulates the engine flow:
-Image -> Diagnose -> GeoContext -> Weather -> Plan -> Reminders -> Inventory
+PreciAgro bundles multiple engines (data integration, temporal logic, geo context) plus several skeleton engines used for future work. This README summarises prerequisites, bootstrap flows, and the current engine lineup.
 
-## How to run (local)
+## Prerequisites
+- Python 3.11
+- pip
+- Optional: PostgreSQL, PostGIS, Redis, Docker (for services)
+- Make (for convenience targets)
 
-```sh
-python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+## Quick Start
+```
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install --upgrade pip
 pip install -r requirements.txt
-uvicorn preciagro.apps.api_gateway.main:app --reload --port 8000
+```
+Run all active test suites:
+```
+pytest preciagro/packages/engines/data_integration/tests -q
+pytest preciagro/packages/engines/temporal_logic/tests -q
+pytest preciagro/packages/engines/geo_context/tests -q
+```
+Each engine exposes a Makefile; for example:
+```
+make -C preciagro/packages/engines/data_integration lint
 ```
 
-## Try it
-POST http://localhost:8000/v1/diagnose-and-plan
+## Engine Matrix
+| Engine | Status | Language | Run Command | Test Command |
+| --- | --- | --- | --- | --- |
+| data-integration | ACTIVE | Python | `uvicorn preciagro.apps.api_gateway.main:app --host 0.0.0.0 --port 8101 --reload` | `pytest preciagro/packages/engines/data_integration/tests -q` |
+| temporal-logic | ACTIVE | Python | `uvicorn preciagro.packages.engines.temporal_logic.app:app --host 0.0.0.0 --port 8100 --reload` | `pytest preciagro/packages/engines/temporal_logic/tests -q` |
+| geo-context | ACTIVE | Python | `uvicorn preciagro.packages.engines.geo_context.api.main:app --host 0.0.0.0 --port 8102 --reload` | `pytest preciagro/packages/engines/geo_context/tests -q` |
+| conversational-nlp | EXPERIMENTAL | Python | `uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload` | `pytest preciagro/packages/engines/conversational_nlp/tests -q` |
+| crop-intelligence | SKELETON | Python | - | - |
+| image-analysis | SKELETON | Python | - | - |
+| inventory | SKELETON | Python | - | - |
 
-Example JSON body:
+Detailed run books live under each engine: `preciagro/packages/engines/<engine>/docs/` (see `RUN.md` and, when applicable, `API.md`).
 
-```json
-{
-  "image_base64": "BASE64_STRING_HERE",
-  "crop_hint": "tomato",
-  "location": {"lat": 52.23, "lng": 21.01}
-}
-```
+## Tooling Configuration
+- `.editorconfig` and `pyproject.toml` define formatting, linting, and type-check settings shared across engines.
+- `mypy.ini` enables gradual typing with strict rules opt-in per module.
+- `.github/workflows/ci.yml` executes install → lint → type → test across active engines.
 
-You should get back: diagnosis, a 7-day style plan, reminders, and inventory impact.
+## Secrets Management
+The project uses `python-dotenv` and `pydantic-settings` for configuration and secret management.
+1.  Copy `.env.example` to `.env`:
+    ```bash
+    cp .env.example .env
+    ```
+2.  Update `.env` with your local secrets (API keys, DB credentials).
+3.  **Never commit `.env` to version control.** It is already in `.gitignore`.
+4.  For production (e.g., GitHub Actions, Docker), set these values as environment variables or secrets.
 
-## Next steps (replacing stubs with real logic)
-- image_analysis: load a real ONNX model for plant disease.
-- data_integration: fetch real weather (Open-Meteo) and normalize.
-- geo_context: real reverse-geocode & agro-zones.
-- crop_intel: rules + thresholds per disease & crop.
-- temporal_logic: store schedules in DB and emit notifications.
-- inventory: connect to a real inventory table.
-```
+## Security and Auditing
+Run `make audit` in each engine directory (wrapper around `pip-audit`). Current known vulnerability: `ecdsa` 0.19.1 (transitive dependency of `python-jose`) — upstream fix pending.
+
+## References
+- `reports/engine_matrix.json` mirrors the table above in machine-readable form.
+- `reports/dependency_audit.md` lists dependency findings and mitigation notes.
+- `reports/integrations_checklist.md` tracks external systems required by each engine.

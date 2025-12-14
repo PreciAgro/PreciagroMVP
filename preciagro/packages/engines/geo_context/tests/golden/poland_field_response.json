@@ -1,0 +1,116 @@
+{
+  "context_hash": "4c0393e02a7482f8",
+  "location": {
+    "centroid": {
+      "lat": 52.04,
+      "lon": 21.04
+    },
+    "lat": 52.04,
+    "lon": 21.04,
+    "admin_l0": "Poland",
+    "admin_l1": "Mazowieckie",
+    "admin_l2": "Warsaw District",
+    "agro_zone": "temperate_continental"
+  },
+  "timestamp": "NORMALIZED_TIMESTAMP",
+  "soil": {
+    "ph": 6.8,
+    "ph_range": [
+      6.2,
+      7.0
+    ],
+    "organic_matter": 3.2,
+    "organic_matter_pct": 3.2,
+    "nitrogen": 125.0,
+    "phosphorus": 48.0,
+    "potassium": 280.0,
+    "soil_type": "loam",
+    "drainage": "well_drained",
+    "texture": "loam",
+    "cec": 18.5,
+    "resolution": "admin_zone",
+    "version": "v1.0"
+  },
+  "climate": {
+    "temperature_avg": 20.0,
+    "temperature_min": 10.0,
+    "temperature_max": 30.0,
+    "precipitation": 0.0,
+    "humidity": 60.0,
+    "wind_speed": 5.0,
+    "growing_degree_days": 0.0,
+    "et0_mm_day": 16.1869,
+    "forecast_summary": {
+      "forecast_days": 7,
+      "temperature_trend": 20.0,
+      "precipitation_mm": 0.0
+    },
+    "normals": {
+      "temp_avg": 20.0,
+      "temp_min": 10.0,
+      "temp_max": 30.0,
+      "precipitation_mm": 50.0
+    },
+    "version": null,
+    "last_updated": "NORMALIZED_TIMESTAMP"
+  },
+  "spatial": {
+    "elevation": 106.0,
+    "slope": 2.5,
+    "aspect": 180.0,
+    "land_use": "agricultural",
+    "administrative_region": "Mazowieckie",
+    "nearest_weather_station": "Warsaw Central",
+    "distance_to_water": 850.5,
+    "agro_zone": "temperate_continental",
+    "admin_l0": "Poland",
+    "admin_l1": "Mazowieckie",
+    "admin_l2": "Warsaw District"
+  },
+  "calendar_events": [],
+  "planting_recommendations": [],
+  "spray_recommendations": [
+    {
+      "recommendation": "favorable_conditions",
+      "confidence": 0.9,
+      "conditions": {
+        "wind_suitable": true,
+        "temperature_suitable": true,
+        "humidity_suitable": true
+      },
+      "notes": "Current conditions are favorable for spraying operations"
+    }
+  ],
+  "data_sources": [
+    "spatial_resolver",
+    "soil_resolver",
+    "climate_resolver",
+    "rules_engine"
+  ],
+  "confidence": 1.0,
+  "confidence_score": 1.0,
+  "processing_time_ms": "NORMALIZED_PROCESSING_TIME",
+  "provenance": [
+    {
+      "source": "spatial_resolver",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    },
+    {
+      "source": "soil_resolver",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    },
+    {
+      "source": "climate_resolver",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    },
+    {
+      "source": "rules_engine",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    }
+  ],
+  "cache_hit": false
+}

@@ -1,0 +1,114 @@
+{
+  "dashboard": {
+    "title": "PreciagroMVP - Redis Metrics",
+    "tags": ["preciagro", "redis", "cache"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Redis Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "redis_up",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "Down"},
+              {"type": "value", "value": "1", "text": "Up"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Connected Clients",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Clients",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes",
+            "legendFormat": "Used",
+            "refId": "A"
+          },
+          {
+            "expr": "redis_memory_max_bytes",
+            "legendFormat": "Max",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "bytes", "label": "Memory"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Commands Per Second",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "rate(redis_commands_processed_total[1m])",
+            "legendFormat": "Commands/sec",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Hit Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100",
+            "legendFormat": "Hit Rate %",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "Hit Rate", "max": 100, "min": 0}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Evicted Keys",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "rate(redis_evicted_keys_total[5m])",
+            "legendFormat": "Evicted/sec",
+            "refId": "A"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s"
+  }
+}

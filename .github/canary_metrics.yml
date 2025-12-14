@@ -1,0 +1,213 @@
+# =============================================================================
+# PreciAgro Canary Deployment Metrics
+# =============================================================================
+# Explicit, auditable metrics for canary health validation.
+# These metrics determine whether a canary deployment is promoted or rolled back.
+# =============================================================================
+
+# Global thresholds (apply to all engines unless overridden)
+global:
+  # Error rate must stay below this threshold
+  error_rate:
+    metric: "rate(http_requests_total{status=~'5..'}[5m]) / rate(http_requests_total[5m])"
+    threshold: 0.01  # 1%
+    comparison: less_than
+    severity: critical
+    
+  # P95 latency must stay below this threshold
+  latency_p95:
+    metric: "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))"
+    threshold: 0.5  # 500ms
+    comparison: less_than
+    severity: critical
+    
+  # P99 latency (warning only)
+  latency_p99:
+    metric: "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))"
+    threshold: 1.0  # 1000ms
+    comparison: less_than
+    severity: warning
+    
+  # Request success rate
+  success_rate:
+    metric: "rate(http_requests_total{status=~'2..'}[5m]) / rate(http_requests_total[5m])"
+    threshold: 0.99  # 99%
+    comparison: greater_than
+    severity: critical
+    
+  # Pod health (all pods must be ready)
+  pod_readiness:
+    metric: "kube_deployment_status_replicas_ready / kube_deployment_spec_replicas"
+    threshold: 1.0  # 100%
+    comparison: equals
+    severity: critical
+
+# Engine-specific metrics
+engines:
+  # ==========================================================================
+  # ML Engines - Additional model-specific metrics
+  # ==========================================================================
+  image_analysis:
+    model_confidence:
+      metric: "avg(model_prediction_confidence{engine='image_analysis'})"
+      threshold: 0.85  # 85% average confidence
+      comparison: greater_than
+      severity: critical
+      description: "Model predictions should maintain high confidence"
+      
+    inference_time:
+      metric: "histogram_quantile(0.95, rate(model_inference_duration_seconds_bucket{engine='image_analysis'}[5m]))"
+      threshold: 0.2  # 200ms
+      comparison: less_than
+      severity: critical
+      description: "Inference must be fast for mobile users"
+      
+    detection_rate:
+      metric: "rate(detections_total{engine='image_analysis'}[5m])"
+      threshold: 0  # Must have some detections
+      comparison: greater_than
+      severity: warning
+      description: "Model should be detecting objects"
+
+  diagnosis_recommendation:
+    recommendation_acceptance_rate:
+      metric: "rate(recommendations_accepted_total[1h]) / rate(recommendations_total[1h])"
+      threshold: 0.7  # 70%
+      comparison: greater_than
+      severity: warning
+      description: "Farmers should accept most recommendations"
+      
+    diagnosis_confidence:
+      metric: "avg(diagnosis_confidence{engine='diagnosis'})"
+      threshold: 0.80  # 80%
+      comparison: greater_than
+      severity: critical
+      
+    empty_recommendation_rate:
+      metric: "rate(recommendations_empty_total[5m]) / rate(recommendation_requests_total[5m])"
+      threshold: 0.05  # 5%
+      comparison: less_than
+      severity: warning
+      description: "Rarely should we have no recommendations"
+
+  agro_llm:
+    hallucination_rate:
+      metric: "rate(llm_hallucination_detected_total[1h]) / rate(llm_responses_total[1h])"
+      threshold: 0.02  # 2%
+      comparison: less_than
+      severity: critical
+      description: "LLM must not hallucinate agricultural advice"
+      
+    response_quality_score:
+      metric: "avg(llm_response_quality_score{engine='agro_llm'})"
+      threshold: 0.75  # 75%
+      comparison: greater_than
+      severity: critical
+      
+    context_relevance:
+      metric: "avg(llm_context_relevance_score)"
+      threshold: 0.8  # 80%
+      comparison: greater_than
+      severity: warning
+
+  # ==========================================================================
+  # Data Engines - Data quality metrics
+  # ==========================================================================
+  data_integration:
+    data_freshness:
+      metric: "time() - max(data_last_sync_timestamp)"
+      threshold: 3600  # 1 hour
+      comparison: less_than
+      severity: warning
+      description: "Data should be synced within 1 hour"
+      
+    sync_success_rate:
+      metric: "rate(data_sync_success_total[1h]) / rate(data_sync_total[1h])"
+      threshold: 0.95  # 95%
+      comparison: greater_than
+      severity: critical
+
+  # ==========================================================================
+  # Feedback Engine - Learning metrics
+  # ==========================================================================
+  feedback_learning:
+    feedback_capture_rate:
+      metric: "rate(feedback_captured_total[1h])"
+      threshold: 0  # Must capture some feedback
+      comparison: greater_than
+      severity: warning
+      
+    learning_signal_quality:
+      metric: "avg(learning_signal_quality_score)"
+      threshold: 0.7  # 70%
+      comparison: greater_than
+      severity: warning
+
+  # ==========================================================================
+  # Trust Engine - Explainability metrics
+  # ==========================================================================
+  trust_explainability:
+    explanation_coverage:
+      metric: "rate(explanations_generated_total[1h]) / rate(recommendations_total[1h])"
+      threshold: 0.95  # 95%
+      comparison: greater_than
+      severity: critical
+      description: "Almost all recommendations must have explanations"
+      
+    explanation_quality:
+      metric: "avg(explanation_quality_score)"
+      threshold: 0.8  # 80%
+      comparison: greater_than
+      severity: warning
+
+# Canary rollout stages
+rollout_stages:
+  - name: canary-initial
+    traffic_percent: 5
+    duration_minutes: 10
+    metrics_to_check:
+      - error_rate
+      - latency_p95
+      - pod_readiness
+    rollback_on_failure: true
+    
+  - name: canary-25
+    traffic_percent: 25
+    duration_minutes: 15
+    metrics_to_check:
+      - error_rate
+      - latency_p95
+      - success_rate
+      - model_confidence  # If ML engine
+    rollback_on_failure: true
+    
+  - name: canary-50
+    traffic_percent: 50
+    duration_minutes: 20
+    metrics_to_check:
+      - error_rate
+      - latency_p95
+      - latency_p99
+      - success_rate
+      - recommendation_acceptance_rate  # If applicable
+    rollback_on_failure: true
+    
+  - name: full-rollout
+    traffic_percent: 100
+    duration_minutes: 0
+    metrics_to_check: all
+    rollback_on_failure: false
+
+# Alert configuration
+alerts:
+  slack_channel: "#preciagro-deployments"
+  pagerduty_service: "preciagro-prod"
+  
+  on_canary_failure:
+    - slack
+    - pagerduty  # Only for production
+    
+  on_rollback:
+    - slack
+    - pagerduty
+    - email_stakeholders

@@ -1,0 +1,12 @@
+model:
+  mode: pretrained
+
+allow_training: false
+
+session:
+  max_history_turns: 10
+  max_tokens: 2000
+
+api:
+  host: 0.0.0.0
+  port: 8000

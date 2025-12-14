@@ -1,3 +1,48 @@
-fastapi
+﻿fastapi==0.121.0
+starlette==0.49.1  # FIX: GHSA-7f5h-v6xp-fcq8 mitigation — aligns with FastAPI 0.121.0.
 uvicorn
 pydantic>=2
+
+# runtime
+httpx
+redis>=5.0
+asyncpg
+SQLAlchemy>=1.4
+PyYAML>=6.0
+python-jose[cryptography]  # For JWT handling
+aiohttp
+arq
+requests>=2.31  # HTTP client used in tests and demo scripts
+passlib>=1.7.4  # Password hashing context (requires bcrypt)
+bcrypt>=4.0  # Passlib bcrypt backend
+pyotp>=2.9.0  # TOTP for MFA
+cryptography>=41.0.0  # Encryption and key management
+twilio>=9.0  # SMS channel integration
+pytz>=2024.1  # Legacy timezone handling (quiet hours logic)
+psutil>=5.9  # Optional system metrics (telemetry)
+psycopg2-binary>=2.9  # Postgres driver for CIE service
+
+# data / ML (crop intelligence engine)
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
+sentence-transformers>=2.7
+
+# testing
+pytest
+pytest-asyncio
+pytest-cov>=4.1.0
+coverage[toml]>=7.0.0
+locust>=2.15.0
+faker>=20.0.0
+alembic
+tenacity
+prometheus_client
+psutil>=5.9.0
+python-dotenv
+pydantic-settings
+qdrant-client>=1.12.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-exporter-otlp>=1.25.0
+sentry-sdk[fastapi]>=1.40.0
+slowapi>=0.1.9

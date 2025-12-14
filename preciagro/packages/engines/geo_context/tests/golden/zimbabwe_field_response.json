@@ -1,0 +1,116 @@
+{
+  "context_hash": "419e97c36d0502d4",
+  "location": {
+    "centroid": {
+      "lat": -17.96,
+      "lon": 30.04
+    },
+    "lat": -17.96,
+    "lon": 30.04,
+    "admin_l0": "Zimbabwe",
+    "admin_l1": "Mashonaland East",
+    "admin_l2": "Rural District",
+    "agro_zone": "subtropical_highland"
+  },
+  "timestamp": "NORMALIZED_TIMESTAMP",
+  "soil": {
+    "ph": 6.0,
+    "ph_range": [
+      5.8,
+      6.8
+    ],
+    "organic_matter": 2.8,
+    "organic_matter_pct": 2.8,
+    "nitrogen": 110.0,
+    "phosphorus": 40.0,
+    "potassium": 240.0,
+    "soil_type": "clay_loam",
+    "drainage": "moderately_drained",
+    "texture": "clay_loam",
+    "cec": 22.0,
+    "resolution": "admin_zone",
+    "version": "v1.0"
+  },
+  "climate": {
+    "temperature_avg": 20.0,
+    "temperature_min": 10.0,
+    "temperature_max": 30.0,
+    "precipitation": 0.0,
+    "humidity": 60.0,
+    "wind_speed": 5.0,
+    "growing_degree_days": 0.0,
+    "et0_mm_day": 15.6074,
+    "forecast_summary": {
+      "forecast_days": 14,
+      "temperature_trend": 20.0,
+      "precipitation_mm": 0.0
+    },
+    "normals": {
+      "temp_avg": 20.0,
+      "temp_min": 10.0,
+      "temp_max": 30.0,
+      "precipitation_mm": 50.0
+    },
+    "version": null,
+    "last_updated": "NORMALIZED_TIMESTAMP"
+  },
+  "spatial": {
+    "elevation": 1000.0,
+    "slope": 3.0,
+    "aspect": 140.0,
+    "land_use": "smallholder_agriculture",
+    "administrative_region": "Mashonaland East",
+    "nearest_weather_station": "Harare Met Office",
+    "distance_to_water": 1200.0,
+    "agro_zone": "subtropical_highland",
+    "admin_l0": "Zimbabwe",
+    "admin_l1": "Mashonaland East",
+    "admin_l2": "Rural District"
+  },
+  "calendar_events": [],
+  "planting_recommendations": [],
+  "spray_recommendations": [
+    {
+      "recommendation": "favorable_conditions",
+      "confidence": 0.9,
+      "conditions": {
+        "wind_suitable": true,
+        "temperature_suitable": true,
+        "humidity_suitable": true
+      },
+      "notes": "Current conditions are favorable for spraying operations"
+    }
+  ],
+  "data_sources": [
+    "spatial_resolver",
+    "soil_resolver",
+    "climate_resolver",
+    "rules_engine"
+  ],
+  "confidence": 1.0,
+  "confidence_score": 1.0,
+  "processing_time_ms": "NORMALIZED_PROCESSING_TIME",
+  "provenance": [
+    {
+      "source": "spatial_resolver",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    },
+    {
+      "source": "soil_resolver",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    },
+    {
+      "source": "climate_resolver",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    },
+    {
+      "source": "rules_engine",
+      "status": "ok",
+      "last_updated": "NORMALIZED_TIMESTAMP"
+    }
+  ],
+  "cache_hit": false
+}

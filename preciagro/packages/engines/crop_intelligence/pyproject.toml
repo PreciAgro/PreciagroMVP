@@ -1,0 +1,19 @@
+[project]
+name = "preciagro-cie"
+version = "0.1.0"
+description = "PreciAgro Crop Intelligence Engine (MVP)"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "sqlalchemy>=2.0",
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "scikit-learn>=1.5",
+  "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"

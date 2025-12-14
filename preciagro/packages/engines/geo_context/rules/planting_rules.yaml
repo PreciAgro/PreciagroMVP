@@ -1,0 +1,80 @@
+# Planting Rules Configuration
+# Rules for determining crop planting suitability based on soil and climate conditions
+
+crops:
+  wheat:
+    soil:
+      ph_range: [6.0, 7.5]
+      min_organic_matter: 2.0
+      preferred_texture: ["loam", "clay_loam", "silt_loam"]
+      drainage: "well_drained"
+    climate:
+      temperature_range: [15, 25]  # Celsius
+      min_gdd: 1200  # Growing Degree Days
+      min_precipitation: 300  # mm during growing season
+    planting_window:
+      start_month: 3  # March
+      end_month: 5    # May
+    
+  corn:
+    soil:
+      ph_range: [6.0, 6.8]
+      min_organic_matter: 3.0
+      preferred_texture: ["loam", "sandy_loam"]
+      drainage: "well_drained"
+    climate:
+      temperature_range: [20, 30]  # Celsius
+      min_gdd: 2500  # Growing Degree Days
+      min_precipitation: 500  # mm during growing season
+    planting_window:
+      start_month: 4  # April
+      end_month: 6    # June
+  
+  soybeans:
+    soil:
+      ph_range: [6.0, 7.0]
+      min_organic_matter: 2.5
+      preferred_texture: ["loam", "silt_loam"]
+      drainage: "well_drained"
+    climate:
+      temperature_range: [18, 28]  # Celsius
+      min_gdd: 2000  # Growing Degree Days
+      min_precipitation: 400  # mm during growing season
+    planting_window:
+      start_month: 5  # May
+      end_month: 6    # June
+  
+  rice:
+    soil:
+      ph_range: [5.5, 6.5]
+      min_organic_matter: 3.0
+      preferred_texture: ["clay", "clay_loam"]
+      drainage: "poor_to_moderate"  # Rice needs flooded conditions
+    climate:
+      temperature_range: [22, 32]  # Celsius
+      min_gdd: 3000  # Growing Degree Days
+      min_precipitation: 1000  # mm during growing season
+    planting_window:
+      start_month: 5  # May
+      end_month: 7    # July
+
+# General planting guidelines
+guidelines:
+  soil_temperature:
+    minimum: 10  # Celsius - minimum soil temperature for most crops
+  frost_risk:
+    last_frost_buffer_days: 14  # Plant 14 days after last expected frost
+  moisture:
+    optimal_range: [40, 80]  # Soil moisture percentage
+  
+# Regional adjustments
+regions:
+  "Central Europe":
+    temperature_adjustment: 0  # No adjustment
+    precipitation_adjustment: 1.0
+    planting_delay_days: 0
+  
+  "Southern Africa":
+    temperature_adjustment: 5  # Generally warmer
+    precipitation_adjustment: 0.8  # Generally drier
+    planting_delay_days: -30  # Earlier planting season

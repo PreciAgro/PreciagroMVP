@@ -1,0 +1,112 @@
+groups:
+  # SLO-based alerting using burn rate method
+  - name: slo_burn_rate_alerts
+    interval: 1m
+    rules:
+      # === API Gateway SLO: 99.9% availability ===
+      
+      # Fast burn: 2% budget in 1 hour (fires in 2m)
+      - alert: APIGatewaySLOFastBurn
+        expr: |
+          (
+            sum(rate(http_errors_total{service="api-gateway",error_type="5xx"}[1h]))
+            /
+            sum(rate(http_requests_total{service="api-gateway"}[1h]))
+          ) > (1 - 0.999) * 14.4
+        for: 2m
+        labels:
+          severity: critical
+          service: api-gateway
+          slo: availability
+        annotations:
+          summary: "API Gateway SLO fast burn rate detected"
+          description: "Error budget burning at {{ $value | humanizePercentage }} (threshold: {{ (1 - 0.999) * 14.4 | humanizePercentage }}). At this rate, monthly error budget will be exhausted in 2 days."
+          runbook: "https://wiki.example.com/runbooks/api-gateway-slo"
+      
+      # Slow burn: 10% budget in 6 hours (fires in 15m)
+      - alert: APIGatewaySLOSlowBurn
+        expr: |
+          (
+            sum(rate(http_errors_total{service="api-gateway",error_type="5xx"}[6h]))
+            /
+            sum(rate(http_requests_total{service="api-gateway"}[6h]))
+          ) > (1 - 0.999) * 3
+        for: 15m
+        labels:
+          severity: warning
+          service: api-gateway
+          slo: availability
+        annotations:
+          summary: "API Gateway SLO slow burn rate detected"
+          description: "Error budget burning at {{ $value | humanizePercentage }}. Monitor closely."
+
+      # === Conversational NLP SLO: 99.5% availability ===
+      
+      - alert: ConversationalNLPSLOFastBurn
+        expr: |
+          (
+            sum(rate(http_errors_total{service="conversational-nlp",error_type="5xx"}[1h]))
+            /
+            sum(rate(http_requests_total{service="conversational-nlp"}[1h]))
+          ) > (1 - 0.995) * 14.4
+        for: 2m
+        labels:
+          severity: critical
+          service: conversational-nlp
+          slo: availability
+        annotations:
+          summary: "Conversational NLP SLO fast burn rate"
+          description: "Error budget burning at {{ $value | humanizePercentage }}"
+      
+      # === Latency SLOs ===
+      
+      # API Gateway latency SLO: p95 < 200ms for 99% of time
+      - alert: APIGatewayLatencySLOBreach
+        expr: |
+          http:request_duration_seconds:p95{service="api-gateway"} > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: api-gateway
+          slo: latency
+        annotations:
+          summary: "API Gateway p95 latency SLO breach"
+          description: "p95 latency is {{ $value | humanizeDuration }}, exceeding 200ms SLO"
+      
+      # Conversational NLP latency SLO: p95 < 500ms
+      - alert: ConversationalNLPLatencySLOBreach
+        expr: |
+          http:request_duration_seconds:p95{service="conversational-nlp"} > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: conversational-nlp
+          slo: latency
+        annotations:
+          summary: "Conversational NLP p95 latency SLO breach"
+          description: "p95 latency is {{ $value | humanizeDuration }}, exceeding 500ms SLO"
+
+  # === Error Budget Tracking ===
+  - name: error_budget_tracking
+    interval: 5m
+    rules:
+      # Remaining error budget percentage (30-day window)
+      - record: slo:error_budget:remaining_percent
+        expr: |
+          (
+            1 - (
+              sum(rate(http_errors_total{error_type="5xx"}[30d])) by (service)
+              /
+              sum(rate(http_requests_total[30d])) by (service)
+            )
+          ) / (1 - 0.999) * 100
+      
+      # Alert when error budget < 10% remains
+      - alert: ErrorBudgetLow
+        expr: slo:error_budget:remaining_percent < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error budget low for {{ $labels.service }}"
+          description: "Only {{ $value | humanizePercentage }} of monthly error budget remaining"

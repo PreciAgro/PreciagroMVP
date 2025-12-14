@@ -1,0 +1,100 @@
+{
+  "location": {
+    "lat": 52.2297,
+    "lon": 21.0122
+  },
+  "timestamp": "2024-03-15T10:30:00Z",
+  "soil": {
+    "ph": 6.8,
+    "organic_matter": 3.2,
+    "nitrogen": 125,
+    "phosphorus": 48,
+    "potassium": 280,
+    "soil_type": "loam",
+    "drainage": "well_drained",
+    "texture": "loam"
+  },
+  "climate": {
+    "temperature_avg": 15.5,
+    "temperature_min": 8.2,
+    "temperature_max": 22.8,
+    "precipitation": 2.3,
+    "humidity": 65,
+    "wind_speed": 8.5,
+    "growing_degree_days": 5.5
+  },
+  "spatial": {
+    "elevation": 106,
+    "slope": 2.5,
+    "aspect": 180,
+    "land_use": "agricultural",
+    "administrative_region": "Mazowieckie",
+    "nearest_weather_station": "Warsaw Central",
+    "distance_to_water": 850.5
+  },
+  "calendar_events": [
+    {
+      "event_type": "planting",
+      "crop_type": "wheat",
+      "recommended_date": "2024-04-15T00:00:00Z",
+      "optimal_window_start": "2024-04-01T00:00:00Z",
+      "optimal_window_end": "2024-04-30T00:00:00Z",
+      "confidence": 0.85
+    },
+    {
+      "event_type": "fertilizer_application",
+      "crop_type": "wheat",
+      "recommended_date": "2024-05-15T00:00:00Z",
+      "optimal_window_start": "2024-05-10T00:00:00Z",
+      "optimal_window_end": "2024-05-20T00:00:00Z",
+      "confidence": 0.78
+    },
+    {
+      "event_type": "harvesting",
+      "crop_type": "wheat",
+      "recommended_date": "2024-08-01T00:00:00Z",
+      "optimal_window_start": "2024-07-25T00:00:00Z",
+      "optimal_window_end": "2024-08-10T00:00:00Z",
+      "confidence": 0.82
+    }
+  ],
+  "planting_recommendations": [
+    {
+      "crop_type": "wheat",
+      "recommendation": "highly_suitable",
+      "confidence": 0.92,
+      "soil_suitability": 0.89,
+      "climate_suitability": 0.95,
+      "notes": "Excellent soil conditions with optimal pH and organic matter content. Climate conditions are favorable for wheat cultivation."
+    },
+    {
+      "crop_type": "corn",
+      "recommendation": "suitable",
+      "confidence": 0.76,
+      "soil_suitability": 0.82,
+      "climate_suitability": 0.71,
+      "notes": "Good soil conditions, but climate may be slightly cooler than optimal for corn. Consider early-maturing varieties."
+    }
+  ],
+  "spray_recommendations": [
+    {
+      "recommendation": "favorable_conditions",
+      "confidence": 0.88,
+      "conditions": {
+        "wind_suitable": true,
+        "temperature_suitable": true,
+        "humidity_suitable": true
+      },
+      "notes": "Current conditions are favorable for spraying operations. Wind speed is within acceptable range."
+    }
+  ],
+  "data_sources": [
+    "spatial_resolver",
+    "soil_resolver", 
+    "climate_resolver",
+    "calendar_composer",
+    "rules_engine"
+  ],
+  "confidence_score": 0.87,
+  "processing_time_ms": 245.6
+}

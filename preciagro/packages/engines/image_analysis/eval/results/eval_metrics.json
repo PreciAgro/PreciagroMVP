@@ -1,0 +1,38 @@
+{
+  "dataset": {
+    "name": "sample-maize",
+    "description": "Tiny evaluation slice for maize leaf diseases.",
+    "crop": "maize",
+    "created_by": "platform",
+    "created_at": "2025-01-01T00:00:00Z"
+  },
+  "disease_macro_f1": 0.3333,
+  "stage_accuracy": 1.0,
+  "rejection_precision": 0.5,
+  "latency_ms": {
+    "mean": 11.53,
+    "p95": 21.37
+  },
+  "samples": [
+    {
+      "id": "maize-sample-1",
+      "truth": "CIE.DZ.GRAY_LEAF_SPOT",
+      "prediction": "CIE.DZ.GRAY_LEAF_SPOT",
+      "stage_truth": "STAGE.VEGETATIVE",
+      "stage_prediction": "STAGE.VEGETATIVE",
+      "health_score": 0.55,
+      "uncertain": true,
+      "latency_ms": 22.45940000284463
+    },
+    {
+      "id": "maize-sample-2",
+      "truth": "CIE.DZ.NORTHERN_LEAF_BLIGHT",
+      "prediction": "CIE.DZ.GRAY_LEAF_SPOT",
+      "stage_truth": "STAGE.VEGETATIVE",
+      "stage_prediction": "STAGE.VEGETATIVE",
+      "health_score": 0.55,
+      "uncertain": true,
+      "latency_ms": 0.6046000053174794
+    }
+  ]
+}

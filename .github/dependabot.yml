@@ -1,0 +1,107 @@
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+    reviewers:
+      - "preciagro/platform-team"
+    groups:
+      # Group all development dependencies
+      dev-dependencies:
+        patterns:
+          - "pytest*"
+          - "black"
+          - "isort"
+          - "ruff"
+          - "mypy"
+          - "bandit"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group FastAPI ecosystem
+      fastapi:
+        patterns:
+          - "fastapi*"
+          - "uvicorn*"
+          - "starlette*"
+          - "pydantic*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group ML dependencies
+      ml-dependencies:
+        patterns:
+          - "torch*"
+          - "scikit-learn*"
+          - "numpy*"
+          - "pandas*"
+          - "mlflow*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Ignore major version updates for critical packages (handle manually)
+      - dependency-name: "torch"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+    reviewers:
+      - "preciagro/devops-team"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+    reviewers:
+      - "preciagro/platform-team"
+
+  # Terraform (when created)
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure/terraform"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "infrastructure"
+    commit-message:
+      prefix: "infra"
+    reviewers:
+      - "preciagro/platform-team"
+      - "preciagro/security-team"

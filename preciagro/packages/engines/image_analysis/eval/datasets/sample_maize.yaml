@@ -1,0 +1,22 @@
+dataset:
+  name: sample-maize
+  description: "Tiny evaluation slice for maize leaf diseases."
+  crop: maize
+  created_by: "platform"
+  created_at: "2025-01-01T00:00:00Z"
+
+samples:
+  - id: maize-sample-1
+    crop: maize
+    label: CIE.DZ.GRAY_LEAF_SPOT
+    growth_stage: STAGE.VEGETATIVE
+    quantify_lesions: false
+    count_objects: false
+    image_base64: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mO0WwoAAt8BNxGMD4kAAAAASUVORK5CYII=
+  - id: maize-sample-2
+    crop: maize
+    label: CIE.DZ.NORTHERN_LEAF_BLIGHT
+    growth_stage: STAGE.VEGETATIVE
+    quantify_lesions: true
+    count_objects: true
+    image_base64: iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAQAAABFaP0WAAAADklEQVR42mO0d+/efwAIJQNCssMq/gAAAABJRU5ErkJggg==

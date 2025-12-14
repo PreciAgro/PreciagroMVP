@@ -1,0 +1,20 @@
+{
+  "disease_prompts": [
+    "maize leaf with gray leaf spot lesions",
+    "corn leaf showing northern leaf blight cigar lesions",
+    "maize foliage with common rust pustules",
+    "corn leaf healthy and dark green",
+    "maize leaf with general nutrient stress"
+  ],
+  "nutrient_prompts": [
+    "nitrogen deficiency on maize leaf",
+    "potassium deficiency on corn edges",
+    "phosphorus deficiency purple maize leaf",
+    "magnesium deficiency interveinal chlorosis",
+    "sulfur deficiency pale new maize leaves"
+  ],
+  "general_prompts": [
+    "blurry aerial maize photo",
+    "overexposed corn canopy photo"
+  ]
+}

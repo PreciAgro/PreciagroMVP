@@ -1,0 +1,212 @@
+"""
+Policy and Model Registry with versioning for CIE.
+Runtime configuration for thresholds, Kc schedules, disease gates, model metadata.
+"""
+# Version: 0.3.0
+# Last Updated: 2025-10-17
+
+# Global CIE Policy Version
+POLICY_VERSION: str = "v0.3.0"
+
+# Regional Policy Configurations
+regions:
+  zimbabwe_natural_region_ii:
+    name: "Zimbabwe Natural Region II"
+    climate: "sub-humid"
+    rainfall_mm_annual: [700, 1000]
+    growing_season: ["November", "April"]
+    
+    # Crop-specific policies
+    crops:
+      maize:
+        varieties: ["SC403", "SC513", "ZM521"]
+        nitrogen_timing:
+          # N application windows (days after planting)
+          basal: [0, 5]  # At/just after planting
+          top_dress_1: [35, 45]  # V6-V8 stage
+          top_dress_2: [55, 65]  # V12-VT stage (if budget allows)
+          
+          # N rates by budget class (kg N/ha)
+          rates_kg_per_ha:
+            low: [40, 20, 0]  # [basal, TD1, TD2]
+            medium: [50, 30, 20]
+            high: [60, 40, 30]
+          
+          # Rain-based adjustment rules
+          rain_rules:
+            - condition: "rain_forecast_48h >= 15mm"
+              adjustment: "advance_window_by_2_days"
+              reason: "Apply before rain to reduce leaching"
+            - condition: "rain_forecast_48h < 5mm AND soil_moisture < 40%"
+              adjustment: "delay_until_rain"
+              reason: "Wait for rain to activate nitrogen"
+        
+        disease_thresholds:
+          gray_leaf_spot:
+            risk_gate: 0.50  # Action threshold (risk score)
+            scout_gate: 0.35  # Scout-only threshold
+            leaf_wetness_min_hours: 12
+            temp_range_c: [22, 30]
+          
+        water_management:
+          critical_stages: ["V10-VT", "R1-R3"]  # Water-sensitive periods
+          stress_threshold_pct_whc: 40  # % of WHC
+          irrigation_trigger_deficit_mm: 30
+      
+      tobacco:
+        varieties: ["Kutsaga", "TN90"]
+        nitrogen_timing:
+          basal: [0, 7]
+          top_dress_1: [30, 40]
+          rates_kg_per_ha:
+            low: [30, 15, 0]
+            medium: [40, 25, 0]
+            high: [50, 30, 15]
+        
+        disease_thresholds:
+          bacterial_wilt:
+            risk_gate: 0.60
+            scout_gate: 0.40
+  
+  poland_central:
+    name: "Poland Central Region"
+    climate: "temperate-continental"
+    rainfall_mm_annual: [500, 650]
+    growing_season: ["April", "September"]
+    
+    crops:
+      wheat:
+        varieties: ["Arkadia", "Bombona", "Pokusa"]
+        nitrogen_timing:
+          # Zadoks GS stages for wheat
+          early_spring: ["GS21", "GS25"]  # Tillering
+          stem_elongation: ["GS30", "GS32"]
+          flag_leaf: ["GS37", "GS39"]
+          
+          rates_kg_per_ha:
+            low: [40, 30, 0]
+            medium: [60, 40, 20]
+            high: [80, 50, 30]
+        
+        disease_thresholds:
+          fusarium_head_blight:
+            risk_gate: 0.65  # High consequence disease
+            scout_gate: 0.45
+            leaf_wetness_min_hours: 48  # Extended wetness at flowering
+            temp_range_c: [20, 28]
+            critical_stage: "GS65"  # Anthesis
+          
+          rust:
+            risk_gate: 0.50
+            scout_gate: 0.35
+            leaf_wetness_min_hours: 6
+          
+          powdery_mildew:
+            risk_gate: 0.45
+            scout_gate: 0.30
+            rh_threshold_pct: 70  # Lower than most diseases
+      
+      potato:
+        varieties: ["Vineta", "Denar", "Tajfun"]
+        nitrogen_timing:
+          planting: [0, 5]
+          tuber_initiation: [35, 45]
+          rates_kg_per_ha:
+            low: [50, 30, 0]
+            medium: [70, 40, 0]
+            high: [90, 50, 20]
+        
+        disease_thresholds:
+          late_blight:
+            risk_gate: 0.55  # Lower threshold due to severity
+            scout_gate: 0.40
+            leaf_wetness_min_hours: 10
+            temp_range_c: [15, 25]
+          
+          early_blight:
+            risk_gate: 0.60
+            scout_gate: 0.45
+            leaf_wetness_min_hours: 8
+
+# Global Action Priority Weights (for Decision Ranker)
+action_priority_weights:
+  disease_critical: 1.00  # Highest priority
+  water_critical: 0.95
+  nitrogen_optimal_window: 0.85
+  photo_prompt_key_stage: 0.75
+  disease_high: 0.70
+  water_moderate: 0.65
+  nitrogen_acceptable_window: 0.60
+  photo_prompt_routine: 0.50
+  disease_moderate: 0.45
+  water_low: 0.30
+
+# Budget Class Constraints (cost ceilings per season per hectare)
+budget_constraints:
+  low:
+    max_usd_per_ha_season: 150
+    fertilizer_max_usd: 80
+    fungicide_applications_max: 1
+    can_split_nitrogen: false
+  
+  medium:
+    max_usd_per_ha_season: 350
+    fertilizer_max_usd: 180
+    fungicide_applications_max: 2
+    can_split_nitrogen: true
+  
+  high:
+    max_usd_per_ha_season: 600
+    fertilizer_max_usd: 350
+    fungicide_applications_max: 3
+    can_split_nitrogen: true
+
+# Confidence Thresholds for Action Display
+confidence_thresholds:
+  min_display: 0.40  # Below this, don't show action
+  warning_display: 0.60  # Below this, show with warning
+  high_confidence: 0.80  # Above this, emphasize action
+
+# Photo Prompt Schedule (by crop stage)
+photo_prompts:
+  maize:
+    key_stages: ["V6", "VT", "R1", "R3", "R6"]
+    prompt_text:
+      V6: "📸 Maize at 6-leaf stage - photo needed to confirm vegetative development"
+      VT: "📸 Tasseling visible - photo critical for flowering stage confirmation"
+      R1: "📸 Silks emerged - photo needed for reproductive stage tracking"
+  
+  wheat:
+    key_stages: ["GS25", "GS31", "GS55", "GS65", "GS85"]
+    prompt_text:
+      GS31: "📸 Wheat stem elongation - photo needed for growth stage accuracy"
+      GS55: "📸 Heading stage - photo critical before flowering"
+      GS65: "📸 Anthesis - photo essential for FHB risk assessment"
+  
+  potato:
+    key_stages: ["emergence", "tuber_initiation", "tuber_bulking", "maturity"]
+    prompt_text:
+      tuber_initiation: "📸 Potato flowering beginning - photo needed for tuber formation timing"
+      tuber_bulking: "📸 Full canopy - photo critical for late blight risk"
+
+# Learning & Adaptation Settings
+learning_config:
+  acceptance_rate_target: 0.60  # Target 60% action acceptance
+  false_alarm_max: 0.15  # Max 15% disease false-alarms
+  policy_rollout_gate:
+    min_acceptance_rate: 0.50
+    max_false_alarm_rate: 0.20
+    min_field_weeks: 20  # Require 20 field-weeks before policy change
+  
+  # Automatic policy adjustment triggers
+  auto_adjust_triggers:
+    - metric: "n_timing_acceptance_rate"
+      threshold: 0.70
+      region: "zimbabwe_natural_region_ii"
+      action: "expand_timing_window_by_2_days"
+    
+    - metric: "disease_false_alarm_rate"
+      threshold: 0.25
+      crop: "potato"
+      disease: "late_blight"
+      action: "increase_risk_gate_by_0.05"

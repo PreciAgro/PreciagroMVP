@@ -1,0 +1,106 @@
+{
+  "dashboard": {
+    "title": "PreciagroMVP - Database Metrics",
+    "tags": ["preciagro", "database", "postgresql"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Database Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "pg_up",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "Down"},
+              {"type": "value", "value": "1", "text": "Up"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Connections",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "pg_stat_activity_count",
+            "legendFormat": "Active",
+            "refId": "A"
+          },
+          {
+            "expr": "pg_settings_max_connections",
+            "legendFormat": "Max",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Connections"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Database Size",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "pg_database_size_bytes",
+            "legendFormat": "{{datname}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "bytes", "label": "Size"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Transactions Per Second",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "rate(pg_stat_database_xact_commit[5m])",
+            "legendFormat": "Commits - {{datname}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(pg_stat_database_xact_rollback[5m])",
+            "legendFormat": "Rollbacks - {{datname}}",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Locks",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "pg_locks_count",
+            "legendFormat": "{{mode}}",
+            "refId": "A"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s"
+  }
+}

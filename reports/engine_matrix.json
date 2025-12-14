@@ -1,0 +1,58 @@
+[
+  {
+    "name": "data-integration",
+    "path": "preciagro/packages/engines/data_integration",
+    "status": "ACTIVE",
+    "language": "Python",
+    "run_cmd": "uvicorn preciagro.apps.api_gateway.main:app --host 0.0.0.0 --port 8101 --reload",
+    "test_cmd": "pytest preciagro/packages/engines/data_integration/tests -q"
+  },
+  {
+    "name": "temporal-logic",
+    "path": "preciagro/packages/engines/temporal_logic",
+    "status": "ACTIVE",
+    "language": "Python",
+    "run_cmd": "uvicorn preciagro.packages.engines.temporal_logic.app:app --host 0.0.0.0 --port 8100 --reload",
+    "test_cmd": "pytest preciagro/packages/engines/temporal_logic/tests -q"
+  },
+  {
+    "name": "geo-context",
+    "path": "preciagro/packages/engines/geo_context",
+    "status": "ACTIVE",
+    "language": "Python",
+    "run_cmd": "uvicorn preciagro.packages.engines.geo_context.api.main:app --host 0.0.0.0 --port 8102 --reload",
+    "test_cmd": "pytest preciagro/packages/engines/geo_context/tests -q"
+  },
+  {
+    "name": "conversational-nlp",
+    "path": "preciagro/packages/engines/conversational_nlp",
+    "status": "EXPERIMENTAL",
+    "language": "Python",
+    "run_cmd": "uvicorn preciagro.packages.engines.conversational_nlp.app:app --host 0.0.0.0 --port 8103 --reload",
+    "test_cmd": "pytest preciagro/packages/engines/conversational_nlp/tests -q"
+  },
+  {
+    "name": "crop-intelligence",
+    "path": "preciagro/packages/engines/crop_intelligence",
+    "status": "SKELETON",
+    "language": "Python",
+    "run_cmd": null,
+    "test_cmd": null
+  },
+  {
+    "name": "image-analysis",
+    "path": "preciagro/packages/engines/image_analysis",
+    "status": "ACTIVE",
+    "language": "Python",
+    "run_cmd": "uvicorn preciagro.packages.engines.image_analysis.app.main:app --host 0.0.0.0 --port 8102 --reload",
+    "test_cmd": "pytest preciagro/packages/engines/image_analysis/tests -q"
+  },
+  {
+    "name": "inventory",
+    "path": "preciagro/packages/engines/inventory",
+    "status": "SKELETON",
+    "language": "Python",
+    "run_cmd": null,
+    "test_cmd": null
+  }
+]

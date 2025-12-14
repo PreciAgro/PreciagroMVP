@@ -1,31 +1,167 @@
 
+# from fastapi import FastAPI
+# from ...packages.shared.schemas import ImageIn, PlanResponse
+# from ...packages.engines import image_analysis, geo_context, data_integration, crop_intel, temporal_logic, inventory
+# from preciagro.apps.data_integration_engine.routers.ingest import router as ingest_router
+
+# app = FastAPI(title="PreciAgro MVP API")
+# app.include_router(ingest_router)
+# @app.get("/health")
+# def health():
+#     return {"status": "ok"}
+
+# @app.post("/v1/diagnose-and-plan", response_model=PlanResponse)
+# def diagnose_and_plan(payload: ImageIn):
+#     # 1) Vision diagnosis
+#     dx = image_analysis.diagnose(payload.image_base64, payload.crop_hint)
+
+#     # 2) Context & weather
+#     ctx = geo_context.context_for(payload.location)
+#     wx = data_integration.latest_weather(ctx["region"])
+
+#     # 3) Crop Intelligence plan
+#     crop = payload.crop_hint or "generic_crop"
+#     plan = crop_intel.plan_actions(crop, dx.labels[0].name, ctx, wx)
+
+#     # 4) Temporal reminders
+#     reminders = temporal_logic.schedule(plan)
+
+#     # 5) Inventory
+#     inv = inventory.plan_impact(plan)
+
+#     return {"diagnosis": dx, "plan": plan, "reminders": reminders, "inventory": inv}
+# the above was a placeholder for the main.py file in your API gateway.
+
+from preciagro.packages.engines.temporal_logic.config import config as temporal_config
+from preciagro.packages.engines.geo_context.api.routes.api import router as geocontext_router
+from preciagro.packages.engines.data_integration.config import settings as di_settings
+from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherClient
 from fastapi import FastAPI
-from ...packages.shared.schemas import ImageIn, PlanResponse
-from ...packages.engines import image_analysis, geo_context, data_integration, crop_intel, temporal_logic, inventory
+from preciagro.packages.engines.data_integration.routers import ingest as ingest_router
+from preciagro.packages.engines.data_integration.connectors.openweather import OpenWeatherConnector
+from preciagro.packages.engines.data_integration.pipeline.orchestrator import run_registered_source
+from preciagro.packages.engines.data_integration.config import settings
+from preciagro.packages.engines.data_integration.storage.db import ping_db
+import os
+from preciagro.packages.engines.data_integration.bus.consumer import run_consumer
+import logging
+from fastapi import Response
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
+import os as _os
+import asyncio
 
-app = FastAPI(title="PreciAgro MVP API")
+from preciagro.packages.shared.logging import configure_logging
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+# Configure logging
+configure_logging(service_name="api-gateway")
+logger = logging.getLogger(__name__)
 
-@app.post("/v1/diagnose-and-plan", response_model=PlanResponse)
-def diagnose_and_plan(payload: ImageIn):
-    # 1) Vision diagnosis
-    dx = image_analysis.diagnose(payload.image_base64, payload.crop_hint)
+# Set DEV environment variable early to ensure .env file is loaded BEFORE importing config
+os.environ.setdefault('DEV', '1')
 
-    # 2) Context & weather
-    ctx = geo_context.context_for(payload.location)
-    wx = data_integration.latest_weather(ctx["region"])
+# Now import modules that depend on configuration
 
-    # 3) Crop Intelligence plan
-    crop = payload.crop_hint or "generic_crop"
-    plan = crop_intel.plan_actions(crop, dx.labels[0].name, ctx, wx)
 
-    # 4) Temporal reminders
-    reminders = temporal_logic.schedule(plan)
+app = FastAPI()
 
-    # 5) Inventory
-    inv = inventory.plan_impact(plan)
 
-    return {"diagnosis": dx, "plan": plan, "reminders": reminders, "inventory": inv}
+# Use the real OpenWeatherClient implementation if an API key is configured
+
+if di_settings.OPENWEATHER_API_KEY:
+    ow_client = OpenWeatherClient(api_key=di_settings.OPENWEATHER_API_KEY)
+    connector = OpenWeatherConnector(ow_client)
+    ingest_router.openweather_client_singleton = connector
+else:
+    connector = None
+    # ingest_router.openweather_client_singleton left unset; endpoints will still error if invoked
+
+app.include_router(ingest_router.router)
+
+# Try to include temporal router, but handle import failures gracefully
+try:
+    from preciagro.packages.engines.temporal_logic.routes.api import router as temporal_router
+    app.include_router(temporal_router)
+    logger.info("Temporal Logic Engine router loaded successfully")
+except Exception as e:
+    logger.warning(f"Failed to load Temporal Logic Engine router: {e}")
+
+app.include_router(geocontext_router)
+
+# Metrics
+INGEST_COUNTER = Counter('preciagro_ingest_jobs_total',
+                         'Total ingest jobs executed', ['source', 'scope'])
+
+
+@app.get('/healthz')
+async def healthz(response: Response):
+    """Health check that verifies DB connectivity when available.
+
+    Returns 200 when reachable or when the environment doesn't provide
+    DB (best-effort). Returns 503 when a reachable service is down.
+    """
+    db_ok = await ping_db()
+    
+    if not db_ok:
+        response.status_code = 503
+        return {"status": "error", "details": {"database": "unreachable"}}
+        
+    return {"status": "ok", "details": {"database": "connected"}}
+
+
+@app.get('/test')
+async def test_endpoint():
+    """Simple test endpoint"""
+    return {"message": "test endpoint working"}
+
+
+@app.get('/metrics')
+def metrics():
+    data = generate_latest()
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
+
+async def _demo_scheduler():
+    """Background scheduler for demo pulls. Triggers openweather for demo coords periodically.
+
+    Runs on app startup as a background task. Respects `INGEST_RATE_LIMIT_QPS` from config
+    for simple pacing.
+    """
+    log = logging.getLogger("preciagro.scheduler")
+    # demo coordinates (Santiago, Chile)
+    coords = [(-33.45, -70.6667), (-23.55, -46.6333)]
+    interval_sec = 1800  # 30 minutes for demo
+    # small initial delay so app can warm up
+    await asyncio.sleep(2)
+    while True:
+        for lat, lon in coords:
+            try:
+                # call the registered endpoint via internal function to avoid HTTP loop
+                if not connector:
+                    log.warning(
+                        "Skipping OpenWeather demo pull because OPENWEATHER_API_KEY not configured")
+                    continue
+                await run_registered_source('openweather.onecall', connector, lat=lat, lon=lon, scope='hourly')
+                INGEST_COUNTER.labels(
+                    source='openweather.onecall', scope='hourly').inc()
+            except Exception:
+                log.exception('Demo scheduler job failed')
+            # simple pacing
+            await asyncio.sleep(max(1, 1.0 / max(1, settings.INGEST_RATE_LIMIT_QPS)))
+        await asyncio.sleep(interval_sec)
+
+
+@app.on_event('startup')
+async def startup_tasks():
+    # Initialize temporal logic database tables (optional if DATABASE_URL not set)
+    try:
+        from preciagro.packages.engines.temporal_logic.models import init_tables
+        await init_tables()
+        logger.info("Temporal Logic Engine database initialized")
+    except Exception as e:
+        logger.warning(
+            f"Failed to initialize Temporal Logic Engine database: {e}")
+
+    # Start demo scheduler in background - DISABLED FOR TESTING
+    # asyncio.create_task(_demo_scheduler())
+    # start a consumer stub so we surface events during a demo
+    asyncio.create_task(run_consumer())

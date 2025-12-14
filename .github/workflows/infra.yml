@@ -1,0 +1,350 @@
+name: Infrastructure
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infrastructure/**'
+      - 'docker-compose*.yml'
+  pull_request:
+    paths:
+      - 'infrastructure/**'
+      - 'docker-compose*.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+
+env:
+  TF_VERSION: "1.6.0"
+  WORKING_DIR: infrastructure/terraform
+
+jobs:
+  # ============================================================
+  # Validate Terraform Configuration
+  # ============================================================
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_envs: ${{ steps.detect.outputs.environments }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Detect Changed Environments
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environments=[\"${{ inputs.environment }}\"]" >> $GITHUB_OUTPUT
+          else
+            # Detect which environments have changes
+            CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null || echo "")
+            ENVS="[]"
+            
+            if echo "$CHANGED" | grep -q "infrastructure/terraform/environments/dev/"; then
+              ENVS='["dev"]'
+            fi
+            if echo "$CHANGED" | grep -q "infrastructure/terraform/environments/staging/"; then
+              ENVS=$(echo "$ENVS" | sed 's/\]/, "staging"]/' | sed 's/\[, /[/')
+            fi
+            if echo "$CHANGED" | grep -q "infrastructure/terraform/environments/production/"; then
+              ENVS=$(echo "$ENVS" | sed 's/\]/, "production"]/' | sed 's/\[, /[/')
+            fi
+            
+            # If modules changed, all environments affected
+            if echo "$CHANGED" | grep -q "infrastructure/terraform/modules/"; then
+              ENVS='["dev", "staging", "production"]'
+            fi
+            
+            echo "environments=$ENVS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Terraform Format Check
+        run: |
+          if [ -d "${{ env.WORKING_DIR }}" ]; then
+            terraform -chdir=${{ env.WORKING_DIR }} fmt -check -recursive
+          else
+            echo "Infrastructure directory not yet created"
+          fi
+
+      - name: Terraform Validate
+        run: |
+          if [ -d "${{ env.WORKING_DIR }}" ]; then
+            for env_dir in ${{ env.WORKING_DIR }}/environments/*/; do
+              if [ -d "$env_dir" ]; then
+                echo "Validating $(basename $env_dir)..."
+                terraform -chdir=$env_dir init -backend=false
+                terraform -chdir=$env_dir validate
+              fi
+            done
+          else
+            echo "Infrastructure directory not yet created"
+          fi
+
+  # ============================================================
+  # Security Scan with tfsec
+  # ============================================================
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tfsec Security Scan
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: ${{ env.WORKING_DIR }}
+          soft_fail: true
+          format: json
+          out: tfsec-results.json
+
+      - name: Upload Security Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfsec-results
+          path: tfsec-results.json
+          retention-days: 30
+
+  # ============================================================
+  # Cost Estimation
+  # ============================================================
+  cost-estimate:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Cost Estimate
+        run: |
+          if [ -d "${{ env.WORKING_DIR }}" ]; then
+            infracost breakdown --path=${{ env.WORKING_DIR }} \
+              --format=json --out-file=infracost.json || echo "{}" > infracost.json
+            
+            infracost output --path=infracost.json --format=table
+          else
+            echo "Infrastructure directory not yet created"
+            echo "No cost estimate available"
+          fi
+
+      - name: Post Cost Comment
+        if: github.event_name == 'pull_request'
+        uses: infracost/actions/comment@v1
+        with:
+          path: infracost.json
+          behavior: update
+
+  # ============================================================
+  # Terraform Plan
+  # ============================================================
+  plan:
+    runs-on: ubuntu-latest
+    needs: [validate, security-scan]
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
+    
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.validate.outputs.changed_envs || '["dev"]') }}
+
+    environment:
+      name: ${{ matrix.environment }}-plan
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure Cloud Credentials
+        run: |
+          # In production, configure cloud provider credentials
+          echo "Configuring credentials for ${{ matrix.environment }}..."
+          # For GCP:
+          # echo '${{ secrets.GCP_CREDENTIALS }}' > /tmp/gcp-key.json
+          # export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+
+      - name: Terraform Init
+        run: |
+          ENV_DIR="${{ env.WORKING_DIR }}/environments/${{ matrix.environment }}"
+          if [ -d "$ENV_DIR" ]; then
+            terraform -chdir=$ENV_DIR init
+          else
+            echo "Environment directory not found: $ENV_DIR"
+          fi
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          ENV_DIR="${{ env.WORKING_DIR }}/environments/${{ matrix.environment }}"
+          if [ -d "$ENV_DIR" ]; then
+            terraform -chdir=$ENV_DIR plan \
+              -out=tfplan-${{ matrix.environment }} \
+              -no-color 2>&1 | tee plan-output.txt
+          else
+            echo "No infrastructure defined yet"
+          fi
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.environment }}
+          path: |
+            ${{ env.WORKING_DIR }}/environments/${{ matrix.environment }}/tfplan-${{ matrix.environment }}
+            plan-output.txt
+          retention-days: 7
+
+  # ============================================================
+  # Terraform Apply (Protected)
+  # ============================================================
+  apply:
+    runs-on: ubuntu-latest
+    needs: [validate, security-scan, plan]
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+    
+    strategy:
+      max-parallel: 1  # Apply one environment at a time
+      matrix:
+        environment: ${{ fromJson(needs.validate.outputs.changed_envs || '["dev"]') }}
+
+    environment:
+      name: ${{ matrix.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ matrix.environment }}
+
+      - name: Configure Cloud Credentials
+        run: |
+          echo "Configuring credentials for ${{ matrix.environment }}..."
+
+      - name: Terraform Init
+        run: |
+          ENV_DIR="${{ env.WORKING_DIR }}/environments/${{ matrix.environment }}"
+          if [ -d "$ENV_DIR" ]; then
+            terraform -chdir=$ENV_DIR init
+          fi
+
+      - name: Terraform Apply
+        run: |
+          ENV_DIR="${{ env.WORKING_DIR }}/environments/${{ matrix.environment }}"
+          PLAN_FILE="tfplan-${{ matrix.environment }}"
+          
+          if [ -f "$PLAN_FILE" ]; then
+            terraform -chdir=$ENV_DIR apply -auto-approve $PLAN_FILE
+          else
+            echo "No plan file found, skipping apply"
+          fi
+
+      - name: Create Apply Record
+        run: |
+          cat << EOF > apply-record.json
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "environment": "${{ matrix.environment }}",
+            "actor": "${{ github.actor }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}"
+          }
+          EOF
+
+      - name: Upload Apply Record
+        uses: actions/upload-artifact@v4
+        with:
+          name: apply-record-${{ matrix.environment }}
+          path: apply-record.json
+          retention-days: 2555
+
+  # ============================================================
+  # Drift Detection (Scheduled)
+  # ============================================================
+  drift-detection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    strategy:
+      matrix:
+        environment: [dev, staging, production]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Detect Drift
+        run: |
+          ENV_DIR="${{ env.WORKING_DIR }}/environments/${{ matrix.environment }}"
+          if [ -d "$ENV_DIR" ]; then
+            terraform -chdir=$ENV_DIR init
+            terraform -chdir=$ENV_DIR plan -detailed-exitcode -out=/dev/null 2>&1 | tee drift-output.txt || {
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -eq 2 ]; then
+                echo "::warning::Drift detected in ${{ matrix.environment }}"
+              fi
+            }
+          fi
+
+  # ============================================================
+  # Summary
+  # ============================================================
+  summary:
+    runs-on: ubuntu-latest
+    needs: [validate, security-scan, plan]
+    if: always()
+
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## Infrastructure Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${{ needs.validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Plan | ${{ needs.plan.result }} |" >> $GITHUB_STEP_SUMMARY
