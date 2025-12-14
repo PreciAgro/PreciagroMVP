@@ -1,46 +1,263 @@
+# =============================================================================
+# PreciAgro .gitignore
+# Comprehensive exclusions for Python, ML, CI/CD, and infrastructure
+# =============================================================================
+
+# -----------------------------------------------------------------------------
 # Python
+# -----------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.pyc
-*.env
-.env
+.Python
+*.so
+
+# Virtual environments
 .venv/
 venv/
+venv_*/
+ENV/
+env/
+.env.local
+.env.*.local
 
-# VS Code
-.vscode/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Test, coverage, and build
-htmlcov/
-.coverage
-.tox/
+# Distribution / packaging
 dist/
 build/
 *.egg-info/
+*.egg
+*.whl
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+develop-eggs/
+.installed.cfg
 
-# Jupyter
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -----------------------------------------------------------------------------
+# Environment & Secrets (CRITICAL - Never commit!)
+# -----------------------------------------------------------------------------
+.env
+*.env
+!.env.example
+.env.production
+.env.staging
+.env.development
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# -----------------------------------------------------------------------------
+# IDE & Editors
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# -----------------------------------------------------------------------------
+# OS Files
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# -----------------------------------------------------------------------------
+# Testing & Coverage
+# -----------------------------------------------------------------------------
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.coverage
+.hypothesis/
+.pytest_cache/
+.tox/
+nosetests.xml
+test-results*.xml
+
+# -----------------------------------------------------------------------------
+# Type Checking & Linting
+# -----------------------------------------------------------------------------
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pylint.d/
+
+# -----------------------------------------------------------------------------
+# Jupyter & Data Science
+# -----------------------------------------------------------------------------
 .ipynb_checkpoints/
+*.ipynb_checkpoints
+profile_default/
+ipython_config.py
 
-# Docker
-*.db
+# -----------------------------------------------------------------------------
+# ML Models & Artifacts (Large files - use Git LFS or artifact storage)
+# -----------------------------------------------------------------------------
+*.pth
+*.pt
+*.onnx
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.model
+*.weights
+checkpoints/
+model_cache/
+.cache/
+*.safetensors
+
+# ML experiment tracking
+mlruns/
+mlflow.db
+wandb/
+
+# Dataset files (use dataset_versions.yml for tracking)
+data/raw/
+data/processed/
+*.csv
+!**/test_data/*.csv
+*.parquet
+*.feather
+
+# -----------------------------------------------------------------------------
+# Docker & Containers
+# -----------------------------------------------------------------------------
 pgdata/
+redis-data/
+*.db
+!alembic/versions/*.py
 
-# Zip and temp
+# -----------------------------------------------------------------------------
+# Terraform & Infrastructure
+# -----------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# -----------------------------------------------------------------------------
+# Kubernetes
+# -----------------------------------------------------------------------------
+kubeconfig
+*.kubeconfig
+helm-charts/*/charts/
+*.tgz
+
+# -----------------------------------------------------------------------------
+# CI/CD Artifacts
+# -----------------------------------------------------------------------------
+# Build artifacts
+artifacts/
+.deploy/
+
+# SBOM (generated, stored in releases)
+sbom-*.json
+sbom-*.zip
+licenses.json
+licenses.csv
+vulnerabilities-*.json
+
+# Audit results
+audit-results.json
+bandit-*.json
+gitleaks-report.json
+
+# Terraform plans
+tfplan-*
+
+# Rollback logs
+rollback-audit.log
+
+# -----------------------------------------------------------------------------
+# Logs & Temporary Files
+# -----------------------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.cache
+tmp/
+temp/
+
+# -----------------------------------------------------------------------------
+# Archives
+# -----------------------------------------------------------------------------
 *.zip
 *.tar.gz
-*.tmp
+*.tar
+*.gz
+*.rar
+*.7z
 
-# Ignore database and redis volumes
-pgdata/
-
-# Misc
+# -----------------------------------------------------------------------------
+# Database Files
+# -----------------------------------------------------------------------------
 *.sqlite3
+*.sqlite
+*.db
+!alembic/versions/*.py
+
+# -----------------------------------------------------------------------------
+# Documentation Build
+# -----------------------------------------------------------------------------
+docs/_build/
+site/
+.mkdocs/
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+# Local scripts
+local_*.py
+local_*.sh
+scratch/
+notes/
+
+# Profiling
+*.prof
+*.lprof
+
+# C extensions
+*.c
+*.cpp
+!setup.py
