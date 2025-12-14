@@ -1,0 +1,183 @@
+# =============================================================================
+# PreciAgro Engine Dependency Graph
+# =============================================================================
+# This file defines the dependency relationships between engines.
+# Used by CI/CD to detect which engines need testing when changes occur.
+#
+# Format:
+#   engine_name:
+#     depends_on: [list of engine dependencies]
+#     triggers: [list of engines that depend on this one]
+#     shared_schemas: [list of shared schema files this engine uses]
+# =============================================================================
+
+# Core Data Layer (No dependencies)
+data_integration:
+  depends_on: []
+  triggers:
+    - crop_intelligence
+    - geo_context
+    - temporal_logic
+    - farm_inventory
+  shared_schemas:
+    - schemas/data_source.schema.json
+    - schemas/integration_config.schema.json
+
+# Geospatial & Temporal (Depend on data layer)
+geo_context:
+  depends_on:
+    - data_integration
+  triggers:
+    - crop_intelligence
+    - diagnosis_recommendation
+    - farm_inventory
+  shared_schemas:
+    - schemas/location.schema.json
+    - schemas/region.schema.json
+    - schemas/soil.schema.json
+
+temporal_logic:
+  depends_on:
+    - data_integration
+  triggers:
+    - crop_intelligence
+    - diagnosis_recommendation
+  shared_schemas:
+    - schemas/time_series.schema.json
+    - schemas/forecast.schema.json
+
+# Security Layer
+security_access:
+  depends_on: []
+  triggers:
+    - api_gateway
+    - conversational
+    - farm_inventory
+  shared_schemas:
+    - schemas/auth.schema.json
+    - schemas/permission.schema.json
+
+# Intelligence Layer
+crop_intelligence:
+  depends_on:
+    - data_integration
+    - geo_context
+    - temporal_logic
+  triggers:
+    - diagnosis_recommendation
+    - agro_llm
+    - conversational
+  shared_schemas:
+    - schemas/crop.schema.json
+    - schemas/recommendation.schema.json
+
+image_analysis:
+  depends_on: []
+  triggers:
+    - diagnosis_recommendation
+    - feedback_learning
+  shared_schemas:
+    - schemas/image.schema.json
+    - schemas/detection.schema.json
+
+diagnosis_recommendation:
+  depends_on:
+    - crop_intelligence
+    - image_analysis
+    - geo_context
+    - temporal_logic
+  triggers:
+    - agro_llm
+    - trust_explainability
+    - feedback_learning
+  shared_schemas:
+    - schemas/diagnosis.schema.json
+    - schemas/recommendation.schema.json
+
+# LLM & Conversation Layer
+agro_llm:
+  depends_on:
+    - crop_intelligence
+    - diagnosis_recommendation
+  triggers:
+    - conversational
+    - conversational_nlp
+  shared_schemas:
+    - schemas/llm_request.schema.json
+    - schemas/llm_response.schema.json
+
+conversational_nlp:
+  depends_on:
+    - agro_llm
+  triggers:
+    - conversational
+  shared_schemas:
+    - schemas/intent.schema.json
+    - schemas/entity.schema.json
+
+conversational:
+  depends_on:
+    - agro_llm
+    - conversational_nlp
+    - security_access
+    - crop_intelligence
+  triggers:
+    - api_gateway
+    - feedback_learning
+  shared_schemas:
+    - schemas/session.schema.json
+    - schemas/message.schema.json
+
+# Inventory & Profile Layer
+farm_inventory:
+  depends_on:
+    - data_integration
+    - geo_context
+    - security_access
+  triggers:
+    - crop_intelligence
+    - conversational
+  shared_schemas:
+    - schemas/farm.schema.json
+    - schemas/inventory.schema.json
+
+farmer_profile:
+  depends_on:
+    - security_access
+  triggers:
+    - conversational
+    - feedback_learning
+  shared_schemas:
+    - schemas/farmer.schema.json
+    - schemas/preferences.schema.json
+
+# Trust & Feedback Layer
+trust_explainability:
+  depends_on:
+    - diagnosis_recommendation
+  triggers:
+    - api_gateway
+    - feedback_learning
+  shared_schemas:
+    - schemas/explanation.schema.json
+    - schemas/reasoning_trace.schema.json
+
+feedback_learning:
+  depends_on:
+    - conversational
+    - diagnosis_recommendation
+    - image_analysis
+    - trust_explainability
+    - farmer_profile
+  triggers: []  # Terminal engine
+  shared_schemas:
+    - schemas/feedback.schema.json
+    - schemas/learning_signal.schema.json
+
+# Shared Library (affects ALL engines)
+shared:
+  depends_on: []
+  triggers:
+    - ALL  # Special marker: changes here trigger all engines
+  shared_schemas:
+    - schemas/*.schema.json

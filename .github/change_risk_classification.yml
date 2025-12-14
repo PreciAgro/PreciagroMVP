@@ -1,0 +1,185 @@
+# =============================================================================
+# PreciAgro Change Risk Classification
+# =============================================================================
+# Defines risk levels for different types of changes.
+# High-risk changes require additional approval and staging soak time.
+# =============================================================================
+
+# Risk levels and their requirements
+risk_levels:
+  LOW:
+    description: "Documentation, comments, formatting"
+    requirements:
+      approvals: 1
+      staging_soak_hours: 0
+      auto_deploy: true
+      security_review: false
+      
+  MEDIUM:
+    description: "Logic changes, bug fixes, minor features"
+    requirements:
+      approvals: 1
+      staging_soak_hours: 2
+      auto_deploy: true
+      security_review: false
+      
+  HIGH:
+    description: "Model updates, schema changes, security changes"
+    requirements:
+      approvals: 2
+      staging_soak_hours: 24
+      auto_deploy: false
+      security_review: true
+      cto_notification: true
+      
+  CRITICAL:
+    description: "Breaking changes, auth/security, data migrations"
+    requirements:
+      approvals: 3
+      staging_soak_hours: 48
+      auto_deploy: false
+      security_review: true
+      cto_approval: true
+      incident_ready: true
+
+# Path-based classification rules
+path_rules:
+  # LOW risk patterns
+  - pattern: "**/*.md"
+    risk: LOW
+    reason: "Documentation changes"
+    
+  - pattern: "**/README*"
+    risk: LOW
+    reason: "README changes"
+    
+  - pattern: "**/__pycache__/**"
+    risk: LOW
+    reason: "Cache files"
+    
+  - pattern: "**/tests/**"
+    risk: LOW
+    reason: "Test changes only"
+    
+  - pattern: "**/.gitignore"
+    risk: LOW
+    reason: "Git configuration"
+
+  # MEDIUM risk patterns
+  - pattern: "**/app/**/*.py"
+    risk: MEDIUM
+    reason: "Application logic change"
+    
+  - pattern: "**/services/**/*.py"
+    risk: MEDIUM
+    reason: "Service layer change"
+    
+  - pattern: "**/utils/**/*.py"
+    risk: MEDIUM
+    reason: "Utility change"
+    
+  - pattern: "**/routes/**/*.py"
+    risk: MEDIUM
+    reason: "API route change"
+
+  # HIGH risk patterns
+  - pattern: "**/models/**/*.py"
+    risk: HIGH
+    reason: "ML model or database model change"
+    engines_affected: all_ml_engines
+    
+  - pattern: "**/schemas/**/*.json"
+    risk: HIGH
+    reason: "Schema change - may break contracts"
+    require_contract_test: true
+    
+  - pattern: "**/contracts/**/*"
+    risk: HIGH
+    reason: "API contract change"
+    require_contract_test: true
+    
+  - pattern: "**/migrations/**/*"
+    risk: HIGH
+    reason: "Database migration"
+    require_migration_check: true
+    
+  - pattern: "models/**/*.pth"
+    risk: HIGH
+    reason: "ML model artifact"
+    require_shadow_deploy: true
+    
+  - pattern: "models/**/*.onnx"
+    risk: HIGH
+    reason: "ML model artifact"
+    require_shadow_deploy: true
+
+  # CRITICAL risk patterns
+  - pattern: "**/security_access/**/*.py"
+    risk: CRITICAL
+    reason: "Security engine change"
+    notify:
+      - security-team
+      - cto
+      
+  - pattern: "**/auth*.py"
+    risk: CRITICAL
+    reason: "Authentication logic"
+    
+  - pattern: "**/permission*.py"
+    risk: CRITICAL
+    reason: "Authorization logic"
+    
+  - pattern: "**/*secret*.py"
+    risk: CRITICAL
+    reason: "Secret handling logic"
+    
+  - pattern: ".github/workflows/cd-production.yml"
+    risk: CRITICAL
+    reason: "Production deployment workflow"
+    
+  - pattern: "infrastructure/terraform/environments/production/**"
+    risk: CRITICAL
+    reason: "Production infrastructure"
+    
+  - pattern: "**/alembic/versions/*_breaking*.py"
+    risk: CRITICAL
+    reason: "Breaking database migration"
+    block_auto_deploy: true
+
+# Engine-specific overrides
+engine_overrides:
+  security_access:
+    default_risk: HIGH
+    always_require_security_review: true
+    
+  trust_explainability:
+    default_risk: MEDIUM
+    
+  feedback_learning:
+    schema_changes:
+      risk: HIGH
+      require_data_migration_check: true
+      
+  agro_llm:
+    model_changes:
+      risk: HIGH
+      require_shadow_deploy: true
+      require_hallucination_check: true
+
+# Labels to add based on risk
+labels:
+  LOW:
+    - "risk:low"
+    - "safe-to-merge"
+  MEDIUM:
+    - "risk:medium"
+    - "needs-staging"
+  HIGH:
+    - "risk:high"
+    - "needs-security-review"
+    - "needs-extended-staging"
+  CRITICAL:
+    - "risk:critical"
+    - "needs-cto-approval"
+    - "no-auto-deploy"
+    - "incident-ready"

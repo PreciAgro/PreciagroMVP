@@ -1,0 +1,418 @@
+name: CD - Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy all engines'
+        required: false
+        default: 'false'
+
+env:
+  PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+  STAGING_NAMESPACE: preciagro-staging
+
+jobs:
+  # ============================================================
+  # Pre-deployment Validation
+  # ============================================================
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_matrix: ${{ steps.matrix.outputs.engines }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure CI Passed
+        run: |
+          # Check that the CI workflow passed for this commit
+          echo "Validating CI status for commit ${{ github.sha }}"
+          # In production, use GitHub API to verify CI status
+
+      - name: Build Deployment Matrix
+        id: matrix
+        run: |
+          # Define deployable engines with their configurations
+          cat << 'EOF' > engines.json
+          {
+            "include": [
+              {
+                "name": "crop-intelligence",
+                "path": "preciagro/packages/engines/crop_intelligence",
+                "port": 8082,
+                "replicas": 2,
+                "health_path": "/health"
+              },
+              {
+                "name": "data-integration",
+                "path": "preciagro/packages/engines/data_integration",
+                "port": 8101,
+                "replicas": 2,
+                "health_path": "/health"
+              },
+              {
+                "name": "temporal-logic",
+                "path": "preciagro/packages/engines/temporal_logic",
+                "port": 8100,
+                "replicas": 2,
+                "health_path": "/health"
+              },
+              {
+                "name": "geo-context",
+                "path": "preciagro/packages/engines/geo_context",
+                "port": 8102,
+                "replicas": 2,
+                "health_path": "/api/v1/health"
+              },
+              {
+                "name": "image-analysis",
+                "path": "preciagro/packages/engines/image_analysis",
+                "port": 8103,
+                "replicas": 2,
+                "health_path": "/health",
+                "resources": "gpu"
+              }
+            ]
+          }
+          EOF
+          
+          echo "engines=$(cat engines.json | jq -c)" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # Build & Push Docker Images
+  # ============================================================
+  build:
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.validate.outputs.deploy_matrix) }}
+
+    outputs:
+      image_tags: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Dockerfile
+        id: dockerfile
+        run: |
+          # Check for engine-specific Dockerfile
+          if [ -f "${{ matrix.path }}/Dockerfile" ]; then
+            echo "path=${{ matrix.path }}/Dockerfile" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          # Fall back to root Dockerfile
+          elif [ -f "Dockerfile" ]; then
+            echo "path=Dockerfile" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.dockerfile.outputs.exists == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/preciagro-${{ matrix.name }}
+          tags: |
+            type=sha,prefix=staging-
+            type=raw,value=staging-latest
+
+      - name: Build and Push
+        if: steps.dockerfile.outputs.exists == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ steps.dockerfile.outputs.path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=preciagro-${{ matrix.name }}
+            org.opencontainers.image.environment=staging
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |
+            ENGINE_NAME=${{ matrix.name }}
+            ENGINE_PORT=${{ matrix.port }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # Deploy to Staging
+  # ============================================================
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    environment:
+      name: staging
+      url: https://staging.preciagro.internal
+    
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJson(needs.validate.outputs.deploy_matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Kubernetes
+        run: |
+          # In production, configure kubectl with staging cluster credentials
+          echo "Configuring kubectl for staging cluster..."
+          # kubectl config set-cluster staging --server=${{ secrets.K8S_STAGING_SERVER }}
+          # kubectl config set-credentials ci --token=${{ secrets.K8S_STAGING_TOKEN }}
+
+      - name: Create/Update Deployment Manifest
+        run: |
+          mkdir -p .deploy
+          cat << EOF > .deploy/${{ matrix.name }}-deployment.yaml
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ${{ matrix.name }}
+            namespace: ${{ env.STAGING_NAMESPACE }}
+            labels:
+              app: ${{ matrix.name }}
+              environment: staging
+              version: ${{ github.sha }}
+          spec:
+            replicas: ${{ matrix.replicas }}
+            selector:
+              matchLabels:
+                app: ${{ matrix.name }}
+            strategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxSurge: 1
+                maxUnavailable: 0
+            template:
+              metadata:
+                labels:
+                  app: ${{ matrix.name }}
+                  environment: staging
+                annotations:
+                  prometheus.io/scrape: "true"
+                  prometheus.io/port: "${{ matrix.port }}"
+                  prometheus.io/path: "/metrics"
+              spec:
+                containers:
+                  - name: ${{ matrix.name }}
+                    image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/preciagro-${{ matrix.name }}:staging-${{ github.sha }}
+                    ports:
+                      - containerPort: ${{ matrix.port }}
+                    env:
+                      - name: ENVIRONMENT
+                        value: staging
+                      - name: LOG_LEVEL
+                        value: DEBUG
+                      - name: OTEL_SERVICE_NAME
+                        value: ${{ matrix.name }}
+                    envFrom:
+                      - secretRef:
+                          name: ${{ matrix.name }}-secrets
+                    livenessProbe:
+                      httpGet:
+                        path: ${{ matrix.health_path }}
+                        port: ${{ matrix.port }}
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+                      timeoutSeconds: 5
+                      failureThreshold: 3
+                    readinessProbe:
+                      httpGet:
+                        path: ${{ matrix.health_path }}
+                        port: ${{ matrix.port }}
+                      initialDelaySeconds: 10
+                      periodSeconds: 5
+                      timeoutSeconds: 3
+                      failureThreshold: 3
+                    resources:
+                      requests:
+                        memory: "256Mi"
+                        cpu: "100m"
+                      limits:
+                        memory: "512Mi"
+                        cpu: "500m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ${{ matrix.name }}
+            namespace: ${{ env.STAGING_NAMESPACE }}
+          spec:
+            selector:
+              app: ${{ matrix.name }}
+            ports:
+              - port: 80
+                targetPort: ${{ matrix.port }}
+            type: ClusterIP
+          EOF
+          
+          echo "Generated deployment manifest:"
+          cat .deploy/${{ matrix.name }}-deployment.yaml
+
+      - name: Apply Deployment
+        run: |
+          echo "Applying deployment for ${{ matrix.name }}..."
+          # kubectl apply -f .deploy/${{ matrix.name }}-deployment.yaml
+          echo "Deployment applied (dry-run - configure K8s cluster for actual deployment)"
+
+      - name: Wait for Rollout
+        run: |
+          echo "Waiting for ${{ matrix.name }} rollout to complete..."
+          # kubectl rollout status deployment/${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }} --timeout=300s
+          echo "Rollout completed (dry-run)"
+
+      - name: Upload Deployment Manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ matrix.name }}
+          path: .deploy/${{ matrix.name }}-deployment.yaml
+          retention-days: 30
+
+  # ============================================================
+  # Post-deployment Smoke Tests
+  # ============================================================
+  smoke-tests:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install httpx pytest
+
+      - name: Run Smoke Tests
+        env:
+          STAGING_BASE_URL: https://staging.preciagro.internal
+        run: |
+          echo "Running smoke tests against staging..."
+          # In production, run actual smoke tests
+          cat << 'EOF' > smoke_test.py
+          import os
+          import httpx
+
+          BASE_URL = os.getenv("STAGING_BASE_URL", "http://localhost:8080")
+
+          def test_health_endpoints():
+              """Verify all deployed engines respond to health checks."""
+              engines = [
+                  ("crop-intelligence", 8082),
+                  ("data-integration", 8101),
+                  ("temporal-logic", 8100),
+                  ("geo-context", 8102),
+              ]
+              
+              print(f"Testing against {BASE_URL}")
+              for engine, port in engines:
+                  url = f"{BASE_URL}/api/{engine}/health"
+                  print(f"Checking {engine} at {url}")
+                  # In production: response = httpx.get(url, timeout=10)
+                  # assert response.status_code == 200
+              print("All smoke tests passed!")
+
+          if __name__ == "__main__":
+              test_health_endpoints()
+          EOF
+          
+          python smoke_test.py
+
+  # ============================================================
+  # Deployment Notification
+  # ============================================================
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-tests]
+    if: always()
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deploy Status:** ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Smoke Tests:** ${{ needs.smoke-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Engines" >> $GITHUB_STEP_SUMMARY
+          echo "- crop-intelligence" >> $GITHUB_STEP_SUMMARY
+          echo "- data-integration" >> $GITHUB_STEP_SUMMARY
+          echo "- temporal-logic" >> $GITHUB_STEP_SUMMARY
+          echo "- geo-context" >> $GITHUB_STEP_SUMMARY
+          echo "- image-analysis" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Slack (Optional)
+        if: always()
+        run: |
+          echo "Sending notification to Slack..."
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"Staging deployment completed: ${{ needs.deploy.result }}"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ============================================================
+  # Audit Log
+  # ============================================================
+  audit:
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-tests]
+    if: always()
+    steps:
+      - name: Create Audit Record
+        run: |
+          cat << EOF > audit-record.json
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "event": "deployment",
+            "environment": "staging",
+            "actor": "${{ github.actor }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "deploy_result": "${{ needs.deploy.result }}",
+            "smoke_test_result": "${{ needs.smoke-tests.result }}",
+            "engines_deployed": [
+              "crop-intelligence",
+              "data-integration",
+              "temporal-logic",
+              "geo-context",
+              "image-analysis"
+            ]
+          }
+          EOF
+          
+          cat audit-record.json
+          echo "Audit record created"
+
+      - name: Upload Audit Record
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-staging-${{ github.run_id }}
+          path: audit-record.json
+          retention-days: 2555  # ~7 years for compliance

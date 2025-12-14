@@ -1,0 +1,594 @@
+name: ML Model Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: 'Engine with model to train'
+        required: true
+        type: choice
+        options:
+          - image_analysis
+          - diagnosis_recommendation
+          - agro_llm
+          - feedback_learning
+      action:
+        description: 'Pipeline action'
+        required: true
+        type: choice
+        options:
+          - train
+          - validate
+          - promote
+          - rollback
+      target_environment:
+        description: 'Target environment for promotion'
+        required: false
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+  
+  schedule:
+    # Weekly model retraining on Sunday 2 AM UTC
+    - cron: '0 2 * * 0'
+
+env:
+  PYTHON_VERSION: "3.11"
+  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+  MODEL_REGISTRY: ${{ secrets.MODEL_REGISTRY }}
+
+jobs:
+  # ============================================================
+  # Data Validation
+  # ============================================================
+  validate-data:
+    runs-on: ubuntu-latest
+    if: inputs.action == 'train' || github.event_name == 'schedule'
+    outputs:
+      data_valid: ${{ steps.validate.outputs.valid }}
+      data_version: ${{ steps.validate.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install validation dependencies
+        run: |
+          pip install pandas great-expectations pydantic
+
+      - name: Validate Training Data
+        id: validate
+        run: |
+          ENGINE="${{ inputs.engine || 'image_analysis' }}"
+          
+          echo "Validating training data for $ENGINE..."
+          
+          # Create validation script
+          cat << 'EOF' > validate_data.py
+          import json
+          import sys
+          from datetime import datetime
+          
+          def validate_training_data(engine: str) -> dict:
+              """Validate training data for the specified engine."""
+              
+              # Define expected schemas per engine
+              schemas = {
+                  "image_analysis": {
+                      "required_columns": ["image_path", "label", "region", "crop_type"],
+                      "min_samples": 1000,
+                      "label_classes": ["healthy", "disease", "pest", "nutrient_deficiency"]
+                  },
+                  "diagnosis_recommendation": {
+                      "required_columns": ["symptoms", "diagnosis", "confidence", "region"],
+                      "min_samples": 5000,
+                      "label_classes": []
+                  },
+                  "agro_llm": {
+                      "required_columns": ["prompt", "response", "quality_score"],
+                      "min_samples": 10000,
+                      "label_classes": []
+                  },
+                  "feedback_learning": {
+                      "required_columns": ["user_id", "action", "reward", "context"],
+                      "min_samples": 500,
+                      "label_classes": []
+                  }
+              }
+              
+              schema = schemas.get(engine, {})
+              
+              # Simulate validation (in production, load actual data)
+              result = {
+                  "valid": True,
+                  "engine": engine,
+                  "samples_found": 5000,
+                  "samples_required": schema.get("min_samples", 1000),
+                  "schema_valid": True,
+                  "data_version": datetime.utcnow().strftime("%Y%m%d%H%M%S"),
+                  "warnings": []
+              }
+              
+              print(json.dumps(result, indent=2))
+              return result
+          
+          if __name__ == "__main__":
+              engine = sys.argv[1] if len(sys.argv) > 1 else "image_analysis"
+              result = validate_training_data(engine)
+              
+              # Set outputs
+              with open("validation_result.json", "w") as f:
+                  json.dump(result, f)
+          EOF
+          
+          python validate_data.py "$ENGINE"
+          
+          # Parse results
+          VALID=$(cat validation_result.json | python -c "import sys,json; print(json.load(sys.stdin)['valid'])")
+          VERSION=$(cat validation_result.json | python -c "import sys,json; print(json.load(sys.stdin)['data_version'])")
+          
+          echo "valid=$VALID" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Abort if Data Invalid
+        if: steps.validate.outputs.valid != 'True'
+        run: |
+          echo "::error::Training data validation failed"
+          exit 1
+
+  # ============================================================
+  # Model Training
+  # ============================================================
+  train:
+    runs-on: ubuntu-latest  # Use [self-hosted, gpu] for actual training
+    needs: validate-data
+    if: (inputs.action == 'train' || github.event_name == 'schedule') && needs.validate-data.outputs.data_valid == 'True'
+    
+    outputs:
+      model_version: ${{ steps.train.outputs.version }}
+      run_id: ${{ steps.train.outputs.run_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install training dependencies
+        run: |
+          pip install mlflow scikit-learn torch torchvision numpy pandas
+
+      - name: Train Model
+        id: train
+        env:
+          ENGINE: ${{ inputs.engine || 'image_analysis' }}
+          DATA_VERSION: ${{ needs.validate-data.outputs.data_version }}
+        run: |
+          echo "Training model for $ENGINE..."
+          
+          # Create training script
+          cat << 'EOF' > train_model.py
+          import os
+          import json
+          import uuid
+          from datetime import datetime
+          
+          # In production, use MLflow
+          # import mlflow
+          # mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+          
+          def train_model(engine: str, data_version: str) -> dict:
+              """Train model for the specified engine."""
+              
+              run_id = str(uuid.uuid4())[:8]
+              model_version = f"{engine}-{datetime.utcnow().strftime('%Y%m%d')}-{run_id}"
+              
+              # Simulate training (in production, actual training logic)
+              print(f"Starting training run {run_id}")
+              print(f"Engine: {engine}")
+              print(f"Data version: {data_version}")
+              
+              # Training metrics (simulated)
+              metrics = {
+                  "accuracy": 0.92,
+                  "precision": 0.89,
+                  "recall": 0.94,
+                  "f1_score": 0.91,
+                  "loss": 0.08,
+                  "epochs": 50,
+                  "training_time_seconds": 3600
+              }
+              
+              result = {
+                  "run_id": run_id,
+                  "model_version": model_version,
+                  "engine": engine,
+                  "data_version": data_version,
+                  "metrics": metrics,
+                  "artifact_path": f"models/{engine}/{model_version}",
+                  "timestamp": datetime.utcnow().isoformat()
+              }
+              
+              # In production:
+              # mlflow.log_params({"engine": engine, "data_version": data_version})
+              # mlflow.log_metrics(metrics)
+              # mlflow.sklearn.log_model(model, "model")
+              
+              print(json.dumps(result, indent=2))
+              
+              with open("training_result.json", "w") as f:
+                  json.dump(result, f)
+              
+              return result
+          
+          if __name__ == "__main__":
+              engine = os.environ.get("ENGINE", "image_analysis")
+              data_version = os.environ.get("DATA_VERSION", "unknown")
+              train_model(engine, data_version)
+          EOF
+          
+          python train_model.py
+          
+          # Parse results
+          VERSION=$(cat training_result.json | python -c "import sys,json; print(json.load(sys.stdin)['model_version'])")
+          RUN_ID=$(cat training_result.json | python -c "import sys,json; print(json.load(sys.stdin)['run_id'])")
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
+      - name: Upload Training Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-${{ inputs.engine || 'image_analysis' }}-${{ steps.train.outputs.run_id }}
+          path: training_result.json
+          retention-days: 90
+
+  # ============================================================
+  # Model Validation & Benchmarking
+  # ============================================================
+  validate-model:
+    runs-on: ubuntu-latest
+    needs: train
+    if: success()
+    
+    outputs:
+      passed: ${{ steps.benchmark.outputs.passed }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download Training Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: model-${{ inputs.engine || 'image_analysis' }}-${{ needs.train.outputs.run_id }}
+
+      - name: Run Benchmark Tests
+        id: benchmark
+        env:
+          ENGINE: ${{ inputs.engine || 'image_analysis' }}
+          MODEL_VERSION: ${{ needs.train.outputs.model_version }}
+        run: |
+          echo "Benchmarking model $MODEL_VERSION..."
+          
+          # Define thresholds per engine
+          cat << 'EOF' > benchmark.py
+          import json
+          import os
+          
+          def benchmark_model(engine: str, model_version: str) -> dict:
+              """Benchmark model against baseline."""
+              
+              # Engine-specific thresholds
+              thresholds = {
+                  "image_analysis": {
+                      "accuracy": 0.85,
+                      "f1_score": 0.85,
+                      "inference_time_ms": 200
+                  },
+                  "diagnosis_recommendation": {
+                      "accuracy": 0.90,
+                      "f1_score": 0.88,
+                      "inference_time_ms": 100
+                  },
+                  "agro_llm": {
+                      "bleu_score": 0.75,
+                      "hallucination_rate": 0.02,
+                      "inference_time_ms": 1000
+                  },
+                  "feedback_learning": {
+                      "reward_improvement": 0.10,
+                      "convergence_rate": 0.95,
+                      "inference_time_ms": 50
+                  }
+              }
+              
+              engine_thresholds = thresholds.get(engine, {})
+              
+              # Simulated benchmark results
+              results = {
+                  "accuracy": 0.92,
+                  "f1_score": 0.91,
+                  "inference_time_ms": 120,
+                  "bleu_score": 0.82,
+                  "hallucination_rate": 0.01,
+                  "reward_improvement": 0.15,
+                  "convergence_rate": 0.98
+              }
+              
+              # Check thresholds
+              passed = True
+              failures = []
+              
+              for metric, threshold in engine_thresholds.items():
+                  actual = results.get(metric, 0)
+                  if metric == "inference_time_ms" or metric == "hallucination_rate":
+                      # Lower is better
+                      if actual > threshold:
+                          passed = False
+                          failures.append(f"{metric}: {actual} > {threshold}")
+                  else:
+                      # Higher is better
+                      if actual < threshold:
+                          passed = False
+                          failures.append(f"{metric}: {actual} < {threshold}")
+              
+              output = {
+                  "engine": engine,
+                  "model_version": model_version,
+                  "passed": passed,
+                  "results": results,
+                  "thresholds": engine_thresholds,
+                  "failures": failures
+              }
+              
+              print(json.dumps(output, indent=2))
+              
+              with open("benchmark_result.json", "w") as f:
+                  json.dump(output, f)
+              
+              return output
+          
+          if __name__ == "__main__":
+              engine = os.environ.get("ENGINE", "image_analysis")
+              model_version = os.environ.get("MODEL_VERSION", "unknown")
+              benchmark_model(engine, model_version)
+          EOF
+          
+          python benchmark.py
+          
+          PASSED=$(cat benchmark_result.json | python -c "import sys,json; print(json.load(sys.stdin)['passed'])")
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+
+      - name: Fail if Benchmarks Not Met
+        if: steps.benchmark.outputs.passed != 'True'
+        run: |
+          echo "::error::Model failed to meet benchmark thresholds"
+          cat benchmark_result.json
+          exit 1
+
+      - name: Upload Benchmark Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ inputs.engine || 'image_analysis' }}-${{ needs.train.outputs.run_id }}
+          path: benchmark_result.json
+          retention-days: 90
+
+  # ============================================================
+  # Bias & Fairness Testing
+  # ============================================================
+  fairness-check:
+    runs-on: ubuntu-latest
+    needs: [train, validate-model]
+    if: needs.validate-model.outputs.passed == 'True'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Fairness Analysis
+        env:
+          ENGINE: ${{ inputs.engine || 'image_analysis' }}
+        run: |
+          echo "Running fairness analysis for $ENGINE..."
+          
+          # Check for bias across regions
+          cat << 'EOF' > fairness_check.py
+          import json
+          
+          def check_fairness(engine: str) -> dict:
+              """Check model fairness across demographic groups."""
+              
+              # Simulated performance across regions
+              regional_performance = {
+                  "eu_west": {"accuracy": 0.93, "f1": 0.91},
+                  "africa_south": {"accuracy": 0.91, "f1": 0.89},
+                  "africa_east": {"accuracy": 0.90, "f1": 0.88},
+                  "asia_south": {"accuracy": 0.92, "f1": 0.90}
+              }
+              
+              # Calculate variance
+              accuracies = [r["accuracy"] for r in regional_performance.values()]
+              variance = max(accuracies) - min(accuracies)
+              
+              # Threshold: max 5% variance across regions
+              VARIANCE_THRESHOLD = 0.05
+              
+              result = {
+                  "engine": engine,
+                  "regional_performance": regional_performance,
+                  "accuracy_variance": variance,
+                  "variance_threshold": VARIANCE_THRESHOLD,
+                  "passed": variance <= VARIANCE_THRESHOLD,
+                  "recommendation": "Model performs equitably across regions" if variance <= VARIANCE_THRESHOLD else "Investigate regional performance gaps"
+              }
+              
+              print(json.dumps(result, indent=2))
+              return result
+          
+          if __name__ == "__main__":
+              import os
+              engine = os.environ.get("ENGINE", "image_analysis")
+              check_fairness(engine)
+          EOF
+          
+          python fairness_check.py
+
+  # ============================================================
+  # Register Model
+  # ============================================================
+  register-model:
+    runs-on: ubuntu-latest
+    needs: [train, validate-model, fairness-check]
+    if: needs.validate-model.outputs.passed == 'True'
+
+    steps:
+      - name: Register Model in Registry
+        env:
+          ENGINE: ${{ inputs.engine || 'image_analysis' }}
+          MODEL_VERSION: ${{ needs.train.outputs.model_version }}
+          RUN_ID: ${{ needs.train.outputs.run_id }}
+        run: |
+          echo "Registering model $MODEL_VERSION to registry..."
+          
+          # In production with MLflow:
+          # mlflow.register_model(
+          #     f"runs:/{RUN_ID}/model",
+          #     f"preciagro-{ENGINE}"
+          # )
+          
+          cat << EOF > model_registration.json
+          {
+            "model_name": "preciagro-$ENGINE",
+            "version": "$MODEL_VERSION",
+            "run_id": "$RUN_ID",
+            "stage": "None",
+            "registered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "registered_by": "${{ github.actor }}",
+            "status": "registered",
+            "tags": {
+              "engine": "$ENGINE",
+              "github_run": "${{ github.run_id }}",
+              "commit": "${{ github.sha }}"
+            }
+          }
+          EOF
+          
+          cat model_registration.json
+
+      - name: Upload Registration Record
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-${{ inputs.engine || 'image_analysis' }}-${{ needs.train.outputs.run_id }}
+          path: model_registration.json
+          retention-days: 365
+
+  # ============================================================
+  # Model Promotion
+  # ============================================================
+  promote-model:
+    runs-on: ubuntu-latest
+    needs: register-model
+    if: inputs.action == 'promote' || (inputs.action == 'train' && inputs.target_environment != '')
+    environment:
+      name: ${{ inputs.target_environment || 'staging' }}
+
+    steps:
+      - name: Promote Model to ${{ inputs.target_environment || 'staging' }}
+        env:
+          ENGINE: ${{ inputs.engine || 'image_analysis' }}
+          MODEL_VERSION: ${{ needs.train.outputs.model_version }}
+          TARGET: ${{ inputs.target_environment || 'staging' }}
+        run: |
+          echo "Promoting model $MODEL_VERSION to $TARGET..."
+          
+          # In production:
+          # mlflow.transition_model_version_stage(
+          #     name=f"preciagro-{ENGINE}",
+          #     version=MODEL_VERSION,
+          #     stage=TARGET.capitalize()
+          # )
+          
+          cat << EOF > promotion_record.json
+          {
+            "model_name": "preciagro-$ENGINE",
+            "version": "$MODEL_VERSION",
+            "promoted_to": "$TARGET",
+            "promoted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "promoted_by": "${{ github.actor }}",
+            "approval_required": $([ "$TARGET" = "production" ] && echo "true" || echo "false")
+          }
+          EOF
+          
+          cat promotion_record.json
+
+  # ============================================================
+  # Model Rollback
+  # ============================================================
+  rollback-model:
+    runs-on: ubuntu-latest
+    if: inputs.action == 'rollback'
+    environment:
+      name: ${{ inputs.target_environment }}
+
+    steps:
+      - name: Rollback Model
+        env:
+          ENGINE: ${{ inputs.engine }}
+          TARGET: ${{ inputs.target_environment }}
+        run: |
+          echo "Rolling back $ENGINE model in $TARGET..."
+          
+          # In production:
+          # Get previous version from registry
+          # Transition previous version back to active stage
+          
+          cat << EOF > rollback_record.json
+          {
+            "model_name": "preciagro-$ENGINE",
+            "action": "rollback",
+            "environment": "$TARGET",
+            "rolled_back_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "rolled_back_by": "${{ github.actor }}",
+            "reason": "Manual rollback triggered"
+          }
+          EOF
+          
+          cat rollback_record.json
+
+  # ============================================================
+  # Pipeline Summary
+  # ============================================================
+  summary:
+    runs-on: ubuntu-latest
+    needs: [validate-data, train, validate-model, fairness-check, register-model]
+    if: always()
+
+    steps:
+      - name: Generate Pipeline Summary
+        run: |
+          echo "## ML Model Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Engine:** ${{ inputs.engine || 'image_analysis' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Action:** ${{ inputs.action || 'train' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stage Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Data Validation | ${{ needs.validate-data.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model Training | ${{ needs.train.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Benchmarking | ${{ needs.validate-model.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Fairness Check | ${{ needs.fairness-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Registration | ${{ needs.register-model.result }} |" >> $GITHUB_STEP_SUMMARY

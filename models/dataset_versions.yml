@@ -1,0 +1,149 @@
+# =============================================================================
+# PreciAgro ML Dataset Version Lock
+# =============================================================================
+# Records dataset versioning for ML model reproducibility and audit compliance.
+# Every trained model MUST reference a locked dataset version.
+# =============================================================================
+
+# Current locked dataset versions (update via ML pipeline only)
+datasets:
+  image_analysis:
+    current_version: "v1.0.0"
+    versions:
+      - version: "v1.0.0"
+        created_at: "2024-12-14T00:00:00Z"
+        dataset_hash: "sha256:pending_first_training"
+        source: "s3://preciagro-ml-data/image_analysis/v1.0.0/"
+        feature_schema_version: "1.0.0"
+        sample_count: 0
+        training_code_commit: "pending"
+        validated_by: "pending"
+        notes: "Initial placeholder - update after first training run"
+
+  diagnosis_recommendation:
+    current_version: "v1.0.0"
+    versions:
+      - version: "v1.0.0"
+        created_at: "2024-12-14T00:00:00Z"
+        dataset_hash: "sha256:pending_first_training"
+        source: "s3://preciagro-ml-data/diagnosis/v1.0.0/"
+        feature_schema_version: "1.0.0"
+        sample_count: 0
+        training_code_commit: "pending"
+        validated_by: "pending"
+        notes: "Initial placeholder - update after first training run"
+
+  agro_llm:
+    current_version: "v1.0.0"
+    versions:
+      - version: "v1.0.0"
+        created_at: "2024-12-14T00:00:00Z"
+        dataset_hash: "sha256:pending_first_training"
+        source: "s3://preciagro-ml-data/agro_llm/v1.0.0/"
+        feature_schema_version: "1.0.0"
+        sample_count: 0
+        training_code_commit: "pending"
+        validated_by: "pending"
+        notes: "Initial placeholder - update after first training run"
+
+  feedback_learning:
+    current_version: "v1.0.0"
+    versions:
+      - version: "v1.0.0"
+        created_at: "2024-12-14T00:00:00Z"
+        dataset_hash: "sha256:pending_first_training"
+        source: "s3://preciagro-ml-data/feedback/v1.0.0/"
+        feature_schema_version: "1.0.0"
+        sample_count: 0
+        training_code_commit: "pending"
+        validated_by: "pending"
+        notes: "Initial placeholder - update after first training run"
+
+# Feature schema versions (must match dataset)
+feature_schemas:
+  image_analysis:
+    version: "1.0.0"
+    schema_file: "models/image_analysis/feature_schema.json"
+    fields:
+      - name: image_path
+        type: string
+        required: true
+      - name: label
+        type: string
+        enum: [healthy, disease, pest, nutrient_deficiency]
+        required: true
+      - name: region
+        type: string
+        required: true
+      - name: crop_type
+        type: string
+        required: true
+      - name: capture_date
+        type: datetime
+        required: true
+      - name: confidence_label
+        type: float
+        required: false
+
+  diagnosis_recommendation:
+    version: "1.0.0"
+    schema_file: "models/diagnosis/feature_schema.json"
+    fields:
+      - name: symptoms
+        type: array[string]
+        required: true
+      - name: diagnosis
+        type: string
+        required: true
+      - name: confidence
+        type: float
+        required: true
+      - name: region
+        type: string
+        required: true
+      - name: crop_type
+        type: string
+        required: true
+
+  agro_llm:
+    version: "1.0.0"
+    schema_file: "models/agro_llm/feature_schema.json"
+    fields:
+      - name: prompt
+        type: string
+        required: true
+      - name: response
+        type: string
+        required: true
+      - name: quality_score
+        type: float
+        required: true
+      - name: context
+        type: object
+        required: false
+      - name: is_agricultural
+        type: boolean
+        required: true
+
+# Validation requirements
+validation:
+  require_dataset_hash: true
+  require_schema_version_match: true
+  require_training_commit: true
+  require_validation_signature: true
+  
+  # Minimum samples for production
+  min_samples:
+    image_analysis: 1000
+    diagnosis_recommendation: 5000
+    agro_llm: 10000
+    feedback_learning: 500
+
+# Audit trail configuration
+audit:
+  retain_all_versions: true
+  retention_years: 7
+  require_change_justification: true
+  notify_on_version_change:
+    - ml-team@preciagro.com
+    - compliance@preciagro.com

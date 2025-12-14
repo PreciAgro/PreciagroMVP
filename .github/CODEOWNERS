@@ -1,0 +1,116 @@
+# =============================================================================
+# PreciAgro CODEOWNERS
+# =============================================================================
+# This file defines code ownership for the PreciAgro platform.
+# CODEOWNERS are automatically requested for review on pull requests.
+#
+# Rules:
+# 1. Later patterns take precedence over earlier ones
+# 2. Each line is a file pattern followed by owner(s)
+# 3. Owners can be @username, @org/team-name, or email
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Default - Platform Team
+# -----------------------------------------------------------------------------
+* @preciagro/platform-team
+
+# -----------------------------------------------------------------------------
+# Core Infrastructure
+# -----------------------------------------------------------------------------
+.github/ @preciagro/platform-team @preciagro/devops-team
+.github/workflows/cd-production.yml @preciagro/tech-leads
+infrastructure/ @preciagro/platform-team @preciagro/security-team
+docker-compose*.yml @preciagro/platform-team
+Dockerfile @preciagro/platform-team
+
+# -----------------------------------------------------------------------------
+# Shared Libraries - Require Platform Team Review
+# -----------------------------------------------------------------------------
+preciagro/packages/shared/ @preciagro/platform-team
+
+# -----------------------------------------------------------------------------
+# Engine Ownership
+# -----------------------------------------------------------------------------
+
+# Crop Intelligence Engine
+preciagro/packages/engines/crop_intelligence/ @preciagro/crop-team
+
+# Data Integration Engine
+preciagro/packages/engines/data_integration/ @preciagro/data-team
+
+# Temporal Logic Engine
+preciagro/packages/engines/temporal_logic/ @preciagro/data-team
+
+# Geo Context Engine
+preciagro/packages/engines/geo_context/ @preciagro/geo-team
+
+# Image Analysis Engine (ML)
+preciagro/packages/engines/image_analysis/ @preciagro/ml-team
+
+# Diagnosis & Recommendation Engine (ML)
+preciagro/packages/engines/diagnosis_recommendation/ @preciagro/ml-team
+
+# AgroLLM Engine (ML)
+preciagro/packages/engines/agro_llm/ @preciagro/ml-team @preciagro/llm-specialists
+
+# Conversational Engines
+preciagro/packages/engines/conversational/ @preciagro/conversational-team
+preciagro/packages/engines/conversational_nlp/ @preciagro/conversational-team
+
+# Security & Access Engine
+preciagro/packages/engines/security_access/ @preciagro/security-team
+
+# Farm Inventory Engine
+preciagro/packages/engines/farm_inventory/ @preciagro/farm-team
+
+# Feedback & Learning Engine
+preciagro/packages/engines/feedback_learning/ @preciagro/ml-team
+
+# Trust & Explainability Engine
+preciagro/packages/engines/trust_explainability/ @preciagro/ml-team @preciagro/compliance-team
+
+# -----------------------------------------------------------------------------
+# ML Models - Require ML Team + Tech Lead Review
+# -----------------------------------------------------------------------------
+models/ @preciagro/ml-team @preciagro/tech-leads
+
+# -----------------------------------------------------------------------------
+# Monitoring & Observability
+# -----------------------------------------------------------------------------
+monitoring/ @preciagro/platform-team @preciagro/sre-team
+
+# -----------------------------------------------------------------------------
+# Security-Sensitive Files - Require Security Team
+# -----------------------------------------------------------------------------
+**/security*.py @preciagro/security-team
+**/*secret*.py @preciagro/security-team
+**/*auth*.py @preciagro/security-team
+.env.example @preciagro/security-team
+SECURITY.md @preciagro/security-team
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+docs/ @preciagro/docs-team
+*.md @preciagro/platform-team
+README.md @preciagro/platform-team
+
+# -----------------------------------------------------------------------------
+# Dependency Management - Require Security Review
+# -----------------------------------------------------------------------------
+requirements*.txt @preciagro/platform-team @preciagro/security-team
+pyproject.toml @preciagro/platform-team
+**/pyproject.toml @preciagro/platform-team
+
+# -----------------------------------------------------------------------------
+# Database Migrations - Require DBA Review
+# -----------------------------------------------------------------------------
+alembic/ @preciagro/data-team @preciagro/platform-team
+**/migrations/ @preciagro/data-team
+
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
+tests/ @preciagro/qa-team
+**/tests/ @preciagro/qa-team

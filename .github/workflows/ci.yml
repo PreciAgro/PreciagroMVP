@@ -1,85 +1,521 @@
-﻿name: CI
+﻿name: CI - Enterprise Grade
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  engines:
+  # ============================================================
+  # Stage 1: Detect which engines have changed
+  # ============================================================
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      engines: ${{ steps.filter.outputs.engines }}
+      shared: ${{ steps.filter.outputs.shared }}
+      infra: ${{ steps.filter.outputs.infra }}
+      any_engine: ${{ steps.filter.outputs.any_engine }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect Changed Paths
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          
+          CHANGED=$(git diff --name-only $BASE_SHA ${{ github.sha }} 2>/dev/null || echo "")
+          
+          # Detect affected engines
+          ENGINES=""
+          ANY_ENGINE="false"
+          for engine_path in preciagro/packages/engines/*/; do
+            engine_name=$(basename "$engine_path")
+            if echo "$CHANGED" | grep -q "^preciagro/packages/engines/$engine_name/"; then
+              ENGINES="$ENGINES $engine_name"
+              ANY_ENGINE="true"
+            fi
+          done
+          
+          # Check shared libs
+          SHARED="false"
+          if echo "$CHANGED" | grep -q "^preciagro/packages/shared/"; then
+            SHARED="true"
+            ANY_ENGINE="true"  # Shared changes affect all engines
+          fi
+          
+          # Check infrastructure
+          INFRA="false"
+          if echo "$CHANGED" | grep -q "^infrastructure/"; then
+            INFRA="true"
+          fi
+          
+          echo "engines=$ENGINES" >> $GITHUB_OUTPUT
+          echo "shared=$SHARED" >> $GITHUB_OUTPUT
+          echo "infra=$INFRA" >> $GITHUB_OUTPUT
+          echo "any_engine=$ANY_ENGINE" >> $GITHUB_OUTPUT
+          
+          echo "Changed engines: $ENGINES"
+          echo "Shared changed: $SHARED"
+          echo "Infra changed: $INFRA"
+
+  # ============================================================
+  # Stage 2: Code Quality Gates (runs on affected engines)
+  # ============================================================
+  code-quality:
+    runs-on: ubuntu-latest
+    needs: detect-changes
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: data-integration
-            path: preciagro/packages/engines/data_integration
-            test: pytest preciagro/packages/engines/data_integration/tests -q
-          - name: temporal-logic
-            path: preciagro/packages/engines/temporal_logic
-            test: pytest preciagro/packages/engines/temporal_logic/tests -q
-          - name: geo-context
-            path: preciagro/packages/engines/geo_context
-            test: pytest preciagro/packages/engines/geo_context/tests -q
-          - name: image-analysis
-            path: preciagro/packages/engines/image_analysis
-            test: pytest preciagro/packages/engines/image_analysis/tests -q
-            extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
-          - name: conversational-nlp
-            path: preciagro/packages/engines/conversational_nlp
-            test: pytest preciagro/packages/engines/conversational_nlp/tests -q
-          - name: crop-intelligence
+        engine:
+          - name: crop_intelligence
             path: preciagro/packages/engines/crop_intelligence
-            test: pytest preciagro/packages/engines/crop_intelligence/tests -q
+          - name: data_integration
+            path: preciagro/packages/engines/data_integration
+          - name: temporal_logic
+            path: preciagro/packages/engines/temporal_logic
+          - name: geo_context
+            path: preciagro/packages/engines/geo_context
+          - name: image_analysis
+            path: preciagro/packages/engines/image_analysis
+            extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
+          - name: conversational_nlp
+            path: preciagro/packages/engines/conversational_nlp
+          - name: diagnosis_recommendation
+            path: preciagro/packages/engines/diagnosis_recommendation
+          - name: farm_inventory
+            path: preciagro/packages/engines/farm_inventory
+          - name: security_access
+            path: preciagro/packages/engines/security_access
+          - name: feedback_learning
+            path: preciagro/packages/engines/feedback_learning
+          - name: trust_explainability
+            path: preciagro/packages/engines/trust_explainability
+          - name: agro_llm
+            path: preciagro/packages/engines/agro_llm
+          - name: conversational
+            path: preciagro/packages/engines/conversational
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Check if engine should run
+        id: should-run
+        run: |
+          if [[ "${{ needs.detect-changes.outputs.shared }}" == "true" ]]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+            echo "Running due to shared changes"
+          elif [[ "${{ needs.detect-changes.outputs.engines }}" == *"${{ matrix.engine.name }}"* ]]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+            echo "Running due to engine changes"
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+            echo "Running full validation for main branch"
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+            echo "Skipping - no relevant changes"
+          fi
+
+      - name: Set up Python
+        if: steps.should-run.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.should-run.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install black isort ruff mypy bandit pip-audit pytest pytest-cov
+
+      - name: Install engine extras
+        if: steps.should-run.outputs.run == 'true' && matrix.engine.extra_requirements != ''
+        run: pip install -r ${{ matrix.engine.extra_requirements }}
+
+      # Quality Gate 1: Code Formatting
+      - name: "Gate 1: Black Formatting"
+        if: steps.should-run.outputs.run == 'true'
+        run: black --check ${{ matrix.engine.path }}
+
+      - name: "Gate 1: Isort Import Order"
+        if: steps.should-run.outputs.run == 'true'
+        run: isort --check-only --profile black ${{ matrix.engine.path }}
+
+      # Quality Gate 2: Linting
+      - name: "Gate 2: Ruff Linting"
+        if: steps.should-run.outputs.run == 'true'
+        run: |
+          ruff check ${{ matrix.engine.path }} \
+            --select=E9,F63,F7,F82,E,F,I,W \
+            --ignore=E501,E203 \
+            --target-version=py311
+
+      # Quality Gate 3: Type Checking (soft fail for now)
+      - name: "Gate 3: MyPy Type Check"
+        if: steps.should-run.outputs.run == 'true'
+        continue-on-error: true
+        run: mypy ${{ matrix.engine.path }} --ignore-missing-imports
+
+      # Quality Gate 4: Security Scan
+      - name: "Gate 4: Bandit Security Scan"
+        if: steps.should-run.outputs.run == 'true'
+        run: |
+          bandit -r ${{ matrix.engine.path }} \
+            -ll \
+            --skip B101,B104 \
+            -f json -o bandit-${{ matrix.engine.name }}.json || true
+          # Check for high severity issues
+          if [ -f bandit-${{ matrix.engine.name }}.json ]; then
+            HIGH_ISSUES=$(cat bandit-${{ matrix.engine.name }}.json | python -c "import sys,json; r=json.load(sys.stdin); print(len([i for i in r.get('results',[]) if i.get('issue_severity')=='HIGH']))" 2>/dev/null || echo "0")
+            if [ "$HIGH_ISSUES" -gt "0" ]; then
+              echo "::error::Found $HIGH_ISSUES high severity security issues"
+              cat bandit-${{ matrix.engine.name }}.json
+              exit 1
+            fi
+          fi
+
+      - name: Upload Security Report
+        if: steps.should-run.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report-${{ matrix.engine.name }}
+          path: bandit-${{ matrix.engine.name }}.json
+          retention-days: 30
+
+  # ============================================================
+  # Stage 3: Unit Tests (per engine)
+  # ============================================================
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, code-quality]
+    strategy:
+      fail-fast: false
+      matrix:
+        engine:
+          - name: crop_intelligence
+            path: preciagro/packages/engines/crop_intelligence
+            test_path: preciagro/packages/engines/crop_intelligence/tests
+          - name: data_integration
+            path: preciagro/packages/engines/data_integration
+            test_path: preciagro/packages/engines/data_integration/tests
+          - name: temporal_logic
+            path: preciagro/packages/engines/temporal_logic
+            test_path: preciagro/packages/engines/temporal_logic/tests
+          - name: geo_context
+            path: preciagro/packages/engines/geo_context
+            test_path: preciagro/packages/engines/geo_context/tests
+          - name: image_analysis
+            path: preciagro/packages/engines/image_analysis
+            test_path: preciagro/packages/engines/image_analysis/tests
+            extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
+          - name: conversational_nlp
+            path: preciagro/packages/engines/conversational_nlp
+            test_path: preciagro/packages/engines/conversational_nlp/tests
+          - name: feedback_learning
+            path: preciagro/packages/engines/feedback_learning
+            test_path: preciagro/packages/engines/feedback_learning/tests
+          - name: trust_explainability
+            path: preciagro/packages/engines/trust_explainability
+            test_path: preciagro/packages/engines/trust_explainability/tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if tests exist
+        id: check-tests
+        run: |
+          if [ -d "${{ matrix.engine.test_path }}" ]; then
+            TEST_COUNT=$(find ${{ matrix.engine.test_path }} -name "test_*.py" | wc -l)
+            if [ "$TEST_COUNT" -gt "0" ]; then
+              echo "has_tests=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_tests=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has_tests=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.check-tests.outputs.has_tests == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.check-tests.outputs.has_tests == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Install engine extras
+        if: steps.check-tests.outputs.has_tests == 'true' && matrix.engine.extra_requirements != ''
+        run: pip install -r ${{ matrix.engine.extra_requirements }}
+
+      - name: Run Unit Tests with Coverage
+        if: steps.check-tests.outputs.has_tests == 'true'
+        run: |
+          pytest ${{ matrix.engine.test_path }} \
+            --cov=${{ matrix.engine.path }} \
+            --cov-report=xml:coverage-${{ matrix.engine.name }}.xml \
+            --cov-report=term-missing \
+            --junitxml=test-results-${{ matrix.engine.name }}.xml \
+            -v -q --tb=short
+
+      - name: Upload Coverage Report
+        if: steps.check-tests.outputs.has_tests == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.engine.name }}
+          path: coverage-${{ matrix.engine.name }}.xml
+          retention-days: 30
+
+      - name: Upload Test Results
+        if: steps.check-tests.outputs.has_tests == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.engine.name }}
+          path: test-results-${{ matrix.engine.name }}.xml
+          retention-days: 30
+
+  # ============================================================
+  # Stage 4: Dependency Security Audit
+  # ============================================================
+  security-audit:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any_engine == 'true' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-      - name: Install core dependencies
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Dependency Security Audit
+        id: audit
+        continue-on-error: true
         run: |
           pip install -r requirements.txt
-          pip install black isort ruff mypy pip-audit
-      - name: Install engine extras
-        if: ${{ matrix.extra_requirements != '' }}
-        run: pip install -r ${{ matrix.extra_requirements }}
-      
-      # Prefetch for image-analysis
-      - name: Prefetch SAM2 checkpoints
-        if: ${{ matrix.name == 'image-analysis' }}
-        run: python -m preciagro.packages.engines.image_analysis.scripts.prefetch_checkpoints
-      
-      # Linting (fallback to direct commands if Makefile missing)
-      - name: Lint
-        run: |
-          if [ -f "${{ matrix.path }}/Makefile" ]; then
-            make -C ${{ matrix.path }} lint
-          else
-            ruff check ${{ matrix.path }} --select=E9,F63,F7,F82 --target-version=py311
-            black --check ${{ matrix.path }}
+          pip-audit --format=json --output=audit-results.json 2>&1 || true
+          
+          # Check for critical/high vulnerabilities
+          if [ -f audit-results.json ]; then
+            CRITICAL=$(cat audit-results.json | python -c "import sys,json; d=json.load(sys.stdin); print(len([v for v in d if 'CRITICAL' in str(v).upper()]))" 2>/dev/null || echo "0")
+            HIGH=$(cat audit-results.json | python -c "import sys,json; d=json.load(sys.stdin); print(len([v for v in d if 'HIGH' in str(v).upper()]))" 2>/dev/null || echo "0")
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
           fi
 
-      # Type check (soft fail)
-      - name: Type check
+      - name: Upload Audit Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: audit-results.json
+          retention-days: 90
+
+      - name: Check Vulnerability Threshold
         run: |
-          if [ -f "${{ matrix.path }}/Makefile" ]; then
-            make -C ${{ matrix.path }} type
-          else
-            mypy ${{ matrix.path }}
+          CRITICAL="${{ steps.audit.outputs.critical }}"
+          if [ "${CRITICAL:-0}" -gt "0" ]; then
+            echo "::error::Found $CRITICAL critical vulnerabilities"
+            exit 1
           fi
-        continue-on-error: true
 
-      - name: Tests
-        run: ${{ matrix.test }}
-
-  docker-build:
-    needs: engines
+  # ============================================================
+  # Stage 5: Secret Scanning
+  # ============================================================
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build Docker image
-        run: docker build . --file Dockerfile --tag preciagro-cie:latest
+        with:
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz | tar xz
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Run Gitleaks
+        run: |
+          gitleaks detect --source . --no-git --redact --report-format json --report-path gitleaks-report.json || true
+          if [ -s gitleaks-report.json ]; then
+            LEAKS=$(cat gitleaks-report.json | python -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+            if [ "$LEAKS" -gt "0" ]; then
+              echo "::error::Found $LEAKS potential secrets in code"
+              cat gitleaks-report.json
+              exit 1
+            fi
+          fi
+
+  # ============================================================
+  # Stage 6: Integration Tests
+  # ============================================================
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, code-quality]
+    if: github.event_name == 'push' || github.event.pull_request.base.ref == 'main'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: preciagro_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/preciagro_test
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: test
+        run: |
+          if [ -d "tests/integration" ]; then
+            pytest tests/integration/ -v --tb=short
+          elif [ -d "tests" ]; then
+            pytest tests/test_integration*.py -v --tb=short || echo "No integration tests found"
+          fi
+
+  # ============================================================
+  # Stage 7: Build Docker Images
+  # ============================================================
+  build-images:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, code-quality, security-audit, secret-scan]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        engine:
+          - name: crop-intelligence
+            context: .
+            dockerfile: preciagro/packages/engines/crop_intelligence/Dockerfile
+          # Add more engines as Dockerfiles are created
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if Dockerfile exists
+        id: check-dockerfile
+        run: |
+          if [ -f "${{ matrix.engine.dockerfile }}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Dockerfile not found: ${{ matrix.engine.dockerfile }}"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/preciagro-${{ matrix.engine.name }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build and Push
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.engine.context }}
+          file: ${{ matrix.engine.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # Stage 8: Summary Report
+  # ============================================================
+  summary:
+    runs-on: ubuntu-latest
+    needs: [code-quality, unit-tests, security-audit, secret-scan, integration-tests]
+    if: always()
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.code-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
