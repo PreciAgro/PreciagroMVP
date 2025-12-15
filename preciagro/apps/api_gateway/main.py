@@ -1,37 +1,4 @@
 
-# from fastapi import FastAPI
-# from ...packages.shared.schemas import ImageIn, PlanResponse
-# from ...packages.engines import image_analysis, geo_context, data_integration, crop_intel, temporal_logic, inventory
-# from preciagro.apps.data_integration_engine.routers.ingest import router as ingest_router
-
-# app = FastAPI(title="PreciAgro MVP API")
-# app.include_router(ingest_router)
-# @app.get("/health")
-# def health():
-#     return {"status": "ok"}
-
-# @app.post("/v1/diagnose-and-plan", response_model=PlanResponse)
-# def diagnose_and_plan(payload: ImageIn):
-#     # 1) Vision diagnosis
-#     dx = image_analysis.diagnose(payload.image_base64, payload.crop_hint)
-
-#     # 2) Context & weather
-#     ctx = geo_context.context_for(payload.location)
-#     wx = data_integration.latest_weather(ctx["region"])
-
-#     # 3) Crop Intelligence plan
-#     crop = payload.crop_hint or "generic_crop"
-#     plan = crop_intel.plan_actions(crop, dx.labels[0].name, ctx, wx)
-
-#     # 4) Temporal reminders
-#     reminders = temporal_logic.schedule(plan)
-
-#     # 5) Inventory
-#     inv = inventory.plan_impact(plan)
-
-#     return {"diagnosis": dx, "plan": plan, "reminders": reminders, "inventory": inv}
-# the above was a placeholder for the main.py file in your API gateway.
-
 from preciagro.packages.engines.temporal_logic.config import config as temporal_config
 from preciagro.packages.engines.geo_context.api.routes.api import router as geocontext_router
 from preciagro.packages.engines.data_integration.config import settings as di_settings
@@ -47,26 +14,57 @@ from preciagro.packages.engines.data_integration.bus.consumer import run_consume
 import logging
 from fastapi import Response
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
-import os as _os
 import asyncio
 
 from preciagro.packages.shared.logging import configure_logging
+from preciagro.packages.shared.error_handlers import add_error_handlers
+from preciagro.packages.shared.rate_limiting import create_limiter, add_rate_limiting
+from preciagro.packages.shared.cors_config import get_cors_config
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
 configure_logging(service_name="api-gateway")
 logger = logging.getLogger(__name__)
 
-# Set DEV environment variable early to ensure .env file is loaded BEFORE importing config
+# SECURITY: Load environment variable for .env file before importing config
+# This is the only place where DEV mode affects file loading
 os.environ.setdefault('DEV', '1')
 
-# Now import modules that depend on configuration
+# Create FastAPI application with security defaults
+app = FastAPI(
+    title="PreciAgro MVP API",
+    description="PreciAgro MVP Backend API",
+    version="1.0.0",
+    # SECURITY: Disable docs in production
+    docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",
+    redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc",
+    openapi_url=None if os.getenv("ENVIRONMENT") == "production" else "/openapi.json",
+)
 
+# SECURITY: Add CORS with restrictive defaults
+environment = os.getenv("ENVIRONMENT", "development")
+cors_config = get_cors_config(environment)
+app.add_middleware(
+    CORSMiddleware,
+    **cors_config
+)
+logger.info(f"CORS configured for {environment}: {cors_config['allow_origins']}")
 
-app = FastAPI()
+# SECURITY: Add error handlers for sanitized error responses
+is_debug = environment == "development"
+add_error_handlers(app, debug=is_debug)
+if is_debug:
+    logger.warning("Debug mode enabled - ensure this is not production")
 
+# SECURITY: Add rate limiting
+try:
+    limiter = create_limiter()
+    add_rate_limiting(app, limiter)
+    logger.info("Rate limiting enabled")
+except Exception as e:
+    logger.warning(f"Failed to enable rate limiting: {e}")
 
 # Use the real OpenWeatherClient implementation if an API key is configured
-
 if di_settings.OPENWEATHER_API_KEY:
     ow_client = OpenWeatherClient(api_key=di_settings.OPENWEATHER_API_KEY)
     connector = OpenWeatherConnector(ow_client)
@@ -152,6 +150,7 @@ async def _demo_scheduler():
 
 @app.on_event('startup')
 async def startup_tasks():
+    """Initialize application services on startup."""
     # Initialize temporal logic database tables (optional if DATABASE_URL not set)
     try:
         from preciagro.packages.engines.temporal_logic.models import init_tables
@@ -165,3 +164,6 @@ async def startup_tasks():
     # asyncio.create_task(_demo_scheduler())
     # start a consumer stub so we surface events during a demo
     asyncio.create_task(run_consumer())
+    
+    logger.info(f"PreciAgro API Gateway started in {environment} mode")
+
