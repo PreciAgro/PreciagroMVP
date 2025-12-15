@@ -67,6 +67,7 @@ async def get_items(kind: str | None = None, limit: int = 50):
     This returns the raw rows as JSON objects; consumers can map to Pydantic
     models as needed.
     """
+    # SECURITY: Use parameterized query to prevent SQL injection
     where = "WHERE kind = :kind" if kind else ""
     q = text(
         f"SELECT item_id, source_id, collected_at, observed_at, kind, location, tags, payload, content_hash FROM normalized_items {where} ORDER BY collected_at DESC LIMIT :limit"
