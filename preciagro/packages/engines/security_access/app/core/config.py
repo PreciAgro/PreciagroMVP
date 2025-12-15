@@ -9,12 +9,12 @@ class Settings(BaseSettings):
     
     ENV: str = "dev"
     ENGINE_NAME: str = "security_access"
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/preciagro"
+    DATABASE_URL: str  # Required - must be set via environment variable
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     AUTO_CREATE_SCHEMA: bool = True
     
-    # JWT Configuration
+    # JWT Configuration - MUST be loaded from environment variables
     JWT_SECRET_KEY: str = ""  # For HS256 (dev only)
     JWT_PRIVATE_KEY: str = ""  # RSA private key for RS256 (production)
     JWT_PUBLIC_KEY: str = ""  # RSA public key for RS256 (production)

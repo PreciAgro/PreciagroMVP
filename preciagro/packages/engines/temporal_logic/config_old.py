@@ -34,7 +34,8 @@ class TemporalLogicConfig(BaseSettings):
     twilio_from_number: Optional[str] = None
 
     # Security
-    secret_key: str = "your-secret-key-change-in-production"
+    # SECURITY: secret_key MUST be set via environment variable
+    secret_key: str = ""  # Must be configured via environment
     access_token_expire_minutes: int = 30
 
     # Telemetry

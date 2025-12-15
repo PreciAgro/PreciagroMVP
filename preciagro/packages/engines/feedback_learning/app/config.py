@@ -58,8 +58,8 @@ class FLESettings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
     
-    # PostgreSQL configuration
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/preciagro_fle"
+    # PostgreSQL configuration - MUST be set via environment variable
+    DATABASE_URL: str  # Required: postgresql+asyncpg://user:password@host:port/dbname
     DATABASE_POOL_SIZE: int = 5
     DATABASE_MAX_OVERFLOW: int = 10
     

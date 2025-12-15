@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     OPENWEATHER_API_KEY: str | None = Field(
         None, description="OpenWeather API key")
     DATABASE_URL: str = Field(
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/preciagro",
-        description="Async DB URL",
+        default=...,
+        description="Async DB URL (required - must be set via environment variable)",
     )
     REDIS_URL: str = Field(
         "redis://localhost:6379/0", description="Redis connection URL"
