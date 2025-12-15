@@ -108,6 +108,20 @@ jobs:
             path: preciagro/packages/engines/agro_llm
           - name: conversational
             path: preciagro/packages/engines/conversational
+          - name: data_governance_lineage
+            path: preciagro/packages/engines/data_governance_lineage
+          - name: evaluation_benchmarking
+            path: preciagro/packages/engines/evaluation_benchmarking
+          - name: farmer_profile
+            path: preciagro/packages/engines/farmer_profile
+          - name: inventory
+            path: preciagro/packages/engines/inventory
+          - name: model_orchestration
+            path: preciagro/packages/engines/model_orchestration
+          - name: pie_lite
+            path: preciagro/packages/engines/pie_lite
+          - name: ux_orchestration
+            path: preciagro/packages/engines/ux_orchestration
 
     steps:
       - uses: actions/checkout@v4
@@ -242,6 +256,27 @@ jobs:
           - name: trust_explainability
             path: preciagro/packages/engines/trust_explainability
             test_path: preciagro/packages/engines/trust_explainability/tests
+          - name: data_governance_lineage
+            path: preciagro/packages/engines/data_governance_lineage
+            test_path: preciagro/packages/engines/data_governance_lineage/tests
+          - name: evaluation_benchmarking
+            path: preciagro/packages/engines/evaluation_benchmarking
+            test_path: preciagro/packages/engines/evaluation_benchmarking/tests
+          - name: farmer_profile
+            path: preciagro/packages/engines/farmer_profile
+            test_path: preciagro/packages/engines/farmer_profile/tests
+          - name: inventory
+            path: preciagro/packages/engines/inventory
+            test_path: preciagro/packages/engines/inventory/tests
+          - name: model_orchestration
+            path: preciagro/packages/engines/model_orchestration
+            test_path: preciagro/packages/engines/model_orchestration/tests
+          - name: pie_lite
+            path: preciagro/packages/engines/pie_lite
+            test_path: preciagro/packages/engines/pie_lite/tests
+          - name: ux_orchestration
+            path: preciagro/packages/engines/ux_orchestration
+            test_path: preciagro/packages/engines/ux_orchestration/tests
 
     steps:
       - uses: actions/checkout@v4
@@ -396,7 +431,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     needs: [unit-tests, code-quality]
-    if: github.event_name == 'push' || github.event.pull_request.base.ref == 'main'
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'develop'))
     services:
       postgres:
         image: postgres:15
@@ -466,7 +501,21 @@ jobs:
           - name: crop-intelligence
             context: .
             dockerfile: preciagro/packages/engines/crop_intelligence/Dockerfile
-          # Add more engines as Dockerfiles are created
+          - name: data-integration
+            context: .
+            dockerfile: preciagro/packages/engines/data_integration/Dockerfile
+          - name: geo-context
+            context: .
+            dockerfile: preciagro/packages/engines/geo_context/Dockerfile
+          - name: image-analysis
+            context: .
+            dockerfile: preciagro/packages/engines/image_analysis/Dockerfile
+          - name: conversational-nlp
+            context: .
+            dockerfile: preciagro/packages/engines/conversational_nlp/Dockerfile
+          - name: trust-explainability
+            context: .
+            dockerfile: preciagro/packages/engines/trust_explainability/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

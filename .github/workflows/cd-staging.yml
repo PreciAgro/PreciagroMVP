@@ -29,10 +29,38 @@ jobs:
           fetch-depth: 0
 
       - name: Ensure CI Passed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check that the CI workflow passed for this commit
           echo "Validating CI status for commit ${{ github.sha }}"
-          # In production, use GitHub API to verify CI status
+          
+          # Wait up to 5 minutes for CI to complete if still running
+          max_wait=300
+          elapsed=0
+          
+          while [ $elapsed -lt $max_wait ]; do
+            # Query workflow runs for this commit
+            status=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+              --jq '.check_runs[] | select(.name == "summary") | .conclusion')
+            
+            if [ "$status" = "success" ]; then
+              echo "✅ CI passed for commit ${{ github.sha }}"
+              exit 0
+            elif [ "$status" = "failure" ] || [ "$status" = "cancelled" ]; then
+              echo "::error::CI failed or was cancelled for commit ${{ github.sha }}"
+              exit 1
+            fi
+            
+            echo "CI still running... waiting (${elapsed}s/${max_wait}s)"
+            sleep 10
+            elapsed=$((elapsed + 10))
+          done
+          
+          echo "::error::CI did not complete within timeout"
+          exit 1
 
       - name: Build Deployment Matrix
         id: matrix
@@ -56,13 +84,6 @@ jobs:
                 "health_path": "/health"
               },
               {
-                "name": "temporal-logic",
-                "path": "preciagro/packages/engines/temporal_logic",
-                "port": 8100,
-                "replicas": 2,
-                "health_path": "/health"
-              },
-              {
                 "name": "geo-context",
                 "path": "preciagro/packages/engines/geo_context",
                 "port": 8102,
@@ -76,6 +97,20 @@ jobs:
                 "replicas": 2,
                 "health_path": "/health",
                 "resources": "gpu"
+              },
+              {
+                "name": "conversational-nlp",
+                "path": "preciagro/packages/engines/conversational_nlp",
+                "port": 8104,
+                "replicas": 2,
+                "health_path": "/health"
+              },
+              {
+                "name": "trust-explainability",
+                "path": "preciagro/packages/engines/trust_explainability",
+                "port": 8105,
+                "replicas": 2,
+                "health_path": "/health"
               }
             ]
           }
