@@ -211,12 +211,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure Kubernetes
-        run: |
-          # In production, configure kubectl with staging cluster credentials
-          echo "Configuring kubectl for staging cluster..."
-          # kubectl config set-cluster staging --server=${{ secrets.K8S_STAGING_SERVER }}
-          # kubectl config set-credentials ci --token=${{ secrets.K8S_STAGING_TOKEN }}
+
 
       - name: Create/Update Deployment Manifest
         run: |
@@ -307,17 +302,78 @@ jobs:
           echo "Generated deployment manifest:"
           cat .deploy/${{ matrix.name }}-deployment.yaml
 
+      - name: Check K8s Configuration
+        id: check-k8s
+        run: |
+          if [ -n "${{ secrets.K8S_STAGING_SERVER }}" ] && [ -n "${{ secrets.K8S_STAGING_TOKEN }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️ K8s secrets not configured - running in dry-run mode"
+          fi
+
+      - name: Configure kubectl
+        if: steps.check-k8s.outputs.configured == 'true'
+        run: |
+          mkdir -p $HOME/.kube
+          cat << EOF > $HOME/.kube/config
+          apiVersion: v1
+          kind: Config
+          clusters:
+            - name: staging
+              cluster:
+                server: ${{ secrets.K8S_STAGING_SERVER }}
+                insecure-skip-tls-verify: false
+          users:
+            - name: ci
+              user:
+                token: ${{ secrets.K8S_STAGING_TOKEN }}
+          contexts:
+            - name: staging
+              context:
+                cluster: staging
+                user: ci
+                namespace: ${{ env.STAGING_NAMESPACE }}
+          current-context: staging
+          EOF
+          chmod 600 $HOME/.kube/config
+
       - name: Apply Deployment
         run: |
           echo "Applying deployment for ${{ matrix.name }}..."
-          # kubectl apply -f .deploy/${{ matrix.name }}-deployment.yaml
-          echo "Deployment applied (dry-run - configure K8s cluster for actual deployment)"
+          if [ "${{ steps.check-k8s.outputs.configured }}" = "true" ]; then
+            kubectl apply -f .deploy/${{ matrix.name }}-deployment.yaml
+            echo "✅ Deployment applied to staging cluster"
+          else
+            echo "📄 Dry-run mode - would apply:"
+            cat .deploy/${{ matrix.name }}-deployment.yaml | head -20
+            echo "⚠️ Configure K8S_STAGING_SERVER and K8S_STAGING_TOKEN secrets to enable real deployments"
+          fi
 
       - name: Wait for Rollout
+        if: steps.check-k8s.outputs.configured == 'true'
         run: |
           echo "Waiting for ${{ matrix.name }} rollout to complete..."
-          # kubectl rollout status deployment/${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }} --timeout=300s
-          echo "Rollout completed (dry-run)"
+          kubectl rollout status deployment/${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }} --timeout=300s
+          echo "✅ Rollout completed successfully"
+
+      - name: Verify Deployment Health
+        if: steps.check-k8s.outputs.configured == 'true'
+        run: |
+          echo "Verifying deployment health..."
+          kubectl get deployment ${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }}
+          kubectl get pods -l app=${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }}
+          
+          # Check if all replicas are ready
+          READY=$(kubectl get deployment ${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }} -o jsonpath='{.status.readyReplicas}')
+          DESIRED=$(kubectl get deployment ${{ matrix.name }} -n ${{ env.STAGING_NAMESPACE }} -o jsonpath='{.spec.replicas}')
+          
+          if [ "$READY" = "$DESIRED" ]; then
+            echo "✅ All $DESIRED replicas are ready"
+          else
+            echo "::error::Only $READY/$DESIRED replicas are ready"
+            exit 1
+          fi
 
       - name: Upload Deployment Manifest
         uses: actions/upload-artifact@v4
@@ -360,8 +416,10 @@ jobs:
               engines = [
                   ("crop-intelligence", 8082),
                   ("data-integration", 8101),
-                  ("temporal-logic", 8100),
                   ("geo-context", 8102),
+                  ("image-analysis", 8103),
+                  ("conversational-nlp", 8104),
+                  ("trust-explainability", 8105),
               ]
               
               print(f"Testing against {BASE_URL}")
@@ -399,9 +457,10 @@ jobs:
           echo "### Deployed Engines" >> $GITHUB_STEP_SUMMARY
           echo "- crop-intelligence" >> $GITHUB_STEP_SUMMARY
           echo "- data-integration" >> $GITHUB_STEP_SUMMARY
-          echo "- temporal-logic" >> $GITHUB_STEP_SUMMARY
           echo "- geo-context" >> $GITHUB_STEP_SUMMARY
           echo "- image-analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- conversational-nlp" >> $GITHUB_STEP_SUMMARY
+          echo "- trust-explainability" >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Slack (Optional)
         if: always()
