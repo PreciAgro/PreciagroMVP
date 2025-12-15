@@ -10,8 +10,16 @@ from functools import wraps
 # JWT Configuration
 JWT_PUBKEY = os.getenv("JWT_PUBKEY", "")
 ALGORITHM = "RS256"
-# Allow dev mode to bypass JWT validation if key is missing
-DEV_MODE = os.getenv("DEV_MODE", os.getenv("DEBUG", "false")).lower() == "true"
+
+# SECURITY: JWT signature verification is ALWAYS enforced.
+# Development or bypass modes are strictly prohibited.
+# If JWT_PUBKEY is not configured, the application will fail loudly.
+if not JWT_PUBKEY:
+    raise RuntimeError(
+        "CRITICAL: JWT_PUBKEY environment variable is not set. "
+        "JWT authentication cannot be initialized. "
+        "Set JWT_PUBKEY to a valid public key and restart the application."
+    )
 
 # Security scheme
 security = HTTPBearer(auto_error=False)
@@ -29,24 +37,16 @@ class TenantContext:
 def decode_token(token: str) -> dict:
     """Decode and validate JWT token.
 
-    In dev mode with no JWT_PUBKEY configured, returns a stub context.
-    In production, missing JWT_PUBKEY results in 401 Unauthorized.
+    JWT signature verification is ALWAYS enforced. No bypass modes exist.
     """
     try:
-        if JWT_PUBKEY:
-            payload = jwt.decode(
-                token,
-                JWT_PUBKEY,
-                algorithms=[ALGORITHM],
-                options={"verify_aud": False}
-            )
-        else:
-            payload = jwt.decode(
-                token,
-                "dev-secret",
-                algorithms=[ALGORITHM],
-                options={"verify_signature": False, "verify_aud": False}
-            )
+        # Always verify signature using JWT_PUBKEY (guaranteed to exist)
+        payload = jwt.decode(
+            token,
+            JWT_PUBKEY,
+            algorithms=[ALGORITHM],
+            options={"verify_aud": False}
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=401,

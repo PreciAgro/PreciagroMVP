@@ -7,7 +7,14 @@ from typing import Any, Dict, Iterable
 from fastapi import Header, HTTPException
 from jose import JWTError, jwt
 
-DEFAULT_SECRET = os.getenv("TEMPORAL_JWT_SECRET", "dev-secret")
+# SECURITY: Require JWT secret from environment variable
+DEFAULT_SECRET = os.getenv("TEMPORAL_JWT_SECRET")
+if not DEFAULT_SECRET:
+    raise RuntimeError(
+        "CRITICAL: TEMPORAL_JWT_SECRET environment variable is not set. "
+        "JWT authentication cannot be initialized. "
+        "Set TEMPORAL_JWT_SECRET and restart the application."
+    )
 
 
 class SecurityMiddleware:
