@@ -9,9 +9,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Geo Context Engine settings."""
 
-    model_config = ConfigDict(
-        env_file=".env", extra="allow"  # Allow extra fields for flexibility
-    )
+    model_config = ConfigDict(env_file=".env", extra="allow")  # Allow extra fields for flexibility
 
     # Database
     DATABASE_URL: str = os.getenv(

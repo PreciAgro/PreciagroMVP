@@ -21,15 +21,9 @@ def to_normalized_weather(raw: dict, *, source_id: str) -> NormalizedItem:
         item_id=item_id,
         source_id=source_id,
         collected_at=datetime.utcnow(),
-        observed_at=(
-            datetime.fromisoformat(raw.get("time")) if raw.get("time") else None
-        ),
+        observed_at=(datetime.fromisoformat(raw.get("time")) if raw.get("time") else None),
         kind="weather.forecast",
-        location=(
-            Location(lat=lat, lon=lon)
-            if (lat is not None and lon is not None)
-            else None
-        ),
+        location=(Location(lat=lat, lon=lon) if (lat is not None and lon is not None) else None),
         tags=["weather"],
         payload={"temp_c": raw.get("temp_c"), "humidity": raw.get("humidity")},
         raw_ref=None,

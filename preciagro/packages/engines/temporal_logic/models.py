@@ -6,11 +6,19 @@ import enum
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import (JSON, Boolean, DateTime, ForeignKey, Index, Integer,
-                        String, Text, UniqueConstraint)
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.orm import (DeclarativeBase, Mapped, mapped_column,
-                            reconstructor, relationship)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, reconstructor, relationship
 
 from .config import DATABASE_URL, DB_POOL_SIZE, DB_MAX_OVERFLOW
 
@@ -72,18 +80,14 @@ class TemporalRule(Base):
     __tablename__ = "temporal_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(
-        String(150), nullable=False, unique=True, index=True
-    )
+    name: Mapped[str] = mapped_column(String(150), nullable=False, unique=True, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text)
     conditions: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     actions: Mapped[list[Dict[str, Any]]] = mapped_column(JSON, nullable=False)
     window_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
     _metadata: Mapped[Dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
@@ -113,16 +117,12 @@ class ScheduledTask(Base):
     executed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     priority: Mapped[str] = mapped_column(String(20), default="medium")
-    status: Mapped[str] = mapped_column(
-        String(20), default=TaskStatus.PENDING.value, index=True
-    )
+    status: Mapped[str] = mapped_column(String(20), default=TaskStatus.PENDING.value, index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     result: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
@@ -165,9 +165,7 @@ class TaskOutcome(Base):
     outcome_type: Mapped[str] = mapped_column(String(50), nullable=False)
     outcome_data: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     source: Mapped[Optional[str]] = mapped_column(String(100))
-    recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     task: Mapped[ScheduledTask] = relationship(back_populates="outcomes")
 
@@ -184,9 +182,7 @@ class UserIntent(Base):
     processed_intent: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     confidence_score: Mapped[Optional[int]] = mapped_column(Integer)
     conversation_context: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
 
@@ -205,15 +201,9 @@ class RateLimitBucket(Base):
     channel: Mapped[str] = mapped_column(String(50), nullable=False)
     bucket_key: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     current_count: Mapped[int] = mapped_column(Integer, default=0)
-    window_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    window_end: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )

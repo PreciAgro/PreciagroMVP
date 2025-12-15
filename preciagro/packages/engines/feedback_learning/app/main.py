@@ -23,7 +23,7 @@ from .config import settings
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -31,15 +31,15 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
-    
+
     Handles startup and shutdown events.
     """
     # Startup
     logger.info(f"Starting Feedback & Learning Engine v{settings.VERSION}")
     logger.info(f"Debug mode: {settings.DEBUG}")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Feedback & Learning Engine")
 
@@ -106,7 +106,7 @@ def health() -> Dict[str, str]:
 @app.get("/ready")
 def ready() -> Dict[str, Any]:
     """Readiness check endpoint.
-    
+
     Returns information about service dependencies.
     """
     # In production, check Redis, PostgreSQL, etc.
@@ -145,6 +145,7 @@ def get_config() -> Dict[str, Any]:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "preciagro.packages.engines.feedback_learning.app.main:app",
         host="0.0.0.0",

@@ -89,7 +89,7 @@ class OpenWeatherConnector(IngestConnector):
         lon: float,
         scope: Literal["current", "hourly", "daily"] = "hourly",
         units: str = "metric",
-        exclude: str = ""  # e.g., "minutely,alerts"
+        exclude: str = "",  # e.g., "minutely,alerts"
     ) -> Iterable[Dict[str, Any]]:
         """Fetch weather data and yield raw records for normalization.
 
@@ -138,12 +138,10 @@ class OpenWeatherConnector(IngestConnector):
         lon: float,
         scope: Literal["current", "hourly", "daily"] = "hourly",
         units: str = "metric",
-        exclude: str = ""
+        exclude: str = "",
     ) -> AsyncIterable[Dict[str, Any]]:
         """Async version of fetch; preferred for use in async orchestration."""
-        resp = await self.client.one_call(
-            lat=lat, lon=lon, units=units, exclude=exclude
-        )
+        resp = await self.client.one_call(lat=lat, lon=lon, units=units, exclude=exclude)
 
         # Attach coordinates and source name to each record
         base = {"lat": resp.get("lat"), "lon": resp.get("lon"), "_source": self.name}

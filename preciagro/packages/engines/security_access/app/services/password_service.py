@@ -6,6 +6,7 @@ from typing import Optional
 try:
     from passlib.context import CryptContext
     from passlib.hash import argon2, bcrypt
+
     HAS_PASSLIB = True
 except ImportError:
     HAS_PASSLIB = False
@@ -16,7 +17,7 @@ from ..core.config import settings
 
 class PasswordService:
     """Service for password hashing and verification."""
-    
+
     def __init__(self):
         if HAS_PASSLIB and settings.PASSWORD_HASH_ALGORITHM == "argon2id":
             self.context = CryptContext(
@@ -33,13 +34,13 @@ class PasswordService:
                 bcrypt__rounds=12,
                 deprecated="auto",
             )
-    
+
     def hash_password(self, password: str) -> str:
         """Hash a password."""
         if not password:
             raise ValueError("Password cannot be empty")
         return self.context.hash(password)
-    
+
     def verify_password(self, password: str, password_hash: str) -> bool:
         """Verify a password against its hash."""
         if not password or not password_hash:
@@ -48,11 +49,10 @@ class PasswordService:
             return self.context.verify(password, password_hash)
         except Exception:
             return False
-    
+
     def needs_rehash(self, password_hash: str) -> bool:
         """Check if password hash needs to be rehashed (algorithm upgrade)."""
         try:
             return self.context.needs_update(password_hash)
         except Exception:
             return True
-

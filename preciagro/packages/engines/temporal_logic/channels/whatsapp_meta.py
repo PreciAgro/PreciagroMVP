@@ -7,7 +7,6 @@ from typing import Any, Dict
 import aiohttp
 
 
-
 class WhatsAppChannel:
     """Minimal WhatsApp channel used in tests."""
 
@@ -45,8 +44,7 @@ class WhatsAppChannel:
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": str(value)}
-                            for value in variables.values()
+                            {"type": "text", "text": str(value)} for value in variables.values()
                         ],
                     }
                 ],

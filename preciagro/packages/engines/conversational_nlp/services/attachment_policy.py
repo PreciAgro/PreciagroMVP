@@ -49,9 +49,8 @@ class AttachmentPolicy:
 
         for attachment in payload.attachments:
             mime = (
-                (attachment.mime_type or attachment.content_type or "").lower()
-                or self._infer_mime_from_url(attachment.url)
-            )
+                attachment.mime_type or attachment.content_type or ""
+            ).lower() or self._infer_mime_from_url(attachment.url)
             if mime and mime.split(";")[0] not in self.allowed_mime_types:
                 errors.append(
                     ErrorDetail(

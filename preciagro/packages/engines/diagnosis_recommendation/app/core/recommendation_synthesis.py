@@ -16,38 +16,34 @@ logger = logging.getLogger(__name__)
 
 class RecommendationSynthesisCore:
     """Converts diagnoses into multi-step strategies and action plans."""
-    
+
     def __init__(self):
         """Initialize the recommendation synthesis core."""
         self._action_templates = self._build_action_templates()
-    
-    def synthesize(
-        self,
-        diagnosis: Diagnosis,
-        context: Dict[str, Any]
-    ) -> RecommendationPlan:
+
+    def synthesize(self, diagnosis: Diagnosis, context: Dict[str, Any]) -> RecommendationPlan:
         """
         Synthesize recommendations from diagnosis.
-        
+
         Args:
             diagnosis: Ranked diagnosis
             context: Contextual information
-            
+
         Returns:
             Recommendation plan
         """
         recommendations = []
-        
+
         if not diagnosis.primary_hypothesis:
             # No diagnosis, return monitoring recommendation
             return self._create_monitoring_plan(context)
-        
+
         # Generate recommendations for primary hypothesis
         primary_recs = self._generate_hypothesis_recommendations(
             diagnosis.primary_hypothesis, context
         )
         recommendations.extend(primary_recs)
-        
+
         # Generate recommendations for secondary hypotheses if high confidence
         for hypothesis in diagnosis.hypotheses[1:3]:  # Top 2-3
             if hypothesis.belief_score >= 0.5:
@@ -55,13 +51,13 @@ class RecommendationSynthesisCore:
                     hypothesis, context, is_secondary=True
                 )
                 recommendations.extend(secondary_recs)
-        
+
         # Determine execution order
         execution_order = self._determine_execution_order(recommendations)
-        
+
         # Calculate total cost
         total_cost = self._calculate_total_cost(recommendations, context)
-        
+
         # Create plan
         plan = RecommendationPlan(
             recommendations=recommendations,
@@ -70,22 +66,17 @@ class RecommendationSynthesisCore:
             estimated_duration=self._estimate_duration(recommendations),
             success_criteria=self._define_success_criteria(diagnosis),
         )
-        
-        logger.info(
-            f"Synthesized recommendation plan with {len(recommendations)} recommendations"
-        )
-        
+
+        logger.info(f"Synthesized recommendation plan with {len(recommendations)} recommendations")
+
         return plan
-    
+
     def _generate_hypothesis_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any],
-        is_secondary: bool = False
+        self, hypothesis, context: Dict[str, Any], is_secondary: bool = False
     ) -> List[Recommendation]:
         """Generate recommendations for a hypothesis."""
         recommendations = []
-        
+
         if hypothesis.category.value == "disease":
             recommendations.extend(self._generate_disease_recommendations(hypothesis, context))
         elif hypothesis.category.value == "pest":
@@ -95,29 +86,31 @@ class RecommendationSynthesisCore:
         elif hypothesis.category.value == "water_stress":
             recommendations.extend(self._generate_water_stress_recommendations(hypothesis, context))
         elif hypothesis.category.value == "environmental_stress":
-            recommendations.extend(self._generate_environmental_stress_recommendations(hypothesis, context))
+            recommendations.extend(
+                self._generate_environmental_stress_recommendations(hypothesis, context)
+            )
         elif hypothesis.category.value == "management_error":
-            recommendations.extend(self._generate_management_error_recommendations(hypothesis, context))
-        
+            recommendations.extend(
+                self._generate_management_error_recommendations(hypothesis, context)
+            )
+
         # Adjust priority for secondary hypotheses
         if is_secondary:
             for rec in recommendations:
                 if rec.priority == "high":
                     rec.priority = "medium"
-        
+
         return recommendations
-    
+
     def _generate_disease_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any]
+        self, hypothesis, context: Dict[str, Any]
     ) -> List[Recommendation]:
         """Generate disease treatment recommendations."""
         recommendations = []
-        
+
         disease_name = hypothesis.name
         crop_type = context.get("crop_type", "crop")
-        
+
         # Treatment recommendation
         treatment_rec = Recommendation(
             type=ActionType.TREATMENT,
@@ -150,7 +143,7 @@ class RecommendationSynthesisCore:
             ],
         )
         recommendations.append(treatment_rec)
-        
+
         # Prevention recommendation
         prevention_rec = Recommendation(
             type=ActionType.PREVENTION,
@@ -168,20 +161,18 @@ class RecommendationSynthesisCore:
             confidence=hypothesis.belief_score,
         )
         recommendations.append(prevention_rec)
-        
+
         return recommendations
-    
+
     def _generate_pest_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any]
+        self, hypothesis, context: Dict[str, Any]
     ) -> List[Recommendation]:
         """Generate pest control recommendations."""
         recommendations = []
-        
+
         pest_name = hypothesis.name
         crop_type = context.get("crop_type", "crop")
-        
+
         # Treatment recommendation
         treatment_rec = Recommendation(
             type=ActionType.TREATMENT,
@@ -213,20 +204,18 @@ class RecommendationSynthesisCore:
             ],
         )
         recommendations.append(treatment_rec)
-        
+
         return recommendations
-    
+
     def _generate_nutrient_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any]
+        self, hypothesis, context: Dict[str, Any]
     ) -> List[Recommendation]:
         """Generate nutrient application recommendations."""
         recommendations = []
-        
+
         deficiency_name = hypothesis.name
         crop_type = context.get("crop_type", "crop")
-        
+
         # Nutrient application recommendation
         nutrient_rec = Recommendation(
             type=ActionType.NUTRIENT_APPLICATION,
@@ -258,17 +247,15 @@ class RecommendationSynthesisCore:
             ],
         )
         recommendations.append(nutrient_rec)
-        
+
         return recommendations
-    
+
     def _generate_water_stress_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any]
+        self, hypothesis, context: Dict[str, Any]
     ) -> List[Recommendation]:
         """Generate water management recommendations."""
         recommendations = []
-        
+
         # Water management recommendation
         water_rec = Recommendation(
             type=ActionType.WATER_MANAGEMENT,
@@ -292,17 +279,15 @@ class RecommendationSynthesisCore:
             confidence=hypothesis.belief_score,
         )
         recommendations.append(water_rec)
-        
+
         return recommendations
-    
+
     def _generate_environmental_stress_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any]
+        self, hypothesis, context: Dict[str, Any]
     ) -> List[Recommendation]:
         """Generate environmental stress management recommendations."""
         recommendations = []
-        
+
         # Monitoring recommendation
         monitoring_rec = Recommendation(
             type=ActionType.MONITORING,
@@ -319,17 +304,15 @@ class RecommendationSynthesisCore:
             confidence=hypothesis.belief_score,
         )
         recommendations.append(monitoring_rec)
-        
+
         return recommendations
-    
+
     def _generate_management_error_recommendations(
-        self,
-        hypothesis,
-        context: Dict[str, Any]
+        self, hypothesis, context: Dict[str, Any]
     ) -> List[Recommendation]:
         """Generate management practice correction recommendations."""
         recommendations = []
-        
+
         # Cultural practice recommendation
         practice_rec = Recommendation(
             type=ActionType.CULTURAL_PRACTICE,
@@ -347,30 +330,27 @@ class RecommendationSynthesisCore:
             confidence=hypothesis.belief_score,
         )
         recommendations.append(practice_rec)
-        
+
         return recommendations
-    
+
     def _determine_execution_order(self, recommendations: List[Recommendation]) -> List[str]:
         """Determine recommended execution order."""
         # Sort by priority and urgency
         priority_order = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
-        
+
         sorted_recs = sorted(
-            recommendations,
-            key=lambda r: (priority_order.get(r.priority, 3), -r.impact_score)
+            recommendations, key=lambda r: (priority_order.get(r.priority, 3), -r.impact_score)
         )
-        
+
         return [rec.id for rec in sorted_recs]
-    
+
     def _calculate_total_cost(
-        self,
-        recommendations: List[Recommendation],
-        context: Dict[str, Any]
+        self, recommendations: List[Recommendation], context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Calculate total estimated cost."""
         total_min = 0.0
         total_max = 0.0
-        
+
         for rec in recommendations:
             if rec.cost_estimate:
                 cost_range = rec.cost_estimate.get("range", "")
@@ -384,35 +364,35 @@ class RecommendationSynthesisCore:
                         total_max += max_val
                     except (ValueError, IndexError):
                         pass
-        
+
         return {
             "currency": "USD",
             "min": total_min,
             "max": total_max,
             "range": f"{total_min:.0f}-{total_max:.0f} per hectare",
         }
-    
+
     def _estimate_duration(self, recommendations: List[Recommendation]) -> str:
         """Estimate total duration to complete recommendations."""
         # Simple heuristic: 1-2 days per recommendation
         days = len(recommendations) * 1.5
         return f"{int(days)}-{int(days * 1.5)} days"
-    
+
     def _define_success_criteria(self, diagnosis: Diagnosis) -> List[str]:
         """Define success criteria for the plan."""
         criteria = []
-        
+
         if diagnosis.primary_hypothesis:
             criteria.append(
                 f"Observe reduction in {diagnosis.primary_hypothesis.name} symptoms within 7-14 days"
             )
             criteria.append("Monitor crop health improvement")
-        
+
         criteria.append("No new symptoms appear")
         criteria.append("Crop continues normal growth")
-        
+
         return criteria
-    
+
     def _create_monitoring_plan(self, context: Dict[str, Any]) -> RecommendationPlan:
         """Create monitoring plan when no clear diagnosis."""
         monitoring_rec = Recommendation(
@@ -429,13 +409,13 @@ class RecommendationSynthesisCore:
             impact_score=0.3,
             confidence=0.5,
         )
-        
+
         return RecommendationPlan(
             recommendations=[monitoring_rec],
             execution_order=[monitoring_rec.id],
             success_criteria=["Additional diagnostic information collected"],
         )
-    
+
     def _build_action_templates(self) -> Dict[str, Any]:
         """Build action recommendation templates."""
         return {
@@ -443,4 +423,3 @@ class RecommendationSynthesisCore:
             "prevention_priority": "medium",
             "monitoring_priority": "low",
         }
-

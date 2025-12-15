@@ -7,10 +7,8 @@ from prometheus_client import Counter, Histogram
 
 # Notification metrics
 send_attempts = Counter("notif_send_attempts", "send attempts", ["channel"])
-send_results = Counter("notif_send_results",
-                       "send results", ["channel", "result"])
-send_latency = Histogram("notif_send_latency_seconds",
-                         "send latency", ["channel"])
+send_results = Counter("notif_send_results", "send results", ["channel", "result"])
+send_latency = Histogram("notif_send_latency_seconds", "send latency", ["channel"])
 
 # Engine metrics (aliases for backwards compatibility)
 notification_attempts = send_attempts
@@ -18,9 +16,7 @@ notification_results = send_results
 notification_latency = send_latency
 
 # Event processing metrics
-events_processed = Counter(
-    "temporal_events_processed", "events processed", ["event_type"]
-)
+events_processed = Counter("temporal_events_processed", "events processed", ["event_type"])
 tasks_created = Counter("temporal_tasks_created", "tasks created", ["rule_id"])
 
 
@@ -53,8 +49,7 @@ class EngineMetrics:
     def event_processed(self, event_type: str, result: str) -> None:
         """Record an event processing outcome."""
         events_processed.labels(event_type=event_type).inc()
-        event_counter = self._business_snapshot["events"].setdefault(
-            event_type, 0)
+        event_counter = self._business_snapshot["events"].setdefault(event_type, 0)
         self._business_snapshot["events"][event_type] = event_counter + 1
 
     def task_executed(
@@ -77,12 +72,10 @@ class EngineMetrics:
         success_bool = bool(success_flag)
         send_results.labels(channel=channel, result=status).inc()
         send_latency.labels(channel=channel).observe(max(execution_time, 0.0))
-        task_counter = self._business_snapshot["tasks"].setdefault(
-            task_type, 0)
+        task_counter = self._business_snapshot["tasks"].setdefault(task_type, 0)
         self._business_snapshot["tasks"][task_type] = task_counter + 1
         if not success_bool:
-            message_counter = self._business_snapshot["messages"].setdefault(
-                channel, 0)
+            message_counter = self._business_snapshot["messages"].setdefault(channel, 0)
             self._business_snapshot["messages"][channel] = message_counter + 1
 
     def message_sent(self, channel: str, status: str) -> None:
@@ -104,7 +97,9 @@ class EngineMetrics:
         """Record request start."""
         pass
 
-    def request_completed(self, method: str, endpoint: str, status_code: int, duration: float) -> None:
+    def request_completed(
+        self, method: str, endpoint: str, status_code: int, duration: float
+    ) -> None:
         """Record request completion."""
         pass
 
@@ -112,13 +107,10 @@ class EngineMetrics:
         """Record request failure."""
         pass
 
-    def task_scheduled(
-        self, task_type: str, channel: str, delay_seconds: float
-    ) -> None:
+    def task_scheduled(self, task_type: str, channel: str, delay_seconds: float) -> None:
         """Compatibility shim for dispatcher metrics."""
         tasks_created.labels(rule_id=task_type).inc()
-        task_counter = self._business_snapshot["tasks"].setdefault(
-            task_type, 0)
+        task_counter = self._business_snapshot["tasks"].setdefault(task_type, 0)
         self._business_snapshot["tasks"][task_type] = task_counter + 1
 
     def quiet_hours_applied(self, channel: str, delay_seconds: int) -> None:

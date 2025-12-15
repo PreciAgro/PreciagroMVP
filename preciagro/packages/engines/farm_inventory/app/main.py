@@ -40,4 +40,3 @@ def root():
 def health():
     """Health check endpoint."""
     return {"status": "ok", "engine": "farm_inventory"}
-

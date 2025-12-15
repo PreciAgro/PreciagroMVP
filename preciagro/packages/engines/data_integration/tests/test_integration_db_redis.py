@@ -2,8 +2,9 @@ import os
 
 import pytest
 
-from preciagro.packages.engines.data_integration.pipeline.normalize_openweather import \
-    normalize_openweather
+from preciagro.packages.engines.data_integration.pipeline.normalize_openweather import (
+    normalize_openweather,
+)
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DATABASE_URL") or not os.getenv("REDIS_URL"),
@@ -24,9 +25,7 @@ async def test_normalize_and_publish_live():
         "lat": -33.0,
         "lon": -70.0,
     }
-    item = normalize_openweather(
-        raw, source_id="test.integration", kind="weather.forecast"
-    )
+    item = normalize_openweather(raw, source_id="test.integration", kind="weather.forecast")
     # basic assertions
     assert item.content_hash
     assert item.item_id

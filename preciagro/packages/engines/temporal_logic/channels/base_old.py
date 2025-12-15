@@ -126,17 +126,12 @@ class BaseChannel(ABC):
 
             # Record metrics
             duration = (datetime.utcnow() - start_time).total_seconds()
-            engine_metrics.message_sent(
-                self.channel_name, result.success, duration)
+            engine_metrics.message_sent(self.channel_name, result.success, duration)
 
             if result.success:
-                logger.info(
-                    f"Message sent via {self.channel_name}: {result.message_id}"
-                )
+                logger.info(f"Message sent via {self.channel_name}: {result.message_id}")
             else:
-                logger.warning(
-                    f"Message failed via {self.channel_name}: {result.error}"
-                )
+                logger.warning(f"Message failed via {self.channel_name}: {result.error}")
 
             return result
 
@@ -180,11 +175,7 @@ class TemplateManager:
         template = self.templates[template_id].copy()
 
         # Apply channel-specific overrides
-        if (
-            channel
-            and "channel_specific" in template
-            and channel in template["channel_specific"]
-        ):
+        if channel and "channel_specific" in template and channel in template["channel_specific"]:
             channel_overrides = template["channel_specific"][channel]
             template.update(channel_overrides)
 
@@ -276,17 +267,11 @@ class ChannelManager:
 
     def list_channels(self) -> Dict[str, Dict[str, Any]]:
         """List all available channels."""
-        return {
-            name: channel.get_channel_info() for name, channel in self.channels.items()
-        }
+        return {name: channel.get_channel_info() for name, channel in self.channels.items()}
 
     def get_enabled_channels(self) -> Dict[str, BaseChannel]:
         """Get all enabled channels."""
-        return {
-            name: channel
-            for name, channel in self.channels.items()
-            if channel.is_enabled()
-        }
+        return {name: channel for name, channel in self.channels.items() if channel.is_enabled()}
 
     async def send_message(
         self, channel_name: str, message_request: MessageRequest
@@ -333,8 +318,7 @@ class ChannelManager:
                 result = await self.send_message(channel_name, message_request)
                 results[channel_name] = result
             except Exception as e:
-                results[channel_name] = MessageResult(
-                    success=False, error=str(e))
+                results[channel_name] = MessageResult(success=False, error=str(e))
 
         return results
 

@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+
 class SafetyUI:
     def __init__(self):
         pass

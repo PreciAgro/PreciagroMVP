@@ -14,7 +14,7 @@ Usage:
         ExplanationRequest,
         ExplanationResponse,
     )
-    
+
     service = ExplanationService()
     response = await service.explain(request)
 """
@@ -69,24 +69,24 @@ from .config.settings import TEESettings, get_settings
 # Engine interface functions for compatibility
 def run(data: Dict[str, Any]) -> Dict[str, Any]:
     """Run trust explainability engine (sync interface).
-    
+
     Args:
         data: Input data containing model outputs to explain
-        
+
     Returns:
         Dictionary with explanations and trace ID
     """
     import asyncio
-    
+
     # Parse request
     request = ExplanationRequest(
         model_type=data.get("model_type", "tabular"),
         model_id=data.get("model_id", "unknown"),
         model_outputs=data.get("model_outputs", data),
         context=data.get("context", {}),
-        language=data.get("language", "en")
+        language=data.get("language", "en"),
     )
-    
+
     # Run explanation
     service = ExplanationService()
     loop = asyncio.new_event_loop()
@@ -94,7 +94,7 @@ def run(data: Dict[str, Any]) -> Dict[str, Any]:
         response = loop.run_until_complete(service.explain(request))
     finally:
         loop.close()
-    
+
     return {
         "engine": "trust_explainability",
         "status": "success",
@@ -108,13 +108,13 @@ def run(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def status() -> Dict[str, Any]:
     """Get engine status.
-    
+
     Returns:
         Dictionary with engine state information
     """
     settings = get_settings()
     trace_store = get_trace_store()
-    
+
     return {
         "engine": "trust_explainability",
         "state": "ready",
@@ -126,37 +126,37 @@ def status() -> Dict[str, Any]:
             "gradcam_enabled": settings.enable_gradcam,
             "llm_summary_enabled": settings.enable_llm_summary,
             "safety_gate_enabled": settings.safety_gate_enabled,
-        }
+        },
     }
 
 
 def explain_prediction(model_output: Dict[str, Any], model_type: str) -> Dict[str, Any]:
     """Generate explanation for a model prediction.
-    
+
     Args:
         model_output: Output from the model
         model_type: Type of model (e.g., 'cv', 'tabular', 'rule')
-        
+
     Returns:
         Explanation including feature importance, reasoning, etc.
     """
-    return run({
-        "model_type": model_type,
-        "model_outputs": model_output,
-    })
+    return run(
+        {
+            "model_type": model_type,
+            "model_outputs": model_output,
+        }
+    )
 
 
 __all__ = [
     # Main interface
     "run",
-    "status", 
+    "status",
     "explain_prediction",
-    
     # Services
     "ExplanationService",
     "TraceService",
     "FeedbackService",
-    
     # Contracts
     "ExplanationRequest",
     "ExplanationResponse",
@@ -168,7 +168,6 @@ __all__ = [
     "SafetyViolation",
     "FeedbackPayload",
     "ModelInfo",
-    
     # Enums
     "ExplanationLevel",
     "UncertaintyType",
@@ -176,7 +175,6 @@ __all__ = [
     "EvidenceType",
     "ExplanationStrategy",
     "ViolationSeverity",
-    
     # Core modules
     "EvidenceCollector",
     "ExplanationRouter",
@@ -185,17 +183,13 @@ __all__ = [
     "ReasoningTraceBuilder",
     "TraceStore",
     "get_trace_store",
-    
     # Strategies
     "BaseExplainer",
     "CVExplainer",
     "TabularExplainer",
     "RuleExplainer",
     "LLMSummarizer",
-    
     # Configuration
     "TEESettings",
     "get_settings",
 ]
-
-

@@ -12,9 +12,7 @@ class MockConnector:
     def __init__(self, name: str = "mock.source"):
         self.name = name
 
-    def fetch(
-        self, *, cursor=None, lat=None, lon=None, scope=None, units=None
-    ) -> Iterable[dict]:
+    def fetch(self, *, cursor=None, lat=None, lon=None, scope=None, units=None) -> Iterable[dict]:
         # yield a single synthetic record
         ts = int(time.time())
         yield {

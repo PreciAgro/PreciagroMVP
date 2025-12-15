@@ -83,12 +83,12 @@ def create_app() -> FastAPI:
             "intent_schema": settings.intent_schema_version,
             "response_schema": settings.response_schema_version,
         }
-    
+
     @app.get("/health", tags=["system"])
     async def health(response: Response) -> dict[str, Any]:
         """Health check that verifies Redis connectivity."""
         status = {"status": "ok", "details": {"redis": "disabled"}}
-        
+
         store = app.state.orchestrator.session_store
         if store.redis:
             try:
@@ -98,7 +98,7 @@ def create_app() -> FastAPI:
                 status["status"] = "error"
                 status["details"]["redis"] = "unreachable"
                 response.status_code = 503
-        
+
         return status
 
     return app

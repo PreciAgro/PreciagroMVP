@@ -29,11 +29,9 @@ class TokenManager:
     """Manages JWT tokens for API authentication."""
 
     def __init__(self, secret_key: Optional[str] = None):
-        self.secret_key = secret_key or os.getenv(
-            "TEMPORAL_JWT_SECRET", "dev-secret-key")
+        self.secret_key = secret_key or os.getenv("TEMPORAL_JWT_SECRET", "dev-secret-key")
         self.algorithm = "HS256"
-        self.access_token_expire_minutes = int(
-            os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+        self.access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
     def create_access_token(
         self,
@@ -45,9 +43,7 @@ class TokenManager:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(
-                minutes=self.access_token_expire_minutes
-            )
+            expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
 
         to_encode = {
             "sub": subject,
@@ -60,9 +56,7 @@ class TokenManager:
             to_encode.update(additional_claims)
 
         try:
-            encoded_jwt = jwt.encode(
-                to_encode, self.secret_key, algorithm=self.algorithm
-            )
+            encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
             logger.info(f"Created access token for {subject}")
             return encoded_jwt
         except Exception as e:
@@ -72,8 +66,7 @@ class TokenManager:
     def verify_token(self, token: str) -> Dict[str, Any]:
         """Verify and decode a JWT token."""
         try:
-            payload = jwt.decode(token, self.secret_key,
-                                 algorithms=[self.algorithm])
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
 
             # Check token type
             if payload.get("type") != "access":
@@ -246,13 +239,9 @@ class AuthorizationManager:
 
     def revoke_permission(self, user_id: str, permission: str):
         """Revoke a specific permission from a user."""
-        if (
-            user_id in self.user_permissions
-            and permission in self.user_permissions[user_id]
-        ):
+        if user_id in self.user_permissions and permission in self.user_permissions[user_id]:
             self.user_permissions[user_id].remove(permission)
-            logger.info(
-                f"Revoked permission '{permission}' from user {user_id}")
+            logger.info(f"Revoked permission '{permission}' from user {user_id}")
 
     def get_user_permissions(self, user_id: str) -> List[str]:
         """Get all permissions for a user (from roles and direct grants)."""
@@ -277,9 +266,7 @@ class AuthorizationManager:
     def require_permission(self, user_id: str, permission: str):
         """Require user to have permission, raise exception if not."""
         if not self.has_permission(user_id, permission):
-            logger.warning(
-                f"User {user_id} denied access: missing permission '{permission}'"
-            )
+            logger.warning(f"User {user_id} denied access: missing permission '{permission}'")
             raise AuthorizationError(f"Missing permission: {permission}")
 
     def get_user_roles(self, user_id: str) -> List[str]:
@@ -298,8 +285,7 @@ class SecurityMiddleware:
     def authenticate_token(self, authorization_header: str) -> Dict[str, Any]:
         """Authenticate using Bearer token."""
         if not authorization_header or not authorization_header.startswith("Bearer "):
-            raise AuthenticationError(
-                "Missing or invalid authorization header")
+            raise AuthenticationError("Missing or invalid authorization header")
 
         token = authorization_header[7:]  # Remove "Bearer " prefix
         payload = self.token_manager.verify_token(token)
@@ -337,9 +323,7 @@ class SecurityMiddleware:
         """Authorize a request."""
         self.auth_manager.require_permission(user_id, required_permission)
 
-    def create_session(
-        self, user_id: str, metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def create_session(self, user_id: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """Create a user session."""
         import secrets
 

@@ -45,12 +45,7 @@ class ClipFallback:
     ) -> Optional[PredictedLabel]:
         """Return the highest ranking CLIP prompt for this crop image."""
 
-        if (
-            not image
-            or image is None
-            or not self.available
-            or not crop_config.clip.enabled
-        ):
+        if not image or image is None or not self.available or not crop_config.clip.enabled:
             return None
 
         candidates = self._build_candidates(get_prompt_set(crop))
@@ -94,7 +89,9 @@ class ClipFallback:
         """Return (label, text) tuples for all configured prompts."""
 
         candidates: List[Tuple[str, str]] = []
-        for prompt in prompt_set.disease_prompts + prompt_set.nutrient_prompts + prompt_set.general_prompts:
+        for prompt in (
+            prompt_set.disease_prompts + prompt_set.nutrient_prompts + prompt_set.general_prompts
+        ):
             label = self._infer_label(prompt)
             candidates.append((label, prompt))
         return candidates

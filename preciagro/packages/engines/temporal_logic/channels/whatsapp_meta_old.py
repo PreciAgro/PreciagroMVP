@@ -7,8 +7,7 @@ import aiohttp
 
 from ..config import config
 from ..contracts import MessageRequest
-from .base import (BaseChannel, ChannelConfigurationError, DeliveryStatus,
-                   MessageResult)
+from .base import BaseChannel, ChannelConfigurationError, DeliveryStatus, MessageResult
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +75,7 @@ class WhatsAppMetaChannel(BaseChannel):
 
         for field in required_fields:
             if not self.config.get(field):
-                raise ChannelConfigurationError(
-                    f"Missing required WhatsApp config: {field}"
-                )
+                raise ChannelConfigurationError(f"Missing required WhatsApp config: {field}")
 
         if not self.access_token.startswith(("EAA", "EAB")):
             logger.warning("WhatsApp access token format may be invalid")
@@ -119,8 +116,7 @@ class WhatsAppMetaChannel(BaseChannel):
                     response_data = await response.json()
 
                     if response.status == 200:
-                        message_id = response_data.get(
-                            "messages", [{}])[0].get("id")
+                        message_id = response_data.get("messages", [{}])[0].get("id")
                         return MessageResult(
                             success=True,
                             message_id=message_id,
@@ -128,9 +124,7 @@ class WhatsAppMetaChannel(BaseChannel):
                             metadata={"whatsapp_response": response_data},
                         )
                     else:
-                        error_msg = response_data.get("error", {}).get(
-                            "message", "Unknown error"
-                        )
+                        error_msg = response_data.get("error", {}).get("message", "Unknown error")
                         return MessageResult(
                             success=False,
                             error=f"WhatsApp API error: {error_msg}",
@@ -174,10 +168,7 @@ class WhatsAppMetaChannel(BaseChannel):
         payload = {"messaging_product": "whatsapp", "to": recipient}
 
         # Handle template messages
-        if (
-            message_request.template_id
-            and message_request.template_id in self.message_templates
-        ):
+        if message_request.template_id and message_request.template_id in self.message_templates:
             template_config = self.message_templates[message_request.template_id]
 
             # Build template message
@@ -205,9 +196,7 @@ class WhatsAppMetaChannel(BaseChannel):
 
         return payload
 
-    def _build_template_components(
-        self, components_template: list, params: Dict[str, Any]
-    ) -> list:
+    def _build_template_components(self, components_template: list, params: Dict[str, Any]) -> list:
         """Build template components with parameter substitution."""
         components = []
 
@@ -222,11 +211,9 @@ class WhatsAppMetaChannel(BaseChannel):
                         text_value = param["text"]
                         for key, value in params.items():
                             placeholder = f"{{{{{key}}}}}"
-                            text_value = text_value.replace(
-                                placeholder, str(value))
+                            text_value = text_value.replace(placeholder, str(value))
 
-                        new_parameters.append(
-                            {"type": "text", "text": text_value})
+                        new_parameters.append({"type": "text", "text": text_value})
                     else:
                         new_parameters.append(param)
 
@@ -255,9 +242,7 @@ class WhatsAppMetaChannel(BaseChannel):
                     if "changes" in entry:
                         for change in entry["changes"]:
                             if change.get("field") == "messages":
-                                return await self._process_message_change(
-                                    change["value"]
-                                )
+                                return await self._process_message_change(change["value"])
 
             return {"processed": False, "reason": "No relevant data found"}
 
@@ -265,9 +250,7 @@ class WhatsAppMetaChannel(BaseChannel):
             logger.error(f"WhatsApp webhook processing error: {e}")
             return {"processed": False, "error": str(e)}
 
-    async def _process_message_change(
-        self, change_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _process_message_change(self, change_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process message status change from webhook."""
         # Handle message status updates
         if "statuses" in change_data:
@@ -276,8 +259,7 @@ class WhatsAppMetaChannel(BaseChannel):
                 status_value = status.get("status")
                 timestamp = status.get("timestamp")
 
-                logger.info(
-                    f"WhatsApp message {message_id} status: {status_value}")
+                logger.info(f"WhatsApp message {message_id} status: {status_value}")
 
                 # Here you would typically update your database with the status
                 # For now, just log it
@@ -298,8 +280,7 @@ class WhatsAppMetaChannel(BaseChannel):
 
                 if message_type == "text":
                     text_body = message.get("text", {}).get("body", "")
-                    logger.info(
-                        f"Received WhatsApp message from {sender}: {text_body}")
+                    logger.info(f"Received WhatsApp message from {sender}: {text_body}")
 
                     return {
                         "processed": True,
@@ -311,13 +292,9 @@ class WhatsAppMetaChannel(BaseChannel):
 
         return {"processed": False, "reason": "No actionable data"}
 
-    def verify_webhook(
-        self, verify_token: str, mode: str, challenge: str
-    ) -> Optional[str]:
+    def verify_webhook(self, verify_token: str, mode: str, challenge: str) -> Optional[str]:
         """Verify WhatsApp webhook subscription."""
-        if mode == "subscribe" and verify_token == self.config.get(
-            "webhook_verify_token"
-        ):
+        if mode == "subscribe" and verify_token == self.config.get("webhook_verify_token"):
             logger.info("WhatsApp webhook verified successfully")
             return challenge
 

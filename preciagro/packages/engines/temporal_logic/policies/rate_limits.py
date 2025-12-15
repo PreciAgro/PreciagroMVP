@@ -26,9 +26,7 @@ class RateLimitPolicy:
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
-    async def check_rate_limit(
-        self, user_id: str, channel: str, message_type: str
-    ) -> bool:
+    async def check_rate_limit(self, user_id: str, channel: str, message_type: str) -> bool:
         """
         Return True when the message is below the configured limit.
 
@@ -38,9 +36,7 @@ class RateLimitPolicy:
         limit = self._get_rate_limit(channel, message_type)
         return current < limit
 
-    async def _get_current_usage(
-        self, user_id: str, channel: str, message_type: str
-    ) -> int:
+    async def _get_current_usage(self, user_id: str, channel: str, message_type: str) -> int:
         """Lookup how many messages were sent in the current window."""
         async with self.session_factory() as session:
             _ = session  # touch session for future extension
@@ -51,8 +47,6 @@ class RateLimitPolicy:
         return MAX_NOTIFICATIONS_PER_DAY
 
 
-def apply_rate_limiting(
-    user_id: str, channel: str, scheduled_time: datetime, priority: int
-):
+def apply_rate_limiting(user_id: str, channel: str, scheduled_time: datetime, priority: int):
     """Return the original schedule time with a friendly message."""
     return scheduled_time, "Within rate limits"

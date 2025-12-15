@@ -24,7 +24,11 @@ class TemporalLogicClient:
             response = await self.client.get(
                 f"{self.base_url}/temporal/schedule/{farmer_id}",
                 params={"days_ahead": days_ahead},
-                headers={"X-PreciAgro-Token": settings.API_AUTH_TOKEN} if settings.API_AUTH_TOKEN else {},
+                headers=(
+                    {"X-PreciAgro-Token": settings.API_AUTH_TOKEN}
+                    if settings.API_AUTH_TOKEN
+                    else {}
+                ),
             )
             if response.status_code == 200:
                 return response.json().get("tasks", [])
@@ -32,9 +36,7 @@ class TemporalLogicClient:
             pass
         return []
 
-    async def notify_inventory_deduction(
-        self, task_id: str, item_id: str, quantity: float
-    ) -> bool:
+    async def notify_inventory_deduction(self, task_id: str, item_id: str, quantity: float) -> bool:
         """Notify Temporal Logic Engine that inventory was deducted for a task."""
         try:
             response = await self.client.post(
@@ -44,7 +46,11 @@ class TemporalLogicClient:
                     "quantity": quantity,
                     "timestamp": datetime.utcnow().isoformat(),
                 },
-                headers={"X-PreciAgro-Token": settings.API_AUTH_TOKEN} if settings.API_AUTH_TOKEN else {},
+                headers=(
+                    {"X-PreciAgro-Token": settings.API_AUTH_TOKEN}
+                    if settings.API_AUTH_TOKEN
+                    else {}
+                ),
             )
             return response.status_code == 200
         except Exception:
@@ -53,4 +59,3 @@ class TemporalLogicClient:
     async def close(self):
         """Close the HTTP client."""
         await self.client.aclose()
-

@@ -1,7 +1,7 @@
 """WeightedFeedback model - Derived artifact from feedback processing.
 
 WeightedFeedback is computed from FeedbackEvent using the weighting formula:
-Weight = base_confidence × farmer_experience_factor × historical_accuracy_factor 
+Weight = base_confidence × farmer_experience_factor × historical_accuracy_factor
          × model_confidence_factor × environmental_stability_factor
 
 Key properties:
@@ -24,73 +24,79 @@ Base = declarative_base()
 
 class WeightedFeedback(BaseModel):
     """Pydantic model for WeightedFeedback - derived weighted artifact."""
-    
+
     model_config = ConfigDict(extra="forbid")
-    
+
     # Primary identity
-    weighted_id: str = Field(default_factory=lambda: str(uuid4()), description="Weighted feedback ID")
-    
+    weighted_id: str = Field(
+        default_factory=lambda: str(uuid4()), description="Weighted feedback ID"
+    )
+
     # Link to source (never overwritten)
     source_feedback_id: str = Field(..., description="Source FeedbackEvent ID")
     recommendation_id: str = Field(..., description="Recommendation ID")
-    
+
     # Computed weight and factors
     final_weight: float = Field(..., ge=0, le=1, description="Final computed weight")
     base_confidence: float = Field(..., ge=0, le=1, description="Base confidence value")
     farmer_experience_factor: float = Field(..., ge=0, le=1, description="Farmer experience factor")
-    historical_accuracy_factor: float = Field(..., ge=0, le=1, description="Historical accuracy factor")
+    historical_accuracy_factor: float = Field(
+        ..., ge=0, le=1, description="Historical accuracy factor"
+    )
     model_confidence_factor: float = Field(..., ge=0, le=1, description="Model confidence factor")
-    environmental_stability_factor: float = Field(..., ge=0, le=1, description="Environmental stability")
-    
+    environmental_stability_factor: float = Field(
+        ..., ge=0, le=1, description="Environmental stability"
+    )
+
     # Trust and quality
     trust_score: float = Field(..., ge=0, le=1, description="Trust score for this feedback")
     quality_score: float = Field(..., ge=0, le=1, description="Quality score")
-    
+
     # Flags
     is_flagged: bool = Field(default=False, description="Flagged for review")
     flag_reasons: List[str] = Field(default_factory=list, description="List of flag reasons")
-    
+
     is_noise: bool = Field(default=False, description="Classified as noise")
     is_duplicate: bool = Field(default=False, description="Detected as duplicate")
     is_contradiction: bool = Field(default=False, description="Contradicts other feedback")
-    
+
     # Duplicate detection
     duplicate_of_id: Optional[str] = Field(None, description="ID of original if duplicate")
     contradiction_with_ids: List[str] = Field(
         default_factory=list, description="IDs of contradicting feedback"
     )
-    
+
     # Region scope
     region_code: str = Field(..., description="Region code")
-    
+
     # Processing info
     weighting_version: str = Field(default="1.0", description="Weighting formula version")
     processed_at: datetime = Field(default_factory=datetime.utcnow, description="When processed")
-    
+
     # Audit reference
     audit_trace_id: Optional[str] = Field(None, description="Audit trace ID")
-    
+
     # Metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
 class WeightedFeedbackDB(Base):
     """SQLAlchemy model for WeightedFeedback - derived weighted artifact."""
-    
+
     __tablename__ = "weighted_feedback"
-    
+
     # Primary key
     weighted_id = Column(String(36), primary_key=True, index=True)
-    
+
     # Link to source
     source_feedback_id = Column(
-        String(36), 
+        String(36),
         ForeignKey("feedback_events.feedback_id", ondelete="RESTRICT"),
         nullable=False,
-        index=True
+        index=True,
     )
     recommendation_id = Column(String(36), nullable=False, index=True)
-    
+
     # Computed weight
     final_weight = Column(Float, nullable=False)
     base_confidence = Column(Float, nullable=False)
@@ -98,42 +104,42 @@ class WeightedFeedbackDB(Base):
     historical_accuracy_factor = Column(Float, nullable=False)
     model_confidence_factor = Column(Float, nullable=False)
     environmental_stability_factor = Column(Float, nullable=False)
-    
+
     # Trust and quality
     trust_score = Column(Float, nullable=False)
     quality_score = Column(Float, nullable=False)
-    
+
     # Flags
     is_flagged = Column(Boolean, nullable=False, default=False, index=True)
     flag_reasons = Column(JSONB, nullable=False, default=list)
-    
+
     is_noise = Column(Boolean, nullable=False, default=False)
     is_duplicate = Column(Boolean, nullable=False, default=False)
     is_contradiction = Column(Boolean, nullable=False, default=False)
-    
+
     # Duplicate detection
     duplicate_of_id = Column(String(36), nullable=True)
     contradiction_with_ids = Column(JSONB, nullable=False, default=list)
-    
+
     # Region
     region_code = Column(String(10), nullable=False, index=True)
-    
+
     # Processing info
     weighting_version = Column(String(10), nullable=False, default="1.0")
     processed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    
+
     # Audit
     audit_trace_id = Column(String(36), nullable=True, index=True)
-    
+
     # Metadata
     extra_metadata = Column(JSONB, nullable=False, default=dict)
-    
+
     # Indexes
     __table_args__ = (
         Index("ix_weighted_feedback_rec_weight", "recommendation_id", "final_weight"),
         Index("ix_weighted_feedback_region_flagged", "region_code", "is_flagged"),
     )
-    
+
     def to_pydantic(self) -> WeightedFeedback:
         """Convert to Pydantic model."""
         return WeightedFeedback(
@@ -161,7 +167,7 @@ class WeightedFeedbackDB(Base):
             audit_trace_id=self.audit_trace_id,
             metadata=self.extra_metadata or {},
         )
-    
+
     @classmethod
     def from_pydantic(cls, model: WeightedFeedback) -> "WeightedFeedbackDB":
         """Create from Pydantic model."""

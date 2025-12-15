@@ -48,20 +48,18 @@ class UsageLogRepository:
         limit: Optional[int] = None,
     ) -> List[models.UsageLog]:
         """Get usage logs for an item, optionally filtered by date range."""
-        query = self.session.query(models.UsageLog).filter(
-            models.UsageLog.item_id == item_id
-        )
-        
+        query = self.session.query(models.UsageLog).filter(models.UsageLog.item_id == item_id)
+
         if start_date:
             query = query.filter(models.UsageLog.timestamp >= start_date)
         if end_date:
             query = query.filter(models.UsageLog.timestamp <= end_date)
-        
+
         query = query.order_by(desc(models.UsageLog.timestamp))
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
 
     def get_by_farmer(
@@ -72,20 +70,18 @@ class UsageLogRepository:
         limit: Optional[int] = None,
     ) -> List[models.UsageLog]:
         """Get usage logs for a farmer, optionally filtered by date range."""
-        query = self.session.query(models.UsageLog).filter(
-            models.UsageLog.farmer_id == farmer_id
-        )
-        
+        query = self.session.query(models.UsageLog).filter(models.UsageLog.farmer_id == farmer_id)
+
         if start_date:
             query = query.filter(models.UsageLog.timestamp >= start_date)
         if end_date:
             query = query.filter(models.UsageLog.timestamp <= end_date)
-        
+
         query = query.order_by(desc(models.UsageLog.timestamp))
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
 
     def get_by_field(
@@ -95,23 +91,19 @@ class UsageLogRepository:
         end_date: Optional[datetime] = None,
     ) -> List[models.UsageLog]:
         """Get usage logs for a field."""
-        query = self.session.query(models.UsageLog).filter(
-            models.UsageLog.field_id == field_id
-        )
-        
+        query = self.session.query(models.UsageLog).filter(models.UsageLog.field_id == field_id)
+
         if start_date:
             query = query.filter(models.UsageLog.timestamp >= start_date)
         if end_date:
             query = query.filter(models.UsageLog.timestamp <= end_date)
-        
+
         return query.order_by(desc(models.UsageLog.timestamp)).all()
 
-    def calculate_usage_rate(
-        self, item_id: str, days: int = 7
-    ) -> Optional[Decimal]:
+    def calculate_usage_rate(self, item_id: str, days: int = 7) -> Optional[Decimal]:
         """Calculate average daily usage rate for an item over the last N days."""
         start_date = datetime.utcnow() - timedelta(days=days)
-        
+
         result = (
             self.session.query(func.sum(models.UsageLog.quantity_used))
             .filter(
@@ -122,27 +114,24 @@ class UsageLogRepository:
             )
             .scalar()
         )
-        
+
         if result is None:
             return None
-        
+
         total_usage = Decimal(str(result))
         if total_usage == 0:
             return Decimal("0.00")
-        
+
         return total_usage / Decimal(str(days))
 
-    def get_total_usage(
-        self, item_id: str, start_date: Optional[datetime] = None
-    ) -> Decimal:
+    def get_total_usage(self, item_id: str, start_date: Optional[datetime] = None) -> Decimal:
         """Get total usage for an item, optionally from a start date."""
         query = self.session.query(func.sum(models.UsageLog.quantity_used)).filter(
             models.UsageLog.item_id == item_id
         )
-        
+
         if start_date:
             query = query.filter(models.UsageLog.timestamp >= start_date)
-        
+
         result = query.scalar()
         return Decimal(str(result)) if result else Decimal("0.00")
-

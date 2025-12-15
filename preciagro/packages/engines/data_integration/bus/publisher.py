@@ -18,17 +18,13 @@ _redis_sync = None
 try:
     import redis.asyncio as _redis_async_pkg
 
-    _redis_async = _redis_async_pkg.from_url(
-        os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    )
+    _redis_async = _redis_async_pkg.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     logger.debug("Using redis.asyncio for publisher")
 except Exception:
     try:
         import redis as _redis_sync_pkg
 
-        _redis_sync = _redis_sync_pkg.from_url(
-            os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        )
+        _redis_sync = _redis_sync_pkg.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
         logger.debug("Using sync redis for publisher (threadpool fallback)")
     except Exception:
         _redis_sync = None
@@ -65,23 +61,17 @@ async def publish_ingest_created(item: Any):
 
     if _redis_async:
         try:
-            await _redis_async.xadd(
-                "bus:ingest.normalized.created", {"payload": payload}
-            )
+            await _redis_async.xadd("bus:ingest.normalized.created", {"payload": payload})
             return
         except Exception:
-            logger.exception(
-                "redis.asyncio publish failed; falling back to sync client"
-            )
+            logger.exception("redis.asyncio publish failed; falling back to sync client")
 
     if _redis_sync:
         loop = asyncio.get_running_loop()
         try:
             await loop.run_in_executor(
                 None,
-                lambda: _redis_sync.xadd(
-                    "bus:ingest.normalized.created", {"payload": payload}
-                ),
+                lambda: _redis_sync.xadd("bus:ingest.normalized.created", {"payload": payload}),
             )
             return
         except Exception:

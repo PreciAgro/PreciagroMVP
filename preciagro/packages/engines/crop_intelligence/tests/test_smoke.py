@@ -78,7 +78,10 @@ def test_register_and_core_flows(client: TestClient):
     assert recommend.status_code == 200
     assert recommend.json()["items"]
 
-    predict = client.post("/cie/predict-yield", json={"field_id": "f_1", "season_features": {"cumulative_rain_mm": 120.0}})
+    predict = client.post(
+        "/cie/predict-yield",
+        json={"field_id": "f_1", "season_features": {"cumulative_rain_mm": 120.0}},
+    )
     assert predict.status_code == 200
     payload = predict.json()
     assert payload["p10"] <= payload["p50"] <= payload["p90"]

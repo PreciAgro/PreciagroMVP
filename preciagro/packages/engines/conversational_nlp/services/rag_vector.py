@@ -71,7 +71,9 @@ class VectorDBRetriever:
         except Exception:
             self.client.recreate_collection(
                 collection_name=self.collection,
-                vectors_config=qmodels.VectorParams(size=self.embedder.vector_size, distance=qmodels.Distance.COSINE),
+                vectors_config=qmodels.VectorParams(
+                    size=self.embedder.vector_size, distance=qmodels.Distance.COSINE
+                ),
             )
 
     def _upsert_docs(self, docs: List[dict]) -> None:

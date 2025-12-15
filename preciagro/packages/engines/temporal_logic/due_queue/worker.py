@@ -3,6 +3,7 @@
 import logging
 import traceback
 from contextlib import asynccontextmanager
+
 # FIX: Ruff F821 lint — ensure retry windows use timedelta explicitly.
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -68,8 +69,7 @@ class TaskWorker:
                 result = await self._execute_task_by_type(task, session)
 
                 # Record execution time
-                execution_time = (datetime.utcnow() -
-                                  start_time).total_seconds()
+                execution_time = (datetime.utcnow() - start_time).total_seconds()
 
                 # Update task status and record outcome
                 await self._finalize_task(task, result, execution_time, session)
@@ -85,9 +85,7 @@ class TaskWorker:
 
                 await session.commit()
 
-                logger.info(
-                    f"Task {task_id} executed successfully: {result['success']}"
-                )
+                logger.info(f"Task {task_id} executed successfully: {result['success']}")
                 return result
 
         except Exception as e:
@@ -104,8 +102,7 @@ class TaskWorker:
                         task.completed_at = datetime.utcnow()
                         await session.commit()
             except Exception as db_error:
-                logger.error(
-                    f"Failed to update task status in database: {db_error}")
+                logger.error(f"Failed to update task status in database: {db_error}")
 
             return {"success": False, "error": str(e)}
 
@@ -133,9 +130,7 @@ class TaskWorker:
         else:
             yield factory
 
-    async def _get_task(
-        self, session: AsyncSession, task_id: int
-    ) -> Optional[ScheduledTask]:
+    async def _get_task(self, session: AsyncSession, task_id: int) -> Optional[ScheduledTask]:
         """Get task from database."""
         stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
         result = await session.execute(stmt)
@@ -194,8 +189,7 @@ class TaskWorker:
 
             send_fn = getattr(channel_impl, "send_message", None)
             if not callable(send_fn):
-                raise RuntimeError(
-                    f"Channel '{channel}' missing send_message()")
+                raise RuntimeError(f"Channel '{channel}' missing send_message()")
 
             result = await send_fn(message_request)
 
@@ -220,8 +214,7 @@ class TaskWorker:
             webhook_url = task_config.get("webhook_url")
             webhook_payload = task_config.get("webhook_payload", {})
             method = task_config.get("method", "POST").upper()
-            headers = task_config.get(
-                "headers", {"Content-Type": "application/json"})
+            headers = task_config.get("headers", {"Content-Type": "application/json"})
             timeout = task_config.get("timeout", 30)
 
             if not webhook_url:
@@ -272,8 +265,7 @@ class TaskWorker:
             task_config = task.task_config or {}
 
             schedule_type = task_config.get("task_type", "message")
-            schedule_after = task_config.get(
-                "schedule_after", 3600)  # 1 hour default
+            schedule_after = task_config.get("schedule_after", 3600)  # 1 hour default
             params = task_config.get("params", {})
 
             # Create new scheduled task

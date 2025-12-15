@@ -20,7 +20,11 @@ class CropIntelligenceClient:
         try:
             response = await self.client.get(
                 f"{self.base_url}/cie/field/{field_id}",
-                headers={"X-PreciAgro-Token": settings.API_AUTH_TOKEN} if settings.API_AUTH_TOKEN else {},
+                headers=(
+                    {"X-PreciAgro-Token": settings.API_AUTH_TOKEN}
+                    if settings.API_AUTH_TOKEN
+                    else {}
+                ),
             )
             if response.status_code == 200:
                 return response.json()
@@ -37,11 +41,9 @@ class CropIntelligenceClient:
             return state.get("stage")
         return None
 
-    async def get_usage_rates(
-        self, crop_type: str, crop_stage: str
-    ) -> Optional[Dict[str, float]]:
+    async def get_usage_rates(self, crop_type: str, crop_stage: str) -> Optional[Dict[str, float]]:
         """Get recommended usage rates for inputs based on crop and stage.
-        
+
         Returns a dictionary mapping input categories to usage rates.
         For MVP, returns None (uses rule-based estimation).
         In production, this would query the Crop Intelligence Engine for
@@ -54,4 +56,3 @@ class CropIntelligenceClient:
     async def close(self):
         """Close the HTTP client."""
         await self.client.aclose()
-

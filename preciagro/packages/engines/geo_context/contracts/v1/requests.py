@@ -59,9 +59,7 @@ class FCORequest(BaseModel):
         """Ensure a point or polygon is provided."""
         if values.field is not None and values.polygon is None:
             ring = values.field.coordinates[0] if values.field.coordinates else []
-            values.polygon = LocationPolygon(
-                coordinates=[[lon, lat] for lon, lat in ring]
-            )
+            values.polygon = LocationPolygon(coordinates=[[lon, lat] for lon, lat in ring])
 
         return values
 

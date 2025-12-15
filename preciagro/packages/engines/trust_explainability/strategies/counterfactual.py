@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Counterfactual:
     """A single counterfactual explanation."""
-    
+
     feature: str
     original_value: Any
     suggested_value: Any
@@ -31,7 +31,7 @@ class Counterfactual:
 @dataclass
 class CounterfactualSet:
     """Set of counterfactuals for a prediction."""
-    
+
     original_prediction: str
     original_confidence: float
     target_prediction: Optional[str]
@@ -42,17 +42,17 @@ class CounterfactualSet:
 
 class CounterfactualExplainer(BaseExplainer):
     """Generates counterfactual 'what if' explanations.
-    
+
     Shows minimal feature changes needed to:
     - Flip a prediction to a desired outcome
     - Increase confidence above a threshold
     - Understand feature sensitivities
     """
-    
+
     @property
     def strategy_type(self) -> ExplanationStrategy:
         return ExplanationStrategy.COUNTERFACTUAL
-    
+
     def __init__(self) -> None:
         """Initialize counterfactual explainer."""
         # Feature actionability and cost database
@@ -64,12 +64,10 @@ class CounterfactualExplainer(BaseExplainer):
             "potassium": 0.3,
             "organic_matter": 0.5,
             "moisture": 0.1,  # Irrigation
-            
             # Environmental - mostly not actionable
             "temperature": 0.9,  # Can only use shade/timing
             "humidity": 0.8,
             "rainfall": 1.0,  # Cannot control
-            
             # Management - highly actionable
             "planting_date": 0.1,
             "seed_variety": 0.2,
@@ -77,7 +75,7 @@ class CounterfactualExplainer(BaseExplainer):
             "irrigation_frequency": 0.1,
             "pesticide_application": 0.2,
         }
-        
+
         # Feature value ranges for perturbation
         self._feature_ranges: Dict[str, Tuple[float, float]] = {
             "pH": (4.0, 9.0),
@@ -88,46 +86,43 @@ class CounterfactualExplainer(BaseExplainer):
             "temperature": (0, 45),
             "humidity": (0, 100),
         }
-        
+
         logger.info("CounterfactualExplainer initialized")
-    
+
     def explain(
         self,
         evidence: List[EvidenceItem],
         model_output: Dict[str, Any],
         level: ExplanationLevel = ExplanationLevel.FARMER,
-        language: str = "en"
+        language: str = "en",
     ) -> ExplanationArtifact:
         """Generate counterfactual explanation.
-        
+
         Args:
             evidence: Evidence items with feature data
             model_output: Model output to explain
             level: Target audience level
             language: Output language
-            
+
         Returns:
             ExplanationArtifact with counterfactuals
         """
         # Extract features from evidence and model output
         features = self._extract_features(evidence, model_output)
-        
+
         # Get prediction info
-        prediction = model_output.get(
-            "diagnosis",
-            model_output.get("prediction", "Unknown")
-        )
+        prediction = model_output.get("diagnosis", model_output.get("prediction", "Unknown"))
         confidence = model_output.get("confidence", 0.0)
-        
+
         # Generate counterfactuals
         cf_set = self.generate_counterfactuals(
             features=features,
             current_prediction=prediction,
             current_confidence=confidence,
             target_confidence=0.9,  # Aim for high confidence
-            max_changes=3
+            max_changes=3,
         )
-        
+
         # Format explanation based on level
         if level == ExplanationLevel.FARMER:
             content = self._format_farmer_counterfactuals(cf_set, language)
@@ -138,7 +133,7 @@ class CounterfactualExplainer(BaseExplainer):
         else:
             content = self._format_auditor_counterfactuals(cf_set, features)
             content_type = "structured"
-        
+
         return ExplanationArtifact(
             strategy=ExplanationStrategy.COUNTERFACTUAL,
             level=level,
@@ -159,23 +154,27 @@ class CounterfactualExplainer(BaseExplainer):
                 "feasibility": cf_set.feasibility_score,
             },
             cited_evidence_ids=self.get_cited_evidence_ids(evidence),
-            relevance_score=cf_set.feasibility_score
+            relevance_score=cf_set.feasibility_score,
         )
-    
+
     def supports(self, model_type: str) -> bool:
         """Check if this strategy supports the model type.
-        
+
         Args:
             model_type: Type of model
-            
+
         Returns:
             True for tabular/structured models
         """
         return model_type.lower() in [
-            "tabular", "structured", "ml", "xgboost",
-            "random_forest", "gradient_boosting"
+            "tabular",
+            "structured",
+            "ml",
+            "xgboost",
+            "random_forest",
+            "gradient_boosting",
         ]
-    
+
     def generate_counterfactuals(
         self,
         features: Dict[str, Any],
@@ -183,15 +182,15 @@ class CounterfactualExplainer(BaseExplainer):
         current_confidence: float,
         target_confidence: float = 0.9,
         target_prediction: Optional[str] = None,
-        max_changes: int = 3
+        max_changes: int = 3,
     ) -> CounterfactualSet:
         """Generate counterfactual explanations.
-        
+
         Uses a simplified DiCE-style approach:
         1. Identify features with high sensitivity
         2. Propose minimal changes
         3. Rank by cost and actionability
-        
+
         Args:
             features: Current feature values
             current_prediction: Current prediction
@@ -199,21 +198,21 @@ class CounterfactualExplainer(BaseExplainer):
             target_confidence: Desired confidence level
             target_prediction: Optional target prediction
             max_changes: Maximum number of changes
-            
+
         Returns:
             CounterfactualSet with proposed changes
         """
         counterfactuals: List[Counterfactual] = []
-        
+
         # Analyze each feature for potential counterfactuals
         for feature, value in features.items():
             if not isinstance(value, (int, float)):
                 continue
-            
+
             # Get feature cost (lower = more actionable)
             cost = self._feature_costs.get(feature.lower(), 0.5)
             actionable = cost < 0.7
-            
+
             # Calculate potential perturbation
             cf = self._generate_single_counterfactual(
                 feature=feature,
@@ -221,37 +220,36 @@ class CounterfactualExplainer(BaseExplainer):
                 current_confidence=current_confidence,
                 target_confidence=target_confidence,
                 cost=cost,
-                actionable=actionable
+                actionable=actionable,
             )
-            
+
             if cf:
                 counterfactuals.append(cf)
-        
+
         # Sort by impact/cost ratio (best value first)
         counterfactuals.sort(
-            key=lambda cf: (cf.actionable, cf.impact / max(cf.cost, 0.1)),
-            reverse=True
+            key=lambda cf: (cf.actionable, cf.impact / max(cf.cost, 0.1)), reverse=True
         )
-        
+
         # Take top N
         selected = counterfactuals[:max_changes]
-        
+
         # Calculate combined impact
         combined_impact = sum(cf.impact for cf in selected)
-        
+
         # Calculate feasibility (inverse of average cost)
         avg_cost = sum(cf.cost for cf in selected) / len(selected) if selected else 1.0
         feasibility = 1.0 - avg_cost
-        
+
         return CounterfactualSet(
             original_prediction=current_prediction,
             original_confidence=current_confidence,
             target_prediction=target_prediction,
             counterfactuals=selected,
             combined_impact=min(combined_impact, 1.0 - current_confidence),
-            feasibility_score=feasibility
+            feasibility_score=feasibility,
         )
-    
+
     def _generate_single_counterfactual(
         self,
         feature: str,
@@ -259,10 +257,10 @@ class CounterfactualExplainer(BaseExplainer):
         current_confidence: float,
         target_confidence: float,
         cost: float,
-        actionable: bool
+        actionable: bool,
     ) -> Optional[Counterfactual]:
         """Generate a single counterfactual for a feature.
-        
+
         Args:
             feature: Feature name
             current_value: Current feature value
@@ -270,7 +268,7 @@ class CounterfactualExplainer(BaseExplainer):
             target_confidence: Target confidence
             cost: Cost of changing this feature
             actionable: Whether farmer can act on this
-            
+
         Returns:
             Counterfactual or None if not applicable
         """
@@ -278,7 +276,7 @@ class CounterfactualExplainer(BaseExplainer):
         feature_key = feature.lower()
         value_range = self._feature_ranges.get(feature_key, (0, 100))
         min_val, max_val = value_range
-        
+
         # Determine direction of change - heuristic based on feature type
         # In production, this would use model gradients
         if feature_key in ["pH"]:
@@ -304,23 +302,21 @@ class CounterfactualExplainer(BaseExplainer):
             # Generic: perturb by 20%
             suggested = current_value * 1.2
             direction = "adjust"
-        
+
         # Clamp to valid range
         suggested = max(min_val, min(suggested, max_val))
-        
+
         # Skip if change is minimal
         if abs(suggested - current_value) < 0.01 * max_val:
             return None
-        
+
         # Estimate impact (simplified - in production use model)
         confidence_gap = target_confidence - current_confidence
         impact = min(confidence_gap * (1 - cost), 0.3)
-        
+
         # Generate explanation
-        explanation = self._format_change_explanation(
-            feature, current_value, suggested, direction
-        )
-        
+        explanation = self._format_change_explanation(feature, current_value, suggested, direction)
+
         return Counterfactual(
             feature=feature,
             original_value=round(current_value, 2),
@@ -328,64 +324,58 @@ class CounterfactualExplainer(BaseExplainer):
             impact=round(impact, 3),
             cost=cost,
             actionable=actionable,
-            explanation=explanation
+            explanation=explanation,
         )
-    
+
     def _extract_features(
-        self,
-        evidence: List[EvidenceItem],
-        model_output: Dict[str, Any]
+        self, evidence: List[EvidenceItem], model_output: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Extract features from evidence and model output.
-        
+
         Args:
             evidence: Evidence items
             model_output: Model output
-            
+
         Returns:
             Dictionary of feature values
         """
         features: Dict[str, Any] = {}
-        
+
         # Extract from model output
         for key in ["features", "inputs", "data"]:
             if key in model_output and isinstance(model_output[key], dict):
                 features.update(model_output[key])
-        
+
         # Extract from evidence metadata
         for ev in evidence:
             if ev.metadata:
                 for key in ["soil", "weather", "sensor_data", "features"]:
                     if key in ev.metadata and isinstance(ev.metadata[key], dict):
                         features.update(ev.metadata[key])
-        
+
         return features
-    
+
     def _format_change_explanation(
-        self,
-        feature: str,
-        current: float,
-        suggested: float,
-        direction: str
+        self, feature: str, current: float, suggested: float, direction: str
     ) -> str:
         """Format a change as human-readable explanation.
-        
+
         Args:
             feature: Feature name
             current: Current value
             suggested: Suggested value
             direction: Direction of change
-            
+
         Returns:
             Human-readable explanation
         """
         # Format feature name
         readable_name = feature.replace("_", " ").title()
-        
+
         # Calculate change
         change = suggested - current
         change_pct = abs(change / current * 100) if current != 0 else 100
-        
+
         if direction == "toward optimal":
             return f"Adjust {readable_name} from {current:.1f} to {suggested:.1f} (optimal range)"
         elif direction == "increase":
@@ -394,55 +384,48 @@ class CounterfactualExplainer(BaseExplainer):
             return f"Decrease {readable_name} by {change_pct:.0f}% (from {current:.1f} to {suggested:.1f})"
         else:
             return f"Adjust {readable_name} from {current:.1f} to {suggested:.1f}"
-    
-    def _format_farmer_counterfactuals(
-        self,
-        cf_set: CounterfactualSet,
-        language: str
-    ) -> str:
+
+    def _format_farmer_counterfactuals(self, cf_set: CounterfactualSet, language: str) -> str:
         """Format counterfactuals for farmer audience.
-        
+
         Args:
             cf_set: Counterfactual set
             language: Output language
-            
+
         Returns:
             Farmer-friendly explanation
         """
         if not cf_set.counterfactuals:
             return "The current conditions are close to optimal. No major changes recommended."
-        
+
         # Filter to actionable only
         actionable = [cf for cf in cf_set.counterfactuals if cf.actionable]
-        
+
         if not actionable:
             return (
                 f"Confidence is {cf_set.original_confidence:.0%}. "
                 "Higher confidence would require environmental changes beyond farmer control."
             )
-        
+
         lines = [
             f"Current confidence: {cf_set.original_confidence:.0%}. "
             "To improve confidence, consider:"
         ]
-        
+
         for i, cf in enumerate(actionable[:3], 1):
             lines.append(f"{i}. {cf.explanation}")
-        
+
         potential = cf_set.original_confidence + cf_set.combined_impact
         lines.append(f"\nThese changes could improve confidence to ~{potential:.0%}.")
-        
+
         return "\n".join(lines)
-    
-    def _format_expert_counterfactuals(
-        self,
-        cf_set: CounterfactualSet
-    ) -> str:
+
+    def _format_expert_counterfactuals(self, cf_set: CounterfactualSet) -> str:
         """Format counterfactuals for expert audience.
-        
+
         Args:
             cf_set: Counterfactual set
-            
+
         Returns:
             Expert-level explanation
         """
@@ -452,9 +435,9 @@ class CounterfactualExplainer(BaseExplainer):
             f"**Original**: {cf_set.original_prediction} ({cf_set.original_confidence:.1%} confidence)",
             f"**Feasibility**: {cf_set.feasibility_score:.1%}",
             f"",
-            "**Proposed Changes**:"
+            "**Proposed Changes**:",
         ]
-        
+
         for cf in cf_set.counterfactuals:
             actionable_tag = "✓" if cf.actionable else "✗"
             lines.append(
@@ -462,31 +445,31 @@ class CounterfactualExplainer(BaseExplainer):
                 f"{cf.original_value} → {cf.suggested_value} "
                 f"(impact: +{cf.impact:.1%}, cost: {cf.cost:.1%})"
             )
-        
-        lines.extend([
-            "",
-            f"**Combined Impact**: +{cf_set.combined_impact:.1%} confidence",
-            f"**Potential Result**: {cf_set.original_confidence + cf_set.combined_impact:.1%} confidence"
-        ])
-        
+
+        lines.extend(
+            [
+                "",
+                f"**Combined Impact**: +{cf_set.combined_impact:.1%} confidence",
+                f"**Potential Result**: {cf_set.original_confidence + cf_set.combined_impact:.1%} confidence",
+            ]
+        )
+
         return "\n".join(lines)
-    
+
     def _format_auditor_counterfactuals(
-        self,
-        cf_set: CounterfactualSet,
-        features: Dict[str, Any]
+        self, cf_set: CounterfactualSet, features: Dict[str, Any]
     ) -> str:
         """Format counterfactuals for auditor (JSON).
-        
+
         Args:
             cf_set: Counterfactual set
             features: Original feature values
-            
+
         Returns:
             JSON string for auditing
         """
         import json
-        
+
         audit_data = {
             "original_features": features,
             "original_prediction": cf_set.original_prediction,
@@ -499,13 +482,13 @@ class CounterfactualExplainer(BaseExplainer):
                     "impact": cf.impact,
                     "cost": cf.cost,
                     "actionable": cf.actionable,
-                    "explanation": cf.explanation
+                    "explanation": cf.explanation,
                 }
                 for cf in cf_set.counterfactuals
             ],
             "combined_impact": cf_set.combined_impact,
             "feasibility_score": cf_set.feasibility_score,
-            "method": "simplified_dice"
+            "method": "simplified_dice",
         }
-        
+
         return json.dumps(audit_data, indent=2, default=str)

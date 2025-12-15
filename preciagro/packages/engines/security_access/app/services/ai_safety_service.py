@@ -11,12 +11,12 @@ from ..core.config import settings
 
 class AISafetyService:
     """Service for AI safety gating and validation."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_service = AuditService(db)
         self.authz_service = AuthorizationService(db)
-    
+
     async def validate_prompt(
         self,
         actor_id: str,
@@ -24,7 +24,7 @@ class AISafetyService:
         context: Optional[Dict[str, Any]] = None,
     ) -> tuple[bool, Optional[str], Dict[str, Any]]:
         """Validate and sanitize AI prompt.
-        
+
         Returns:
             Tuple of (is_safe, sanitized_prompt, metadata)
         """
@@ -32,10 +32,10 @@ class AISafetyService:
             "original_length": len(prompt),
             "sanitized": False,
         }
-        
+
         # Basic prompt sanitization
         sanitized = prompt
-        
+
         # Remove potential injection patterns
         dangerous_patterns = [
             "<script",
@@ -45,18 +45,18 @@ class AISafetyService:
             "eval(",
             "exec(",
         ]
-        
+
         for pattern in dangerous_patterns:
             if pattern.lower() in sanitized.lower():
                 sanitized = sanitized.replace(pattern, "")
                 metadata["sanitized"] = True
-        
+
         # Truncate if too long (prevent DoS)
         max_length = 10000
         if len(sanitized) > max_length:
             sanitized = sanitized[:max_length]
             metadata["truncated"] = True
-        
+
         # Log prompt validation
         await self.audit_service.log_ai_event(
             actor_id,
@@ -67,9 +67,9 @@ class AISafetyService:
                 "prompt_length": len(sanitized),
             },
         )
-        
+
         return True, sanitized, metadata
-    
+
     async def validate_output(
         self,
         actor_id: str,
@@ -78,12 +78,12 @@ class AISafetyService:
         context: Optional[Dict[str, Any]] = None,
     ) -> tuple[bool, Optional[str], Dict[str, Any]]:
         """Validate AI output before returning to user.
-        
+
         Returns:
             Tuple of (is_safe, error_message, metadata)
         """
         metadata = {}
-        
+
         # Check confidence threshold
         if confidence is not None and confidence < settings.AI_CONFIDENCE_THRESHOLD:
             await self.audit_service.log_ai_event(
@@ -93,8 +93,12 @@ class AISafetyService:
                 confidence=confidence,
                 metadata={"reason": "low_confidence"},
             )
-            return False, f"Confidence {confidence} below threshold {settings.AI_CONFIDENCE_THRESHOLD}", metadata
-        
+            return (
+                False,
+                f"Confidence {confidence} below threshold {settings.AI_CONFIDENCE_THRESHOLD}",
+                metadata,
+            )
+
         # Check for unsafe content in output
         output_str = str(output)
         unsafe_patterns = [
@@ -102,7 +106,7 @@ class AISafetyService:
             "exploit",
             "bypass",
         ]
-        
+
         for pattern in unsafe_patterns:
             if pattern.lower() in output_str.lower():
                 await self.audit_service.log_ai_event(
@@ -113,7 +117,7 @@ class AISafetyService:
                     metadata={"reason": "unsafe_content", "pattern": pattern},
                 )
                 return False, f"Unsafe content detected: {pattern}", metadata
-        
+
         # Log successful validation
         await self.audit_service.log_ai_event(
             actor_id,
@@ -122,9 +126,9 @@ class AISafetyService:
             confidence=confidence,
             metadata=metadata,
         )
-        
+
         return True, None, metadata
-    
+
     async def check_ai_access(
         self,
         actor_id: str,
@@ -139,7 +143,7 @@ class AISafetyService:
             action,
             context or {},
         )
-    
+
     async def gate_recommendation(
         self,
         actor_id: str,
@@ -148,7 +152,7 @@ class AISafetyService:
         context: Optional[Dict[str, Any]] = None,
     ) -> tuple[bool, Optional[Dict[str, Any]]]:
         """Gate AI recommendation before returning to user.
-        
+
         Returns:
             Tuple of (allowed, filtered_recommendation)
         """
@@ -159,12 +163,11 @@ class AISafetyService:
             confidence,
             context,
         )
-        
+
         if not is_safe:
             return False, None
-        
+
         # Additional gating logic can be added here
         # e.g., region-specific restrictions, crop-specific rules, etc.
-        
-        return True, recommendation
 
+        return True, recommendation

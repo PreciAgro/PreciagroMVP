@@ -1,8 +1,6 @@
 """SQLAlchemy async models for temporal logic engine."""
 
-
-from sqlalchemy import (JSON, Boolean, Column, DateTime, ForeignKey, Integer,
-                        String, Text)
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -24,9 +22,7 @@ class TemporalEvent(Base):
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    triggered_schedules = relationship(
-        "ScheduledTask", back_populates="triggering_event"
-    )
+    triggered_schedules = relationship("ScheduledTask", back_populates="triggering_event")
 
 
 class TemporalRule(Base):
@@ -54,9 +50,7 @@ class ScheduledTask(Base):
     __tablename__ = "scheduled_tasks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    rule_id = Column(
-        Integer, ForeignKey("temporal_rules.id"), nullable=False, index=True
-    )
+    rule_id = Column(Integer, ForeignKey("temporal_rules.id"), nullable=False, index=True)
     triggering_event_id = Column(
         Integer, ForeignKey("temporal_events.id"), nullable=True, index=True
     )
@@ -82,9 +76,7 @@ class ScheduledTask(Base):
 
     # Relationships
     rule = relationship("TemporalRule", back_populates="schedules")
-    triggering_event = relationship(
-        "TemporalEvent", back_populates="triggered_schedules"
-    )
+    triggering_event = relationship("TemporalEvent", back_populates="triggered_schedules")
     outcomes = relationship("TaskOutcome", back_populates="task")
 
 
@@ -94,13 +86,9 @@ class TaskOutcome(Base):
     __tablename__ = "task_outcomes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    task_id = Column(
-        Integer, ForeignKey("scheduled_tasks.id"), nullable=False, index=True
-    )
+    task_id = Column(Integer, ForeignKey("scheduled_tasks.id"), nullable=False, index=True)
 
-    outcome_type = Column(
-        String(50), nullable=False
-    )  # success, failure, user_response, etc.
+    outcome_type = Column(String(50), nullable=False)  # success, failure, user_response, etc.
     outcome_data = Column(JSON, nullable=False)
 
     recorded_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -138,9 +126,7 @@ class RateLimitBucket(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(100), nullable=False, index=True)
     channel = Column(String(50), nullable=False)
-    bucket_key = Column(
-        String(200), nullable=False, index=True
-    )  # composite key for rate limiting
+    bucket_key = Column(String(200), nullable=False, index=True)  # composite key for rate limiting
 
     current_count = Column(Integer, default=0)
     window_start = Column(DateTime(timezone=True), nullable=False)

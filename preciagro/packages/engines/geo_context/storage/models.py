@@ -2,8 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import (Boolean, Column, DateTime, Float, Index, Integer,
-                        String, Text)
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 

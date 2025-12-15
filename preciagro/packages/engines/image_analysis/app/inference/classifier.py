@@ -98,9 +98,7 @@ class ClassifierHead:
                 used_stub=False,
                 raw_topk=[
                     (int(idx), float(prob))
-                    for idx, prob in self._topk_indices(
-                        logits, crop_config.classifier.top_k
-                    )
+                    for idx, prob in self._topk_indices(logits, crop_config.classifier.top_k)
                 ],
             )
         except Exception as exc:  # noqa: BLE001
@@ -129,14 +127,20 @@ class ClassifierHead:
 
     def _heuristic_labels(self, payload: ImageAnalysisRequest) -> ClassifierResult:
         diagnosis: DiagnosisOut = diagnose(payload.image_base64 or "", payload.crop)
-        labels = [PredictedLabel(name=item.name, confidence=item.score) for item in diagnosis.labels]
-        return ClassifierResult(labels=labels, model_version=diagnosis.model_version, used_stub=True, raw_topk=None)
+        labels = [
+            PredictedLabel(name=item.name, confidence=item.score) for item in diagnosis.labels
+        ]
+        return ClassifierResult(
+            labels=labels, model_version=diagnosis.model_version, used_stub=True, raw_topk=None
+        )
 
     def _load_model(self, crop_config: CropModelConfig) -> dict:
         """Load and cache the configured timm backbone."""
 
         classifier_cfg = crop_config.classifier
-        cache_key = f"{classifier_cfg.name}|{classifier_cfg.weights_path}|{classifier_cfg.threshold}"
+        cache_key = (
+            f"{classifier_cfg.name}|{classifier_cfg.weights_path}|{classifier_cfg.threshold}"
+        )
 
         if cache_key in self._model_cache:
             return self._model_cache[cache_key]
@@ -153,13 +157,20 @@ class ClassifierHead:
         model_version = "pretrained"
         weights_path = classifier_cfg.weights_path
         if weights_path and weights_path.startswith(("az://", "s3://", "gs://")):
-            LOGGER.info("Remote weight URI detected (%s); skipping local load in this environment", weights_path)
+            LOGGER.info(
+                "Remote weight URI detected (%s); skipping local load in this environment",
+                weights_path,
+            )
         elif weights_path:
             resolved = Path(weights_path)
             if resolved.exists():
                 LOGGER.info("Loading fine-tuned weights from %s", resolved)
                 state = torch.load(resolved, map_location=self._device)
-                state_dict = state.get("state_dict") if isinstance(state, dict) and "state_dict" in state else state
+                state_dict = (
+                    state.get("state_dict")
+                    if isinstance(state, dict) and "state_dict" in state
+                    else state
+                )
                 model.load_state_dict(state_dict, strict=False)
                 model_version = resolved.name
             else:
@@ -222,7 +233,9 @@ class ClassifierHead:
         class_names = bundle.get("class_names") or []
         labels: List[PredictedLabel] = []
         for prob, idx in zip(top_prob.tolist(), top_idx.tolist()):
-            labels.append(PredictedLabel(name=self._class_name(class_names, idx), confidence=float(prob)))
+            labels.append(
+                PredictedLabel(name=self._class_name(class_names, idx), confidence=float(prob))
+            )
         return labels
 
     def _topk_indices(self, logits: "torch.Tensor", top_k: int) -> List[Tuple[int, float]]:

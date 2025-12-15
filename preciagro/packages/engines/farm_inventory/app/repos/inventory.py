@@ -53,13 +53,13 @@ class InventoryRepository:
         query = self.session.query(models.InventoryItem).filter(
             models.InventoryItem.farmer_id == farmer_id
         )
-        
+
         if category:
             query = query.filter(models.InventoryItem.category == category)
-        
+
         if not include_zero:
             query = query.filter(models.InventoryItem.quantity > 0)
-        
+
         return query.order_by(models.InventoryItem.last_updated.desc()).all()
 
     def update(
@@ -69,7 +69,7 @@ class InventoryRepository:
         db_item = self.get_by_id(item_id)
         if not db_item:
             return None
-        
+
         if update_data.quantity is not None:
             db_item.quantity = update_data.quantity
         if update_data.cost_per_unit is not None:
@@ -80,7 +80,7 @@ class InventoryRepository:
             db_item.storage_condition = update_data.storage_condition
         if update_data.metadata is not None:
             db_item.metadata_ = update_data.metadata
-        
+
         db_item.last_updated = datetime.utcnow()
         self.session.flush()
         return db_item
@@ -89,10 +89,10 @@ class InventoryRepository:
         self, item_id: str, quantity: Decimal, allow_negative: bool = False
     ) -> Optional[models.InventoryItem]:
         """Deduct quantity from inventory item with transaction locking.
-        
+
         Uses SELECT FOR UPDATE to prevent race conditions when multiple
         engines attempt to deduct simultaneously.
-        
+
         Returns None if insufficient stock.
         """
         # Use SELECT FOR UPDATE to lock the row for this transaction
@@ -102,14 +102,14 @@ class InventoryRepository:
             .with_for_update()
             .first()
         )
-        
+
         if not db_item:
             return None
-        
+
         new_quantity = db_item.quantity - quantity
         if new_quantity < 0 and not allow_negative:
             return None
-        
+
         db_item.quantity = new_quantity
         db_item.last_updated = datetime.utcnow()
         self.session.flush()
@@ -124,18 +124,16 @@ class InventoryRepository:
             .with_for_update()
             .first()
         )
-        
+
         if not db_item:
             return None
-        
+
         db_item.quantity += quantity
         db_item.last_updated = datetime.utcnow()
         self.session.flush()
         return db_item
 
-    def get_expiring_soon(
-        self, farmer_id: str, days_ahead: int = 30
-    ) -> List[models.InventoryItem]:
+    def get_expiring_soon(self, farmer_id: str, days_ahead: int = 30) -> List[models.InventoryItem]:
         """Get items expiring within specified days."""
         cutoff_date = date.today() + datetime.timedelta(days=days_ahead)
         return (
@@ -156,7 +154,7 @@ class InventoryRepository:
         self, farmer_id: str, threshold_ratio: float = 0.2
     ) -> List[models.InventoryItem]:
         """Get items with low stock (below threshold ratio of typical usage).
-        
+
         Note: This is a simple implementation. In production, this should
         consider historical usage patterns per item.
         """
@@ -178,10 +176,9 @@ class InventoryRepository:
         db_item = self.get_by_id(item_id)
         if not db_item:
             return False
-        
+
         # Soft delete: set quantity to 0 rather than actually deleting
         db_item.quantity = Decimal("0.00")
         db_item.last_updated = datetime.utcnow()
         self.session.flush()
         return True
-

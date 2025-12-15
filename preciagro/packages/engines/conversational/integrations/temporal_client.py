@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+
 class TemporalClient:
     def __init__(self):
         pass
@@ -9,7 +10,4 @@ class TemporalClient:
         Fetches crop stage and season data.
         """
         # Stub implementation
-        return {
-            "season": "Summer",
-            "crop_stage": "Vegetative"
-        }
+        return {"season": "Summer", "crop_stage": "Vegetative"}

@@ -106,12 +106,18 @@ class ConversationOrchestrator:
         stage_latencies["intent_ms"] = int((time.perf_counter() - started) * 1000)
 
         with start_span("router_call"):
-            tools_context, tool_calls, router_errors = await self.router.route(intent_result, request)
+            tools_context, tool_calls, router_errors = await self.router.route(
+                intent_result, request
+            )
         errors.extend(router_errors)
-        stage_latencies["tools_ms"] = int((time.perf_counter() - started) * 1000) - stage_latencies["intent_ms"]
+        stage_latencies["tools_ms"] = (
+            int((time.perf_counter() - started) * 1000) - stage_latencies["intent_ms"]
+        )
 
         with start_span("rag_retrieve"):
-            citations = await self._retrieve_citations(intent_result, tools_context, request.text, errors)
+            citations = await self._retrieve_citations(
+                intent_result, tools_context, request.text, errors
+            )
         stage_latencies["rag_ms"] = (
             int((time.perf_counter() - started) * 1000)
             - stage_latencies["intent_ms"]

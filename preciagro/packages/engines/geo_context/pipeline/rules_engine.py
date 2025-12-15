@@ -53,9 +53,7 @@ class RulesEngine:
                 continue
 
             # Evaluate soil conditions
-            soil_score = self._evaluate_soil_conditions(
-                soil, crop_rules.get("soil", {})
-            )
+            soil_score = self._evaluate_soil_conditions(soil, crop_rules.get("soil", {}))
 
             # Evaluate climate conditions
             climate_score = self._evaluate_climate_conditions(
@@ -73,9 +71,7 @@ class RulesEngine:
                         "confidence": overall_score,
                         "soil_suitability": soil_score,
                         "climate_suitability": climate_score,
-                        "notes": self._generate_planting_notes(
-                            soil, climate, crop_rules
-                        ),
+                        "notes": self._generate_planting_notes(soil, climate, crop_rules),
                     }
                 )
 
@@ -144,9 +140,7 @@ class RulesEngine:
 
         return recommendations
 
-    def _evaluate_soil_conditions(
-        self, soil: Optional[SoilData], soil_rules: Dict
-    ) -> float:
+    def _evaluate_soil_conditions(self, soil: Optional[SoilData], soil_rules: Dict) -> float:
         """Evaluate soil conditions against rules."""
         if not soil or not soil_rules:
             return 0.5  # Neutral score
@@ -169,9 +163,7 @@ class RulesEngine:
         # Check organic matter
         if soil.organic_matter is not None and "min_organic_matter" in soil_rules:
             min_om = soil_rules["min_organic_matter"]
-            score += (
-                1.0 if soil.organic_matter >= min_om else soil.organic_matter / min_om
-            )
+            score += 1.0 if soil.organic_matter >= min_om else soil.organic_matter / min_om
             criteria_count += 1
 
         return score / max(criteria_count, 1)

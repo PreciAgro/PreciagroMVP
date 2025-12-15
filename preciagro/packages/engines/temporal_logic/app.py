@@ -301,8 +301,7 @@ async def logging_middleware(request: Request, call_next):
 
         # Log request
         logger.info(
-            f"{request.method} {request.url.path} - "
-            f"{response.status_code} - {duration:.3f}s"
+            f"{request.method} {request.url.path} - " f"{response.status_code} - {duration:.3f}s"
         )
 
         return response
@@ -318,9 +317,7 @@ async def logging_middleware(request: Request, call_next):
             duration=duration,
         )
 
-        logger.error(
-            f"{request.method} {request.url.path} - " f"ERROR: {e} - {duration:.3f}s"
-        )
+        logger.error(f"{request.method} {request.url.path} - " f"ERROR: {e} - {duration:.3f}s")
 
         raise
 

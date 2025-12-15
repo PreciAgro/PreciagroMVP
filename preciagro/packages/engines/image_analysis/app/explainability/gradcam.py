@@ -121,7 +121,7 @@ class GradCAMGenerator:
             return None
 
         cam -= cam.min()
-        cam /= (cam.max() + 1e-8)
+        cam /= cam.max() + 1e-8
         heatmap = cv2.resize(cam, (image_bgr.shape[1], image_bgr.shape[0]))
         colored = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
         overlay = cv2.addWeighted(colored, 0.5, image_bgr, 0.5, 0)

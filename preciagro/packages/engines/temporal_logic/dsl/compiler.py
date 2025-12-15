@@ -35,9 +35,7 @@ class TaskCompiler:
 
         # Build task payload
         payload = {
-            "short_text": window.message.format(
-                **self._get_template_vars(event, context)
-            ),
+            "short_text": window.message.format(**self._get_template_vars(event, context)),
             "channel": window.channel,
             "metadata": {
                 "rule_id": rule.id,
@@ -49,15 +47,10 @@ class TaskCompiler:
         }
 
         # Build target
-        target = {"phone_e164": context.get(
-            "phone") or event.metadata.get("phone")}
+        target = {"phone_e164": context.get("phone") or event.metadata.get("phone")}
 
         # Generate deduplication key
-        dedupe_key = (
-            self._generate_dedupe_key(rule, event, window)
-            if rule.deduplication
-            else None
-        )
+        dedupe_key = self._generate_dedupe_key(rule, event, window) if rule.deduplication else None
 
         return {
             "id": str(uuid.uuid4()),
@@ -101,9 +94,7 @@ class TaskCompiler:
         # Default: schedule immediately
         return base_time
 
-    def _get_template_vars(
-        self, event: EngineEvent, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _get_template_vars(self, event: EngineEvent, context: Dict[str, Any]) -> Dict[str, Any]:
         """Get variables for message template formatting."""
         vars_dict = {
             "user_id": event.user_id,
@@ -114,12 +105,9 @@ class TaskCompiler:
         vars_dict.update(context)
         return vars_dict
 
-    def _generate_dedupe_key(
-        self, rule: Rule, event: EngineEvent, window: Window
-    ) -> str:
+    def _generate_dedupe_key(self, rule: Rule, event: EngineEvent, window: Window) -> str:
         """Generate deduplication key."""
-        key_parts = [rule.id, window.id, str(
-            event.user_id), str(event.farm_id)]
+        key_parts = [rule.id, window.id, str(event.user_id), str(event.farm_id)]
         existing_values = set(key_parts)
 
         # Add deduplication fields

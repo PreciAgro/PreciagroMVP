@@ -65,7 +65,10 @@ def test_chat_message_returns_structured_answer(client):
     assert isinstance(body["answer"]["steps"], list)
     assert body["answer"]["status"] in {"ok", "degraded"}
     assert body["answer"]["versions"]["intent_schema"] == settings.intent_schema_version
-    assert any(call["status"] in {"stubbed", "degraded", "disabled", "no-tools"} for call in body["tool_calls"])
+    assert any(
+        call["status"] in {"stubbed", "degraded", "disabled", "no-tools"}
+        for call in body["tool_calls"]
+    )
 
 
 def test_chat_rejects_when_api_key_required(client):
@@ -94,7 +97,10 @@ def test_rate_limit_blocks_after_threshold(client):
 
 def test_attachment_policy_returns_structured_error(client):
     payload = _minimal_payload()
-    payload["attachments"] = [{"type": "image", "url": "https://example.com/img.jpg"} for _ in range(settings.max_attachments + 1)]
+    payload["attachments"] = [
+        {"type": "image", "url": "https://example.com/img.jpg"}
+        for _ in range(settings.max_attachments + 1)
+    ]
     resp = client.post("/chat/message", json=payload)
     assert resp.status_code == 422
     body = resp.json()

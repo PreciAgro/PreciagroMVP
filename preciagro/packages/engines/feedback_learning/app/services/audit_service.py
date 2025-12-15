@@ -25,25 +25,25 @@ logger = logging.getLogger(__name__)
 
 class AuditService:
     """Service for managing feedback audit traces.
-    
+
     Required for Trust Engine audits and data governance.
     All records are immutable and append-only.
     """
-    
+
     def __init__(self):
         """Initialize audit service."""
         self._trace_store: Dict[str, FeedbackAuditTrace] = {}
         self._step_store: Dict[str, List[AuditStep]] = {}
-    
+
     async def create_trace(
         self,
         event: FeedbackEvent,
     ) -> FeedbackAuditTrace:
         """Create a new audit trace for a feedback event.
-        
+
         Args:
             event: FeedbackEvent to trace
-            
+
         Returns:
             New FeedbackAuditTrace
         """
@@ -53,7 +53,7 @@ class AuditService:
             correlation_id=event.correlation_id,
             status="processing",
         )
-        
+
         # Add initial step
         step = AuditStep(
             step_number=1,
@@ -69,20 +69,20 @@ class AuditService:
             },
             success=True,
         )
-        
+
         trace.steps.append(step)
-        
+
         # Store
         self._trace_store[trace.trace_id] = trace
         self._step_store[trace.trace_id] = [step]
-        
+
         logger.info(
             f"Created audit trace {trace.trace_id} for feedback {event.feedback_id}",
-            extra={"correlation_id": trace.correlation_id}
+            extra={"correlation_id": trace.correlation_id},
         )
-        
+
         return trace
-    
+
     async def add_validation_step(
         self,
         trace_id: str,
@@ -90,19 +90,19 @@ class AuditService:
         validation_details: Dict[str, Any],
     ) -> AuditStep:
         """Add validation step to trace.
-        
+
         Args:
             trace_id: Trace ID
             is_valid: Whether validation passed
             validation_details: Validation result details
-            
+
         Returns:
             New AuditStep
         """
         trace = self._trace_store.get(trace_id)
         if not trace:
             raise ValueError(f"Trace {trace_id} not found")
-        
+
         step = AuditStep(
             step_number=len(trace.steps) + 1,
             step_type="validated",
@@ -119,30 +119,30 @@ class AuditService:
             transformation_applied="ValidationService.validate",
             transformation_params=validation_details,
         )
-        
+
         trace.steps.append(step)
         self._step_store[trace_id].append(step)
-        
+
         return step
-    
+
     async def add_weighting_step(
         self,
         trace_id: str,
         weighted: WeightedFeedback,
     ) -> AuditStep:
         """Add weighting step to trace.
-        
+
         Args:
             trace_id: Trace ID
             weighted: WeightedFeedback produced
-            
+
         Returns:
             New AuditStep
         """
         trace = self._trace_store.get(trace_id)
         if not trace:
             raise ValueError(f"Trace {trace_id} not found")
-        
+
         step = AuditStep(
             step_number=len(trace.steps) + 1,
             step_type="weighted",
@@ -167,13 +167,13 @@ class AuditService:
                 "environmental_stability_factor": weighted.environmental_stability_factor,
             },
         )
-        
+
         trace.steps.append(step)
         trace.weighted_feedback_id = weighted.weighted_id
         self._step_store[trace_id].append(step)
-        
+
         return step
-    
+
     async def add_flagging_step(
         self,
         trace_id: str,
@@ -181,19 +181,19 @@ class AuditService:
         flag_reasons: List[str],
     ) -> AuditStep:
         """Add flagging step to trace.
-        
+
         Args:
             trace_id: Trace ID
             flag_id: Flag ID
             flag_reasons: List of flag reasons
-            
+
         Returns:
             New AuditStep
         """
         trace = self._trace_store.get(trace_id)
         if not trace:
             raise ValueError(f"Trace {trace_id} not found")
-        
+
         step = AuditStep(
             step_number=len(trace.steps) + 1,
             step_type="flagged",
@@ -206,32 +206,32 @@ class AuditService:
                 "flag_reasons": flag_reasons,
             },
         )
-        
+
         trace.steps.append(step)
         trace.flag_id = flag_id
         trace.status = "flagged"
         self._step_store[trace_id].append(step)
-        
+
         return step
-    
+
     async def add_signal_step(
         self,
         trace_id: str,
         signal: LearningSignal,
     ) -> AuditStep:
         """Add signal generation step to trace.
-        
+
         Args:
             trace_id: Trace ID
             signal: LearningSignal generated
-            
+
         Returns:
             New AuditStep
         """
         trace = self._trace_store.get(trace_id)
         if not trace:
             raise ValueError(f"Trace {trace_id} not found")
-        
+
         step = AuditStep(
             step_number=len(trace.steps) + 1,
             step_type="signal_generated",
@@ -247,13 +247,13 @@ class AuditService:
             },
             transformation_applied="SignalService.generate_signal",
         )
-        
+
         trace.steps.append(step)
         trace.learning_signal_ids.append(signal.signal_id)
         self._step_store[trace_id].append(step)
-        
+
         return step
-    
+
     async def add_routing_step(
         self,
         trace_id: str,
@@ -263,21 +263,21 @@ class AuditService:
         error: Optional[str] = None,
     ) -> AuditStep:
         """Add routing step to trace.
-        
+
         Args:
             trace_id: Trace ID
             signal_id: Routed signal ID
             stream: Target stream
             success: Whether routing succeeded
             error: Error message if failed
-            
+
         Returns:
             New AuditStep
         """
         trace = self._trace_store.get(trace_id)
         if not trace:
             raise ValueError(f"Trace {trace_id} not found")
-        
+
         step = AuditStep(
             step_number=len(trace.steps) + 1,
             step_type="routed",
@@ -292,12 +292,12 @@ class AuditService:
             },
             transformation_applied="RoutingService.route_signal",
         )
-        
+
         trace.steps.append(step)
         self._step_store[trace_id].append(step)
-        
+
         return step
-    
+
     async def complete_trace(
         self,
         trace_id: str,
@@ -305,64 +305,64 @@ class AuditService:
         error_message: Optional[str] = None,
     ) -> FeedbackAuditTrace:
         """Mark trace as completed.
-        
+
         Args:
             trace_id: Trace ID
             status: Final status
             error_message: Error if failed
-            
+
         Returns:
             Updated trace
         """
         trace = self._trace_store.get(trace_id)
         if not trace:
             raise ValueError(f"Trace {trace_id} not found")
-        
+
         now = datetime.utcnow()
-        
+
         # Update trace
         trace.status = status
         trace.error_message = error_message
         trace.completed_at = now
-        
+
         if trace.started_at:
             trace.total_duration_ms = (now - trace.started_at).total_seconds() * 1000
-        
+
         # Generate signature if enabled
         if settings.ENABLE_AUDIT_LOGGING:
             trace.signature = self._generate_signature(trace)
             trace.signature_algorithm = "sha256"
-        
+
         logger.info(
             f"Completed audit trace {trace_id} with status {status}",
-            extra={"correlation_id": trace.correlation_id}
+            extra={"correlation_id": trace.correlation_id},
         )
-        
+
         return trace
-    
+
     async def get_trace(
         self,
         trace_id: str,
     ) -> Optional[FeedbackAuditTrace]:
         """Get trace by ID.
-        
+
         Args:
             trace_id: Trace ID
-            
+
         Returns:
             FeedbackAuditTrace if found
         """
         return self._trace_store.get(trace_id)
-    
+
     async def get_trace_by_feedback(
         self,
         feedback_id: str,
     ) -> Optional[FeedbackAuditTrace]:
         """Get trace by source feedback ID.
-        
+
         Args:
             feedback_id: Source feedback ID
-            
+
         Returns:
             FeedbackAuditTrace if found
         """
@@ -370,24 +370,21 @@ class AuditService:
             if trace.source_feedback_id == feedback_id:
                 return trace
         return None
-    
+
     async def get_traces_for_recommendation(
         self,
         recommendation_id: str,
     ) -> List[FeedbackAuditTrace]:
         """Get all traces for a recommendation.
-        
+
         Args:
             recommendation_id: Recommendation ID
-            
+
         Returns:
             List of traces
         """
-        return [
-            t for t in self._trace_store.values()
-            if t.recommendation_id == recommendation_id
-        ]
-    
+        return [t for t in self._trace_store.values() if t.recommendation_id == recommendation_id]
+
     async def query_traces(
         self,
         status: Optional[str] = None,
@@ -396,38 +393,38 @@ class AuditService:
         limit: int = 100,
     ) -> List[FeedbackAuditTrace]:
         """Query traces with filters.
-        
+
         Args:
             status: Optional status filter
             start_time: Optional start time filter
             end_time: Optional end time filter
             limit: Max results
-            
+
         Returns:
             List of matching traces
         """
         traces = list(self._trace_store.values())
-        
+
         if status:
             traces = [t for t in traces if t.status == status]
-        
+
         if start_time:
             traces = [t for t in traces if t.started_at >= start_time]
-        
+
         if end_time:
             traces = [t for t in traces if t.started_at <= end_time]
-        
+
         # Sort by start time descending
         traces = sorted(traces, key=lambda t: t.started_at, reverse=True)
-        
+
         return traces[:limit]
-    
+
     def _generate_signature(self, trace: FeedbackAuditTrace) -> str:
         """Generate cryptographic signature for trace.
-        
+
         Args:
             trace: Trace to sign
-            
+
         Returns:
             Hex-encoded signature
         """
@@ -440,27 +437,27 @@ class AuditService:
             "status": trace.status,
             "completed_at": trace.completed_at.isoformat() if trace.completed_at else None,
         }
-        
+
         # Hash
         content = json.dumps(data, sort_keys=True)
         signature = hashlib.sha256(content.encode()).hexdigest()
-        
+
         return signature
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get audit service statistics.
-        
+
         Returns:
             Dict with stats
         """
         traces = list(self._trace_store.values())
-        
+
         by_status = {}
         for trace in traces:
             by_status[trace.status] = by_status.get(trace.status, 0) + 1
-        
+
         total_steps = sum(len(t.steps) for t in traces)
-        
+
         return {
             "total_traces": len(traces),
             "by_status": by_status,

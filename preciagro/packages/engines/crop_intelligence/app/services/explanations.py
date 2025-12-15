@@ -8,7 +8,9 @@ from ..models.schemas import FieldStateOut
 class ExplanationService:
     """Produces plain-language rationales consumable by downstream NLP engines."""
 
-    def status_explanation(self, field_id: str, state: FieldStateOut, rotation_hint: str | None, health_score: float) -> List[str]:
+    def status_explanation(
+        self, field_id: str, state: FieldStateOut, rotation_hint: str | None, health_score: float
+    ) -> List[str]:
         explanations = [
             f"Field {field_id} is currently in {state.stage or 'an early'} stage with vigor trend {state.vigor_trend or 'stable'}.",
             f"Confidence in stage estimate is {state.stage_confidence:.0%} and overall health score is {health_score:.0%}.",

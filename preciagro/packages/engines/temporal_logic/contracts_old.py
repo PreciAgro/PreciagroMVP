@@ -52,6 +52,7 @@ class EventBase(BaseModel):
 
 class EventCreate(EventBase):
     """Schema for creating events."""
+
     @validator("payload")
     def ensure_payload(cls, value):
         # FIX: Ruff F811 lint — fold validation into primary EventCreate to avoid duplicate class while preserving behaviour.
@@ -87,9 +88,7 @@ class Condition(BaseModel):
     """Individual condition in a rule."""
 
     field: str
-    operator: Literal[
-        "eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"
-    ]
+    operator: Literal["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]
     value: Any
     weight: float = 1.0
 
@@ -116,6 +115,7 @@ class RuleBase(BaseModel):
 
 class RuleCreate(RuleBase):
     """Schema for creating rules."""
+
     @validator("conditions")
     def ensure_conditions(cls, value):
         # FIX: Ruff F811 lint — consolidate validation on canonical RuleCreate to eliminate duplicate subclass.
@@ -321,5 +321,3 @@ class PaginatedResponse(BaseModel):
     page: int
     size: int
     pages: int
-
-

@@ -85,11 +85,7 @@ def normalize_openweather(
         collected_at=datetime.now(timezone.utc),
         observed_at=observed_at,
         kind=kind,
-        location=(
-            Location(lat=lat, lon=lon)
-            if (lat is not None and lon is not None)
-            else None
-        ),
+        location=(Location(lat=lat, lon=lon) if (lat is not None and lon is not None) else None),
         tags=["weather", "openweather"],
         payload=payload,
         raw_ref=None,

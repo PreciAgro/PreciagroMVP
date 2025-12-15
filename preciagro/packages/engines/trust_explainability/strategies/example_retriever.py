@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Try to import numpy for vector operations
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -28,7 +29,7 @@ except ImportError:
 @dataclass
 class HistoricalCase:
     """A historical case for comparison."""
-    
+
     case_id: str
     timestamp: datetime
     diagnosis: str
@@ -39,7 +40,7 @@ class HistoricalCase:
     outcome: Optional[str] = None
     region: Optional[str] = None
     crop: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "case_id": self.case_id,
@@ -50,30 +51,30 @@ class HistoricalCase:
             "treatment": self.treatment,
             "outcome": self.outcome,
             "region": self.region,
-            "crop": self.crop
+            "crop": self.crop,
         }
 
 
 class ExampleRetriever(BaseExplainer):
     """Retrieves similar historical cases for example-based explanations.
-    
+
     Uses vector similarity to find cases with similar:
     - Feature profiles
     - Diagnoses
     - Outcomes
     """
-    
+
     @property
     def strategy_type(self) -> ExplanationStrategy:
         return ExplanationStrategy.EXAMPLE
-    
+
     def __init__(self) -> None:
         """Initialize example retriever."""
         self._case_store: List[HistoricalCase] = []
         self._embeddings: Dict[str, List[float]] = {}
         self._initialize_sample_cases()
         logger.info(f"ExampleRetriever initialized with {len(self._case_store)} cases")
-    
+
     def _initialize_sample_cases(self) -> None:
         """Initialize with sample historical cases for demo."""
         sample_cases = [
@@ -87,7 +88,7 @@ class ExampleRetriever(BaseExplainer):
                 treatment="Copper fungicide 2kg/ha",
                 outcome="resolved_7_days",
                 region="ZW-HA",
-                crop="maize"
+                crop="maize",
             ),
             HistoricalCase(
                 case_id="case_002",
@@ -99,7 +100,7 @@ class ExampleRetriever(BaseExplainer):
                 treatment="Triazole fungicide",
                 outcome="resolved_14_days",
                 region="ZW-HA",
-                crop="maize"
+                crop="maize",
             ),
             HistoricalCase(
                 case_id="case_003",
@@ -111,7 +112,7 @@ class ExampleRetriever(BaseExplainer):
                 treatment="Sulfur spray",
                 outcome="resolved_10_days",
                 region="ZW-MN",
-                crop="tomato"
+                crop="tomato",
             ),
             HistoricalCase(
                 case_id="case_004",
@@ -123,7 +124,7 @@ class ExampleRetriever(BaseExplainer):
                 treatment="Urea fertilizer 50kg/ha",
                 outcome="improved_21_days",
                 region="ZW-HA",
-                crop="maize"
+                crop="maize",
             ),
             HistoricalCase(
                 case_id="case_005",
@@ -135,49 +136,42 @@ class ExampleRetriever(BaseExplainer):
                 treatment="Copper fungicide 2.5kg/ha",
                 outcome="resolved_10_days",
                 region="ZW-BU",
-                crop="maize"
+                crop="maize",
             ),
         ]
-        
+
         self._case_store = sample_cases
-        
+
         # Pre-compute embeddings
         for case in sample_cases:
             embedding = self._embed_case(case)
             self._embeddings[case.case_id] = embedding
-    
+
     def explain(
         self,
         evidence: List[EvidenceItem],
         model_output: Dict[str, Any],
         level: ExplanationLevel = ExplanationLevel.FARMER,
-        language: str = "en"
+        language: str = "en",
     ) -> ExplanationArtifact:
         """Generate example-based explanation.
-        
+
         Args:
             evidence: Evidence items
             model_output: Model output to explain
             level: Target audience level
             language: Output language
-            
+
         Returns:
             ExplanationArtifact with similar cases
         """
         # Extract query features
         features = self._extract_features(evidence, model_output)
-        diagnosis = model_output.get(
-            "diagnosis",
-            model_output.get("prediction", "")
-        )
-        
+        diagnosis = model_output.get("diagnosis", model_output.get("prediction", ""))
+
         # Find similar cases
-        similar_cases = self.find_similar_cases(
-            features=features,
-            diagnosis=diagnosis,
-            top_k=3
-        )
-        
+        similar_cases = self.find_similar_cases(features=features, diagnosis=diagnosis, top_k=3)
+
         # Format explanation
         if level == ExplanationLevel.FARMER:
             content = self._format_farmer_examples(similar_cases, language)
@@ -188,7 +182,7 @@ class ExampleRetriever(BaseExplainer):
         else:
             content = self._format_auditor_examples(similar_cases, features)
             content_type = "structured"
-        
+
         return ExplanationArtifact(
             strategy=ExplanationStrategy.EXAMPLE,
             level=level,
@@ -197,71 +191,71 @@ class ExampleRetriever(BaseExplainer):
             structured_data={
                 "similar_cases": [c.to_dict() for c in similar_cases],
                 "query_features": features,
-                "query_diagnosis": diagnosis
+                "query_diagnosis": diagnosis,
             },
             cited_evidence_ids=self.get_cited_evidence_ids(evidence),
-            relevance_score=similar_cases[0].similarity if similar_cases else 0.0
+            relevance_score=similar_cases[0].similarity if similar_cases else 0.0,
         )
-    
+
     def supports(self, model_type: str) -> bool:
         """Check if this strategy supports the model type.
-        
+
         Args:
             model_type: Type of model
-            
+
         Returns:
             True - examples work for any model type
         """
         return True
-    
+
     def find_similar_cases(
         self,
         features: Dict[str, Any],
         diagnosis: str = "",
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
+        filters: Optional[Dict[str, Any]] = None,
     ) -> List[HistoricalCase]:
         """Find similar historical cases.
-        
+
         Args:
             features: Query feature values
             diagnosis: Query diagnosis (optional, boosts matching cases)
             top_k: Number of cases to return
             filters: Optional filters (region, crop, date range)
-            
+
         Returns:
             List of similar cases with similarity scores
         """
         if not self._case_store:
             return []
-        
+
         # Apply filters
         candidates = self._case_store
         if filters:
             candidates = self._apply_filters(candidates, filters)
-        
+
         # Compute query embedding
         query_embedding = self._embed_features(features)
-        
+
         # Compute similarities
         scored_cases: List[Tuple[float, HistoricalCase]] = []
-        
+
         for case in candidates:
             case_embedding = self._embeddings.get(case.case_id)
             if case_embedding is None:
                 case_embedding = self._embed_case(case)
-            
+
             similarity = self._cosine_similarity(query_embedding, case_embedding)
-            
+
             # Boost if diagnosis matches
             if diagnosis and case.diagnosis.lower() == diagnosis.lower():
                 similarity = min(similarity * 1.2, 1.0)
-            
+
             scored_cases.append((similarity, case))
-        
+
         # Sort by similarity
         scored_cases.sort(key=lambda x: x[0], reverse=True)
-        
+
         # Create copies with similarity scores
         results = []
         for sim, case in scored_cases[:top_k]:
@@ -275,44 +269,44 @@ class ExampleRetriever(BaseExplainer):
                 treatment=case.treatment,
                 outcome=case.outcome,
                 region=case.region,
-                crop=case.crop
+                crop=case.crop,
             )
             results.append(case_copy)
-        
+
         return results
-    
+
     def add_case(self, case: HistoricalCase) -> None:
         """Add a new historical case to the store.
-        
+
         Args:
             case: Historical case to add
         """
         self._case_store.append(case)
         self._embeddings[case.case_id] = self._embed_case(case)
         logger.debug(f"Added case {case.case_id} to store")
-    
+
     def _embed_case(self, case: HistoricalCase) -> List[float]:
         """Embed a case for similarity search.
-        
+
         Args:
             case: Historical case
-            
+
         Returns:
             Embedding vector
         """
         # Simple feature-based embedding
         # In production, use sentence transformers or similar
         return self._embed_features(case.features)
-    
+
     def _embed_features(self, features: Dict[str, Any]) -> List[float]:
         """Create embedding from features.
-        
+
         Simple normalized feature vector.
         In production, use proper embeddings.
-        
+
         Args:
             features: Feature dictionary
-            
+
         Returns:
             Embedding vector
         """
@@ -326,7 +320,7 @@ class ExampleRetriever(BaseExplainer):
             "temperature": (0, 50, 25),
             "humidity": (0, 100, 60),
         }
-        
+
         embedding = []
         for feature, (min_val, max_val, default) in feature_spec.items():
             value = features.get(feature, default)
@@ -337,26 +331,22 @@ class ExampleRetriever(BaseExplainer):
             else:
                 normalized = 0.5  # Default for missing
             embedding.append(normalized)
-        
+
         return embedding
-    
-    def _cosine_similarity(
-        self,
-        vec1: List[float],
-        vec2: List[float]
-    ) -> float:
+
+    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Compute cosine similarity between two vectors.
-        
+
         Args:
             vec1: First vector
             vec2: Second vector
-            
+
         Returns:
             Similarity score (0-1)
         """
         if not vec1 or not vec2 or len(vec1) != len(vec2):
             return 0.0
-        
+
         if HAS_NUMPY:
             a = np.array(vec1)
             b = np.array(vec2)
@@ -374,65 +364,57 @@ class ExampleRetriever(BaseExplainer):
             if norm_a == 0 or norm_b == 0:
                 return 0.0
             return dot / (norm_a * norm_b)
-    
+
     def _apply_filters(
-        self,
-        cases: List[HistoricalCase],
-        filters: Dict[str, Any]
+        self, cases: List[HistoricalCase], filters: Dict[str, Any]
     ) -> List[HistoricalCase]:
         """Apply filters to case list.
-        
+
         Args:
             cases: Cases to filter
             filters: Filter criteria
-            
+
         Returns:
             Filtered cases
         """
         result = cases
-        
+
         if "region" in filters and filters["region"]:
             result = [c for c in result if c.region == filters["region"]]
-        
+
         if "crop" in filters and filters["crop"]:
             result = [c for c in result if c.crop == filters["crop"]]
-        
+
         if "min_confidence" in filters:
             result = [c for c in result if c.confidence >= filters["min_confidence"]]
-        
+
         return result
-    
+
     def _extract_features(
-        self,
-        evidence: List[EvidenceItem],
-        model_output: Dict[str, Any]
+        self, evidence: List[EvidenceItem], model_output: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Extract features from evidence and model output."""
         features: Dict[str, Any] = {}
-        
+
         for key in ["features", "inputs", "data"]:
             if key in model_output and isinstance(model_output[key], dict):
                 features.update(model_output[key])
-        
+
         for ev in evidence:
             if ev.metadata:
                 for key in ["soil", "weather", "features"]:
                     if key in ev.metadata and isinstance(ev.metadata[key], dict):
                         features.update(ev.metadata[key])
-        
+
         return features
-    
-    def _format_farmer_examples(
-        self,
-        cases: List[HistoricalCase],
-        language: str
-    ) -> str:
+
+    def _format_farmer_examples(self, cases: List[HistoricalCase], language: str) -> str:
         """Format examples for farmer audience."""
         if not cases:
             return "No similar historical cases found."
-        
+
         lines = ["Based on similar cases from the past:"]
-        
+
         for i, case in enumerate(cases[:3], 1):
             date_str = case.timestamp.strftime("%B %Y")
             lines.append(
@@ -440,46 +422,41 @@ class ExampleRetriever(BaseExplainer):
                 f"was treated with {case.treatment or 'standard treatment'}. "
                 f"Outcome: {case.outcome or 'successful'}."
             )
-        
+
         return "\n".join(lines)
-    
+
     def _format_expert_examples(
-        self,
-        cases: List[HistoricalCase],
-        query_features: Dict[str, Any]
+        self, cases: List[HistoricalCase], query_features: Dict[str, Any]
     ) -> str:
         """Format examples for expert audience."""
-        lines = [
-            "**Similar Historical Cases**",
-            ""
-        ]
-        
+        lines = ["**Similar Historical Cases**", ""]
+
         for case in cases:
-            lines.extend([
-                f"### Case {case.case_id} ({case.similarity:.0%} similar)",
-                f"- **Date**: {case.timestamp.strftime('%Y-%m-%d')}",
-                f"- **Diagnosis**: {case.diagnosis} ({case.confidence:.0%} confidence)",
-                f"- **Treatment**: {case.treatment or 'N/A'}",
-                f"- **Outcome**: {case.outcome or 'N/A'}",
-                f"- **Region**: {case.region}, **Crop**: {case.crop}",
-                ""
-            ])
-        
+            lines.extend(
+                [
+                    f"### Case {case.case_id} ({case.similarity:.0%} similar)",
+                    f"- **Date**: {case.timestamp.strftime('%Y-%m-%d')}",
+                    f"- **Diagnosis**: {case.diagnosis} ({case.confidence:.0%} confidence)",
+                    f"- **Treatment**: {case.treatment or 'N/A'}",
+                    f"- **Outcome**: {case.outcome or 'N/A'}",
+                    f"- **Region**: {case.region}, **Crop**: {case.crop}",
+                    "",
+                ]
+            )
+
         return "\n".join(lines)
-    
+
     def _format_auditor_examples(
-        self,
-        cases: List[HistoricalCase],
-        query_features: Dict[str, Any]
+        self, cases: List[HistoricalCase], query_features: Dict[str, Any]
     ) -> str:
         """Format examples for auditor (JSON)."""
         import json
-        
+
         audit_data = {
             "query_features": query_features,
             "similar_cases": [c.to_dict() for c in cases],
             "retrieval_method": "cosine_similarity",
-            "embedding_dim": len(self._embed_features({}))
+            "embedding_dim": len(self._embed_features({})),
         }
-        
+
         return json.dumps(audit_data, indent=2, default=str)

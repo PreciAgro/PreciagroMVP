@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+
 class GeoClient:
     def __init__(self):
         pass
@@ -9,8 +10,4 @@ class GeoClient:
         Fetches location and region data for the user.
         """
         # Stub implementation
-        return {
-            "region": "Midwest",
-            "soil_type": "Loam",
-            "weather": "Sunny, 25C"
-        }
+        return {"region": "Midwest", "soil_type": "Loam", "weather": "Sunny, 25C"}

@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+
 class CropClient:
     def __init__(self):
         pass
@@ -9,8 +10,4 @@ class CropClient:
         Fetches metadata for a specific crop.
         """
         # Stub implementation
-        return {
-            "name": crop_name,
-            "optimal_ph": 6.5,
-            "water_needs": "High"
-        }
+        return {"name": crop_name, "optimal_ph": 6.5, "water_needs": "High"}

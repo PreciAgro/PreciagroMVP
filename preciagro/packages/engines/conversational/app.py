@@ -7,6 +7,7 @@ app = FastAPI(title="PreciAgro Conversational Engine")
 app.include_router(rest_router)
 app.include_router(ws_router)
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}

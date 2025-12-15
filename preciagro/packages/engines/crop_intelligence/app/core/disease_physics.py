@@ -2,6 +2,7 @@
 Leaf-wetness proxy and disease risk calculation from weather + canopy stage.
 Keeps HRS (High Risk Score) honest with physics-based disease windows.
 """
+
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ import math
 @dataclass
 class WeatherConditions:
     """Weather conditions for leaf-wetness calculation."""
+
     timestamp: datetime
     temp_c: float
     rh_pct: float
@@ -22,6 +24,7 @@ class WeatherConditions:
 @dataclass
 class CanopyState:
     """Canopy characteristics affecting leaf wetness."""
+
     stage: str  # e.g., "V6", "VT", "R1", "GS31", "GS65"
     lai: float  # Leaf Area Index (0-6)
     height_cm: float
@@ -31,6 +34,7 @@ class CanopyState:
 @dataclass
 class LeafWetnessResult:
     """Leaf wetness estimation output."""
+
     timestamp: datetime
     wetness_hours: float  # Estimated hours of leaf wetness
     confidence: float  # 0-1
@@ -41,6 +45,7 @@ class LeafWetnessResult:
 @dataclass
 class DiseaseRiskWindow:
     """Disease risk assessment for a time period."""
+
     period_start: datetime
     period_end: datetime
     disease: str
@@ -72,9 +77,7 @@ def calculate_dew_point(temp_c: float, rh_pct: float) -> float:
 
 
 def estimate_leaf_wetness_duration(
-    weather: WeatherConditions,
-    canopy: CanopyState,
-    prev_wetness_hours: float = 0.0
+    weather: WeatherConditions, canopy: CanopyState, prev_wetness_hours: float = 0.0
 ) -> LeafWetnessResult:
     """
     Estimate leaf wetness duration from weather and canopy state.
@@ -124,9 +127,8 @@ def estimate_leaf_wetness_duration(
 
     # Factor 3: High humidity with dense canopy
     if weather.rh_pct > 90.0 and canopy.density in ["moderate", "dense"]:
-        humidity_hours = (weather.rh_pct - 90.0) * \
-            0.3  # Max ~3 hours at 100% RH
-        humidity_hours *= (1.2 if canopy.density == "dense" else 1.0)
+        humidity_hours = (weather.rh_pct - 90.0) * 0.3  # Max ~3 hours at 100% RH
+        humidity_hours *= 1.2 if canopy.density == "dense" else 1.0
         wetness_hours += humidity_hours
         if "high_humidity" not in drivers:
             drivers.append("high_humidity")
@@ -140,8 +142,7 @@ def estimate_leaf_wetness_duration(
 
     # Factor 5: Wind drying effect
     if weather.wind_ms > 3.0:
-        drying_factor = 1.0 - (weather.wind_ms - 3.0) * \
-            0.08  # Up to 40% reduction at 8 m/s
+        drying_factor = 1.0 - (weather.wind_ms - 3.0) * 0.08  # Up to 40% reduction at 8 m/s
         drying_factor = max(0.6, drying_factor)
         wetness_hours *= drying_factor
         if "wind_drying" not in drivers:
@@ -166,14 +167,12 @@ def estimate_leaf_wetness_duration(
         timestamp=weather.timestamp,
         wetness_hours=round(wetness_hours, 1),
         confidence=round(confidence, 2),
-        drivers=drivers
+        drivers=drivers,
     )
 
 
 def calculate_rolling_wetness(
-    weather_history: List[WeatherConditions],
-    canopy: CanopyState,
-    window_hours: int = 24
+    weather_history: List[WeatherConditions], canopy: CanopyState, window_hours: int = 24
 ) -> float:
     """
     Calculate cumulative leaf wetness over a rolling window.
@@ -255,7 +254,7 @@ def assess_disease_risk(
     weather_history: List[WeatherConditions],
     canopy: CanopyState,
     crop_stage: str,
-    window_hours: int = 72
+    window_hours: int = 72,
 ) -> DiseaseRiskWindow:
     """
     Assess disease risk for a specific pathogen based on weather and canopy.
@@ -287,16 +286,14 @@ def assess_disease_risk(
             temp_favorability=0.0,
             recommendation="Insufficient weather data",
             confidence=0.1,
-            data_gaps=["no_weather_data"]
+            data_gaps=["no_weather_data"],
         )
 
     # Calculate leaf wetness
-    total_wetness = calculate_rolling_wetness(
-        weather_history, canopy, window_hours)
+    total_wetness = calculate_rolling_wetness(weather_history, canopy, window_hours)
 
     # Temperature favorability
-    avg_temp = sum(
-        w.temp_c for w in weather_history[-24:]) / len(weather_history[-24:])
+    avg_temp = sum(w.temp_c for w in weather_history[-24:]) / len(weather_history[-24:])
     temp_opt_low, temp_opt_high = model["optimal_temp_c"]
 
     if temp_opt_low <= avg_temp <= temp_opt_high:
@@ -307,10 +304,8 @@ def assess_disease_risk(
         temp_favorability = max(0.0, 1.0 - (avg_temp - temp_opt_high) / 10.0)
 
     # RH check
-    avg_rh = sum(
-        w.rh_pct for w in weather_history[-24:]) / len(weather_history[-24:])
-    rh_favorability = 1.0 if avg_rh >= model["rh_threshold"] else (
-        avg_rh / model["rh_threshold"])
+    avg_rh = sum(w.rh_pct for w in weather_history[-24:]) / len(weather_history[-24:])
+    rh_favorability = 1.0 if avg_rh >= model["rh_threshold"] else (avg_rh / model["rh_threshold"])
 
     # Calculate risk score
     crit_wet = model.get("critical_wetness_hours", 0) or 0
@@ -321,8 +316,7 @@ def assess_disease_risk(
         wetness_score = 0.4 * rh_favorability
     else:
         wetness_score = min(1.0, total_wetness / crit_wet)
-    risk_score = (wetness_score * 0.5 + temp_favorability *
-                  0.3 + rh_favorability * 0.2)
+    risk_score = wetness_score * 0.5 + temp_favorability * 0.3 + rh_favorability * 0.2
 
     # Risk level classification
     if risk_score >= 0.75:
@@ -359,14 +353,11 @@ def assess_disease_risk(
         temp_favorability=round(temp_favorability, 2),
         recommendation=recommendation,
         confidence=round(confidence, 2),
-        data_gaps=data_gaps
+        data_gaps=data_gaps,
     )
 
 
-def get_crop_disease_susceptibility(
-    crop: str,
-    stage: str
-) -> Dict[str, float]:
+def get_crop_disease_susceptibility(crop: str, stage: str) -> Dict[str, float]:
     """
     Get stage-specific disease susceptibility multipliers.
 
@@ -413,7 +404,7 @@ def generate_disease_windows_for_crop(
     crop_stage: str,
     weather_history: List[WeatherConditions],
     canopy: CanopyState,
-    window_hours: int = 72
+    window_hours: int = 72,
 ) -> List[DiseaseRiskWindow]:
     """
     Generate disease risk assessments for all relevant diseases for a crop.

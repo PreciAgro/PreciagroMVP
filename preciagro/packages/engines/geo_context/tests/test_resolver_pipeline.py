@@ -7,8 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ..contracts.v1.fco import (CalendarEvent, ClimateData, SoilData,
-                                SpatialContext)
+from ..contracts.v1.fco import CalendarEvent, ClimateData, SoilData, SpatialContext
 from ..contracts.v1.requests import FCORequest
 from ..pipeline.calendar_composer import CalendarComposer
 from ..pipeline.climate_resolver import ClimateResolver
@@ -26,15 +25,13 @@ class TestGeoContextResolver:
         resolver = GeoContextResolver()
 
         # Mock all sub-resolvers
-        with patch.object(resolver, "spatial_resolver") as mock_spatial, patch.object(
-            resolver, "soil_resolver"
-        ) as mock_soil, patch.object(
-            resolver, "climate_resolver"
-        ) as mock_climate, patch.object(
-            resolver, "calendar_composer"
-        ) as mock_calendar, patch.object(
-            resolver, "rules_engine"
-        ) as mock_rules:
+        with (
+            patch.object(resolver, "spatial_resolver") as mock_spatial,
+            patch.object(resolver, "soil_resolver") as mock_soil,
+            patch.object(resolver, "climate_resolver") as mock_climate,
+            patch.object(resolver, "calendar_composer") as mock_calendar,
+            patch.object(resolver, "rules_engine") as mock_rules,
+        ):
 
             # Setup mocks
             mock_spatial.resolve.return_value = SpatialContext(elevation=106)
@@ -66,18 +63,17 @@ class TestGeoContextResolver:
         from ..contracts.v1.requests import LocationPolygon
 
         request = FCORequest(
-            polygon=LocationPolygon(
-                coordinates=[[21.0, 52.2], [21.1, 52.2], [21.0, 52.2]]
-            ),
+            polygon=LocationPolygon(coordinates=[[21.0, 52.2], [21.1, 52.2], [21.0, 52.2]]),
             include_soil=True,
             use_cache=False,
         )
 
         resolver = GeoContextResolver()
 
-        with patch.object(resolver, "spatial_resolver") as mock_spatial, patch.object(
-            resolver, "soil_resolver"
-        ) as mock_soil:
+        with (
+            patch.object(resolver, "spatial_resolver") as mock_spatial,
+            patch.object(resolver, "soil_resolver") as mock_soil,
+        ):
 
             mock_spatial.resolve.return_value = None
             mock_soil.resolve.return_value = SoilData(ph=6.8)
@@ -95,9 +91,7 @@ class TestGeoContextResolver:
         request = FCORequest(use_cache=False)  # No point or polygon
         resolver = GeoContextResolver()
 
-        with pytest.raises(
-            ValueError, match="Either point or polygon must be provided"
-        ):
+        with pytest.raises(ValueError, match="Either point or polygon must be provided"):
             await resolver.resolve_field_context(request)
 
     @pytest.mark.asyncio
@@ -105,9 +99,11 @@ class TestGeoContextResolver:
         """Test handling partial resolver failures."""
         resolver = GeoContextResolver()
 
-        with patch.object(resolver, "spatial_resolver") as mock_spatial, patch.object(
-            resolver, "soil_resolver"
-        ) as mock_soil, patch.object(resolver, "climate_resolver") as mock_climate:
+        with (
+            patch.object(resolver, "spatial_resolver") as mock_spatial,
+            patch.object(resolver, "soil_resolver") as mock_soil,
+            patch.object(resolver, "climate_resolver") as mock_climate,
+        ):
 
             # Simulate some resolvers failing
             mock_spatial.resolve.side_effect = Exception("Spatial error")
@@ -144,9 +140,7 @@ class TestGeoContextResolver:
             location={"lat": 52.0, "lon": 21.0},
             timestamp=datetime.now(),
             soil=SoilData(ph=6.5, organic_matter=3.0, nitrogen=120, soil_type="loam"),
-            climate=ClimateData(
-                temperature_avg=15.0, precipitation=50.0, humidity=65.0
-            ),
+            climate=ClimateData(temperature_avg=15.0, precipitation=50.0, humidity=65.0),
             spatial=SpatialContext(elevation=100, land_use="agricultural"),
             calendar_events=[
                 CalendarEvent(event_type="planting", confidence=0.8),
@@ -186,11 +180,14 @@ class TestSpatialResolver:
         resolver = SpatialResolver()
         location = {"lat": 52.2297, "lon": 21.0122}
 
-        with patch(
-            "preciagro.packages.engines.geo_context.pipeline.spatial_resolver.query_spatial_data"
-        ) as mock_query, patch(
-            "preciagro.packages.engines.geo_context.pipeline.spatial_resolver.get_nearest_weather_station"
-        ) as mock_station:
+        with (
+            patch(
+                "preciagro.packages.engines.geo_context.pipeline.spatial_resolver.query_spatial_data"
+            ) as mock_query,
+            patch(
+                "preciagro.packages.engines.geo_context.pipeline.spatial_resolver.get_nearest_weather_station"
+            ) as mock_station,
+        ):
 
             mock_query.return_value = sample_spatial_data
             mock_station.return_value = {"name": "Warsaw Central"}
@@ -247,11 +244,12 @@ class TestSoilResolver:
         resolver = SoilResolver()
         location = {"lat": 52.2297, "lon": 21.0122}
 
-        with patch(
-            "preciagro.packages.engines.geo_context.pipeline.soil_resolver.query_soil_data"
-        ) as mock_query, patch.object(
-            resolver, "_query_external_soil_api"
-        ) as mock_external:
+        with (
+            patch(
+                "preciagro.packages.engines.geo_context.pipeline.soil_resolver.query_soil_data"
+            ) as mock_query,
+            patch.object(resolver, "_query_external_soil_api") as mock_external,
+        ):
 
             mock_query.return_value = None
             mock_external.return_value = None
@@ -270,11 +268,12 @@ class TestClimateResolver:
         resolver = ClimateResolver()
         location = {"lat": 52.2297, "lon": 21.0122}
 
-        with patch(
-            "preciagro.packages.engines.geo_context.pipeline.climate_resolver.query_climate_data"
-        ) as mock_query, patch.object(
-            resolver, "_fetch_current_weather"
-        ) as mock_weather:
+        with (
+            patch(
+                "preciagro.packages.engines.geo_context.pipeline.climate_resolver.query_climate_data"
+            ) as mock_query,
+            patch.object(resolver, "_fetch_current_weather") as mock_weather,
+        ):
 
             mock_query.return_value = sample_climate_data
             mock_weather.return_value = {
@@ -295,11 +294,12 @@ class TestClimateResolver:
         resolver = ClimateResolver()
         location = {"lat": 52.2297, "lon": 21.0122}
 
-        with patch(
-            "preciagro.packages.engines.geo_context.pipeline.climate_resolver.query_climate_data"
-        ) as mock_query, patch.object(
-            resolver, "_fetch_current_weather"
-        ) as mock_weather:
+        with (
+            patch(
+                "preciagro.packages.engines.geo_context.pipeline.climate_resolver.query_climate_data"
+            ) as mock_query,
+            patch.object(resolver, "_fetch_current_weather") as mock_weather,
+        ):
 
             mock_query.return_value = sample_climate_data
             mock_weather.return_value = None  # No current weather

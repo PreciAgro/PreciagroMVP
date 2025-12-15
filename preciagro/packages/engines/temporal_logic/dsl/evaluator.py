@@ -20,9 +20,7 @@ class RuleEvaluator:
             return False
 
         # Check preconditions if they exist
-        if rule.preconditions and not self._check_preconditions(
-            rule.preconditions, event, context
-        ):
+        if rule.preconditions and not self._check_preconditions(rule.preconditions, event, context):
             return False
 
         return True
@@ -81,7 +79,9 @@ class RuleEvaluator:
             # FIX: Ruff E741 lint — expand parameter names for readability.
             "in": lambda left_value, right_value: left_value in right_value,
             "not_in": lambda left_value, right_value: left_value not in right_value,
-            "contains": lambda left_value, right_value: right_value in left_value if left_value else False,
+            "contains": lambda left_value, right_value: (
+                right_value in left_value if left_value else False
+            ),
         }
 
         if op not in ops:

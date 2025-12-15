@@ -71,7 +71,9 @@ async def test_response_builder_uses_stub_agrollm():
     request = _chat_request()
     session = SessionContext(session_id="sess", user_id="user", tenant_id="tenant-1")
     intent = IntentResult(intent="plan_planting", entities=IntentEntities(crop="maize"))
-    tools_context = ToolsContext.from_raw({"temporal_logic": {"recommended_window": "mid-November"}})
+    tools_context = ToolsContext.from_raw(
+        {"temporal_logic": {"recommended_window": "mid-November"}}
+    )
     citations = [Citation(source="rag", id="zim_maize_window", snippet="Plant mid-November.")]
     versions = VersionManifest(
         intent_schema="intent-test",
@@ -99,6 +101,8 @@ async def test_rag_retriever_returns_seed_docs(tmp_path):
     retriever = RAGRetriever(enabled=True, top_k=2, index_path=str(data_path))
     intent = IntentResult(intent="plan_planting", entities=IntentEntities(crop="maize"))
     tools_context = ToolsContext()
-    citations = await retriever.retrieve(intent=intent, tools_context=tools_context, user_message="plant maize window")
+    citations = await retriever.retrieve(
+        intent=intent, tools_context=tools_context, user_message="plant maize window"
+    )
     assert citations
     assert citations[0].id in {"zim_maize_window", "pesticide_label_safety"}

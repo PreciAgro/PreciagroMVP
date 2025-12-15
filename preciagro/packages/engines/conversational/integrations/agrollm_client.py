@@ -1,5 +1,6 @@
 from typing import Dict, Any, Generator
 
+
 class AgroLLMClient:
     def __init__(self):
         pass
@@ -16,14 +17,12 @@ class AgroLLMClient:
         return {
             "content": "This is a simulated response from AgroLLM.",
             "structured_output": {},
-            "flags": {
-                "needs_review": False,
-                "low_confidence": False,
-                "high_risk": False
-            }
+            "flags": {"needs_review": False, "low_confidence": False, "high_risk": False},
         }
 
-    def stream_response(self, prompt_payload: Dict[str, Any]) -> Generator[Dict[str, Any], None, None]:
+    def stream_response(
+        self, prompt_payload: Dict[str, Any]
+    ) -> Generator[Dict[str, Any], None, None]:
         """
         Streams tokens from AgroLLM.
         """
@@ -33,7 +32,4 @@ class AgroLLMClient:
         # Simulate streaming
         tokens = ["This", " is", " a", " streamed", " response", "."]
         for token in tokens:
-            yield {
-                "token": token,
-                "model_mode": "pretrained"
-            }
+            yield {"token": token, "model_mode": "pretrained"}

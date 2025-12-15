@@ -32,6 +32,7 @@ weighting_service = WeightingService()
 
 class SignalsResponse(BaseModel):
     """Response for signals query."""
+
     signals: list[LearningSignalOutput]
     count: int
     has_more: bool
@@ -40,9 +41,8 @@ class SignalsResponse(BaseModel):
 
 class SignalExportRequest(BaseModel):
     """Request for signal export."""
-    engine: Literal["model_orchestration", "evaluation"] = Field(
-        ..., description="Target engine"
-    )
+
+    engine: Literal["model_orchestration", "evaluation"] = Field(..., description="Target engine")
     region_code: Optional[str] = Field(None, description="Optional region filter")
     signal_types: Optional[list[str]] = Field(None, description="Filter by signal types")
     min_strength: Optional[float] = Field(None, ge=0, le=1, description="Min signal strength")
@@ -52,6 +52,7 @@ class SignalExportRequest(BaseModel):
 
 class ExportResponse(BaseModel):
     """Response for signal export."""
+
     export_id: str
     engine: str
     signal_count: int
@@ -61,6 +62,7 @@ class ExportResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     """Response for learning stats."""
+
     total_signals: int
     unrouted_signals: int
     by_type: dict
@@ -77,7 +79,7 @@ async def get_learning_signals(
     limit: int = Query(100, ge=1, le=500, description="Max signals to return"),
 ):
     """Get learning signals targeted for a specific engine.
-    
+
     Called by downstream engines to pull their signals.
     Only returns unrouted signals.
     """
@@ -87,7 +89,7 @@ async def get_learning_signals(
             region=region,
             limit=limit,
         )
-        
+
         # Convert to output format
         outputs = [
             LearningSignalOutput(
@@ -114,24 +116,21 @@ async def get_learning_signals(
             )
             for s in signals
         ]
-        
+
         # Check if there are more
         total = await signal_service.get_unrouted_count(engine)
         has_more = total > len(signals)
-        
+
         return SignalsResponse(
             signals=outputs,
             count=len(outputs),
             has_more=has_more,
             engine=engine,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to get signals for {engine}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get signals: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get signals: {str(e)}")
 
 
 @router.post("/export/model-orchestration", response_model=ExportResponse)
@@ -139,12 +138,12 @@ async def export_for_model_orchestration(
     request: SignalExportRequest,
 ):
     """Export learning signals for Model Orchestration Engine.
-    
+
     Provides signals relevant for model retraining decisions.
     """
     if request.engine != "model_orchestration":
         request.engine = "model_orchestration"
-    
+
     return await _perform_export(request)
 
 
@@ -153,26 +152,26 @@ async def export_for_evaluation(
     request: SignalExportRequest,
 ):
     """Export learning signals for Evaluation & Benchmarking Engine.
-    
+
     Provides signals for model evaluation and quality metrics.
     """
     if request.engine != "evaluation":
         request.engine = "evaluation"
-    
+
     return await _perform_export(request)
 
 
 async def _perform_export(request: SignalExportRequest) -> ExportResponse:
     """Perform signal export for an engine.
-    
+
     Args:
         request: Export request
-        
+
     Returns:
         ExportResponse with signals
     """
     from uuid import uuid4
-    
+
     try:
         # Get signals
         signals = await signal_service.get_signals_for_engine(
@@ -180,19 +179,19 @@ async def _perform_export(request: SignalExportRequest) -> ExportResponse:
             region=request.region_code,
             limit=request.limit,
         )
-        
+
         # Filter by signal types if specified
         if request.signal_types:
             type_set = set(request.signal_types)
             signals = [s for s in signals if s.signal_type.value in type_set]
-        
+
         # Filter by min strength if specified
         if request.min_strength is not None:
             signals = [s for s in signals if s.signal_strength >= request.min_strength]
-        
+
         # Apply limit again after filtering
-        signals = signals[:request.limit]
-        
+        signals = signals[: request.limit]
+
         # Convert to output format
         outputs = [
             LearningSignalOutput(
@@ -219,7 +218,7 @@ async def _perform_export(request: SignalExportRequest) -> ExportResponse:
             )
             for s in signals
         ]
-        
+
         # Mark as exported/routed if requested
         if request.mark_as_exported and signals:
             stream = (
@@ -231,7 +230,7 @@ async def _perform_export(request: SignalExportRequest) -> ExportResponse:
                 [s.signal_id for s in signals],
                 stream,
             )
-        
+
         return ExportResponse(
             export_id=str(uuid4()),
             engine=request.engine,
@@ -239,13 +238,10 @@ async def _perform_export(request: SignalExportRequest) -> ExportResponse:
             signals=outputs,
             exported_at=datetime.utcnow(),
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to export signals: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to export signals: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to export signals: {str(e)}")
 
 
 @router.get("/stats", response_model=StatsResponse)
@@ -254,25 +250,25 @@ async def get_learning_stats():
     try:
         # Get signal stats
         all_signals = list(signal_service._signal_store.values())
-        
+
         # Count by type
         by_type = {}
         for signal in all_signals:
             t = signal.signal_type.value
             by_type[t] = by_type.get(t, 0) + 1
-        
+
         # Count by target engine
         by_engine = {}
         for signal in all_signals:
             e = signal.target_engine
             by_engine[e] = by_engine.get(e, 0) + 1
-        
+
         # Unrouted count
         unrouted = await signal_service.get_unrouted_count()
-        
+
         # Routing stats
         routing_stats = routing_service.get_routing_stats()
-        
+
         return StatsResponse(
             total_signals=len(all_signals),
             unrouted_signals=unrouted,
@@ -280,26 +276,20 @@ async def get_learning_stats():
             by_engine=by_engine,
             routing_stats=routing_stats,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
 
 @router.get("/signal/{signal_id}")
 async def get_signal_by_id(signal_id: str):
     """Get a specific learning signal by ID."""
     signal = await signal_service.get_signal(signal_id)
-    
+
     if not signal:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Signal {signal_id} not found"
-        )
-    
+        raise HTTPException(status_code=404, detail=f"Signal {signal_id} not found")
+
     return LearningSignalOutput(
         signal_id=signal.signal_id,
         version=signal.version,

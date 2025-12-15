@@ -10,7 +10,7 @@ from ..core.config import settings
 
 class SecurityContext:
     """Security context extracted from token/headers."""
-    
+
     def __init__(
         self,
         engine_name: Optional[str] = None,
@@ -20,11 +20,11 @@ class SecurityContext:
         self.engine_name = engine_name
         self.scopes = scopes or []
         self.user_id = user_id
-    
+
     def has_scope(self, scope: str) -> bool:
         """Check if context has a specific scope."""
         return "*" in self.scopes or scope in self.scopes
-    
+
     def can_mutate_inventory(self) -> bool:
         """Check if context can mutate inventory (not just read)."""
         return self.has_scope("inventory:write") or self.has_scope("inventory:mutate")
@@ -36,13 +36,13 @@ async def require_service_token(
     x_scopes: str | None = Header(default=None),
 ) -> SecurityContext:
     """Service token authentication with engine scopes.
-    
+
     Scopes:
     - inventory:read - Can read inventory
     - inventory:write - Can create/update inventory
     - inventory:mutate - Can deduct inventory (usage)
     - inventory:validate - Can validate actions
-    
+
     Engines:
     - crop_intelligence: Can validate, read
     - temporal_logic: Can validate, deduct (scheduled tasks)
@@ -56,28 +56,32 @@ async def require_service_token(
             engine_name=x_engine_name or "unknown",
             scopes=["inventory:read"] if not x_preciagro_token else [],
         )
-    
+
     if x_preciagro_token != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid service token",
         )
-    
+
     # Parse scopes from header (comma-separated)
     scopes = []
     if x_scopes:
         scopes = [s.strip() for s in x_scopes.split(",")]
-    
+
     # Default scopes based on engine
     if not scopes and x_engine_name:
         engine_scopes = {
             "crop_intelligence": ["inventory:read", "inventory:validate"],
             "temporal_logic": ["inventory:read", "inventory:validate", "inventory:mutate"],
-            "diagnosis_recommendation": ["inventory:read", "inventory:validate", "inventory:mutate"],
+            "diagnosis_recommendation": [
+                "inventory:read",
+                "inventory:validate",
+                "inventory:mutate",
+            ],
             "manual": ["inventory:read", "inventory:write", "inventory:mutate"],
         }
         scopes = engine_scopes.get(x_engine_name, ["inventory:read"])
-    
+
     return SecurityContext(
         engine_name=x_engine_name,
         scopes=scopes,
@@ -94,4 +98,3 @@ async def require_inventory_write(
             detail="insufficient permissions: inventory:write required",
         )
     return context
-

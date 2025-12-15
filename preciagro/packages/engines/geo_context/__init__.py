@@ -9,8 +9,14 @@ agricultural calendars.
 from preciagro.packages.shared.schemas import GeoPoint
 
 # Import contracts which don't have circular dependencies
-from .contracts.v1.fco import (CalendarEvent, ClimateData, FCOResponse,
-                               FieldGeometry, SoilData, SpatialContext)
+from .contracts.v1.fco import (
+    CalendarEvent,
+    ClimateData,
+    FCOResponse,
+    FieldGeometry,
+    SoilData,
+    SpatialContext,
+)
 from .contracts.v1.requests import FCORequest, LocationPoint, LocationPolygon
 
 # Import routers and resolvers lazily to avoid circular imports

@@ -101,9 +101,7 @@ class QuietHoursPolicy:
         next_send_time = self.get_next_send_time(local_time)
         delay_minutes = int((next_send_time - local_time).total_seconds() / 60)
 
-        logger.info(
-            f"Message delayed by {delay_minutes} minutes due to quiet hours policy"
-        )
+        logger.info(f"Message delayed by {delay_minutes} minutes due to quiet hours policy")
 
         return next_send_time, f"Delayed {delay_minutes} minutes due to quiet hours"
 
@@ -141,9 +139,7 @@ class QuietHoursPolicy:
             "timezone": self.timezone_str,
             "start_time": self.start_time.strftime("%H:%M"),
             "end_time": self.end_time.strftime("%H:%M"),
-            "current_time": datetime.now(self.timezone).strftime(
-                "%Y-%m-%d %H:%M:%S %Z"
-            ),
+            "current_time": datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M:%S %Z"),
             "is_currently_quiet_hours": self.is_quiet_hours(),
         }
 
@@ -171,9 +167,7 @@ class ChannelSpecificQuietHours:
         policy.end_time = policy._parse_time(end_time)
 
         self.channel_policies[channel] = policy
-        logger.info(
-            f"Added quiet hours policy for {channel}: {start_time} - {end_time}"
-        )
+        logger.info(f"Added quiet hours policy for {channel}: {start_time} - {end_time}")
 
     def get_policy_for_channel(self, channel: str) -> QuietHoursPolicy:
         """Get quiet hours policy for specific channel."""
@@ -218,6 +212,4 @@ def apply_quiet_hours_policy(
     Returns:
         Tuple of (adjusted_time, reason)
     """
-    return quiet_hours_manager.apply_channel_policy(
-        channel, scheduled_time, message_type, priority
-    )
+    return quiet_hours_manager.apply_channel_policy(channel, scheduled_time, message_type, priority)

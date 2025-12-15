@@ -5,7 +5,17 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict
 
-SENSITIVE_KEYS = {"user", "user_id", "farm_ids", "location", "lat", "lon", "latitude", "longitude", "attachments"}
+SENSITIVE_KEYS = {
+    "user",
+    "user_id",
+    "farm_ids",
+    "location",
+    "lat",
+    "lon",
+    "latitude",
+    "longitude",
+    "attachments",
+}
 
 
 def sanitize_payload(data: Dict[str, Any]) -> Dict[str, Any]:

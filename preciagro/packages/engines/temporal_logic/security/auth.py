@@ -24,14 +24,10 @@ class SecurityMiddleware:
         self.secret = secret
         self.algorithm = algorithm
 
-    def create_access_token(
-        self, user_data: Dict[str, Any], expires_in: int = 3600
-    ) -> str:
+    def create_access_token(self, user_data: Dict[str, Any], expires_in: int = 3600) -> str:
         """Create a signed JWT for the supplied user claims."""
         payload = user_data.copy()
-        payload.setdefault(
-            "exp", datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-        )
+        payload.setdefault("exp", datetime.now(timezone.utc) + timedelta(seconds=expires_in))
         payload.setdefault("iat", datetime.now(timezone.utc))
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)
 

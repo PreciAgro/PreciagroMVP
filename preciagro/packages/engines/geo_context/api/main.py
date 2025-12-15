@@ -34,9 +34,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(
-        ","
-    )
+    allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=[host.strip() for host in allowed_hosts]
     )
@@ -79,8 +77,6 @@ async def root() -> JSONResponse:
         "engine": "geo_context",
         "version": app.version,
         "environment": os.getenv("ENVIRONMENT", "development"),
-        "database_url": (
-            settings.DATABASE_URL.split("@")[-1] if settings.DATABASE_URL else None
-        ),
+        "database_url": (settings.DATABASE_URL.split("@")[-1] if settings.DATABASE_URL else None),
     }
     return JSONResponse(payload)

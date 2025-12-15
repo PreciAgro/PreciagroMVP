@@ -48,11 +48,7 @@ class CountingEngine:
         """Return counts for configured classes."""
 
         counting_cfg = crop_config.counting
-        if (
-            not counting_cfg.enabled
-            or image_bgr is None
-            or not counting_cfg.classes
-        ):
+        if not counting_cfg.enabled or image_bgr is None or not counting_cfg.classes:
             return CountingResult(counts={}, model_version="disabled", used_stub=True)
 
         if not self.available:

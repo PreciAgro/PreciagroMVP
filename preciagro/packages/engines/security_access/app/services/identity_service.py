@@ -13,10 +13,10 @@ from ..core.config import settings
 
 class IdentityService:
     """Service for managing actor identities."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def create_actor(
         self,
         actor_type: ActorType,
@@ -35,7 +35,7 @@ class IdentityService:
     ) -> Actor:
         """Create a new actor."""
         actor_id = f"actor_{uuid4().hex[:16]}"
-        
+
         actor = Actor(
             actor_id=actor_id,
             actor_type=actor_type,
@@ -53,18 +53,16 @@ class IdentityService:
             metadata_=metadata,
             trust_level=TrustLevel.UNVERIFIED,
         )
-        
+
         self.db.add(actor)
         await self.db.flush()
         return actor
-    
+
     async def get_actor_by_id(self, actor_id: str) -> Optional[Actor]:
         """Get actor by ID."""
-        result = await self.db.execute(
-            select(Actor).where(Actor.actor_id == actor_id)
-        )
+        result = await self.db.execute(select(Actor).where(Actor.actor_id == actor_id))
         return result.scalar_one_or_none()
-    
+
     async def get_actor_by_email(self, email: str) -> Optional[Actor]:
         """Get actor by email."""
         result = await self.db.execute(
@@ -77,7 +75,7 @@ class IdentityService:
             )
         )
         return result.scalar_one_or_none()
-    
+
     async def get_actor_by_phone(self, phone: str) -> Optional[Actor]:
         """Get actor by phone."""
         result = await self.db.execute(
@@ -90,7 +88,7 @@ class IdentityService:
             )
         )
         return result.scalar_one_or_none()
-    
+
     async def get_actor_by_device_fingerprint(self, fingerprint: str) -> Optional[Actor]:
         """Get actor by device fingerprint."""
         result = await self.db.execute(
@@ -103,7 +101,7 @@ class IdentityService:
             )
         )
         return result.scalar_one_or_none()
-    
+
     async def get_actor_by_service_name(self, service_name: str) -> Optional[Actor]:
         """Get actor by service name."""
         result = await self.db.execute(
@@ -116,64 +114,59 @@ class IdentityService:
             )
         )
         return result.scalar_one_or_none()
-    
-    async def update_actor(
-        self,
-        actor_id: str,
-        **updates
-    ) -> Optional[Actor]:
+
+    async def update_actor(self, actor_id: str, **updates) -> Optional[Actor]:
         """Update actor fields."""
         actor = await self.get_actor_by_id(actor_id)
         if not actor:
             return None
-        
+
         for key, value in updates.items():
             if hasattr(actor, key):
                 setattr(actor, key, value)
-        
+
         actor.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return actor
-    
+
     async def verify_actor(self, actor_id: str) -> bool:
         """Mark actor as verified."""
         actor = await self.get_actor_by_id(actor_id)
         if not actor:
             return False
-        
+
         actor.is_verified = True
         actor.verified_at = datetime.now(timezone.utc)
         if actor.trust_level == TrustLevel.UNVERIFIED:
             actor.trust_level = TrustLevel.VERIFIED
         await self.db.flush()
         return True
-    
+
     async def revoke_actor(self, actor_id: str, reason: Optional[str] = None) -> bool:
         """Revoke an actor."""
         actor = await self.get_actor_by_id(actor_id)
         if not actor:
             return False
-        
+
         actor.is_active = False
         actor.revoked_at = datetime.now(timezone.utc)
         actor.revocation_reason = reason
         await self.db.flush()
         return True
-    
+
     async def update_last_login(self, actor_id: str) -> None:
         """Update last login timestamp."""
         actor = await self.get_actor_by_id(actor_id)
         if actor:
             actor.last_login_at = datetime.now(timezone.utc)
             await self.db.flush()
-    
+
     async def set_trust_level(self, actor_id: str, trust_level: TrustLevel) -> bool:
         """Set actor trust level."""
         actor = await self.get_actor_by_id(actor_id)
         if not actor:
             return False
-        
+
         actor.trust_level = trust_level
         await self.db.flush()
         return True
-

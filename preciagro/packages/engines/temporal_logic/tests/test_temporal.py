@@ -16,7 +16,7 @@ from ..dsl_loader import DSLLoader
 from ..due_queue.dispatcher import TaskDispatcher
 from ..due_queue.worker import TaskWorker
 from ..evaluator import PredicateEvaluator
-from ..models import (Base, ScheduledTask, TemporalEvent, TemporalRule)
+from ..models import Base, ScheduledTask, TemporalEvent, TemporalRule
 from ..policies.quiet_hours import QuietHoursPolicy
 from ..policies.rate_limits import RateLimitPolicy
 from ..security.auth import security_middleware
@@ -69,9 +69,7 @@ def sample_rule_data():
     return {
         "name": "test_weather_alert",
         "description": "Test weather alert rule",
-        "conditions": [
-            {"type": "weather", "predicate": "temperature > 30", "window": "current"}
-        ],
+        "conditions": [{"type": "weather", "predicate": "temperature > 30", "window": "current"}],
         "actions": [
             {
                 "type": "send_message",
@@ -155,9 +153,7 @@ class TestEvaluator:
         assert evaluator.evaluate("temperature > 20", context) is True
         assert evaluator.evaluate("temperature < 20", context) is False
         assert evaluator.evaluate("humidity == 60", context) is True
-        assert (
-            evaluator.evaluate("temperature >= 25 AND humidity < 70", context) is True
-        )
+        assert evaluator.evaluate("temperature >= 25 AND humidity < 70", context) is True
 
     def test_complex_predicate_evaluation(self):
         """Test complex predicate evaluation."""
@@ -181,7 +177,7 @@ class TestEvaluator:
         context = {"current_time": now, "last_rain": now - timedelta(hours=2)}
 
         # FIX: Ruff F841 lint workaround - verify mocked context delta to keep assertion relevant until window logic is implemented.
-        assert context['current_time'] - context['last_rain'] == timedelta(hours=2)
+        assert context["current_time"] - context["last_rain"] == timedelta(hours=2)
         # This would need more complex implementation
         # For now, just test the basic structure
         assert evaluator._validate_predicate("temperature > 20") is True
@@ -259,9 +255,7 @@ class TestDSLLoader:
         # Valid rule
         valid_rule = {
             "name": "test_rule",
-            "conditions": [
-                {"type": "weather", "predicate": "temp > 20", "window": "current"}
-            ],
+            "conditions": [{"type": "weather", "predicate": "temp > 20", "window": "current"}],
             "actions": [{"type": "send_message", "channel": "whatsapp"}],
         }
 
@@ -364,9 +358,7 @@ class TestChannels:
                 return_value={"sid": "test_sms_id", "status": "queued"}
             )
 
-            result = await channel.send_message(
-                recipient="+1234567890", message="Test SMS message"
-            )
+            result = await channel.send_message(recipient="+1234567890", message="Test SMS message")
 
             assert result["success"] is True
             assert "message_id" in result
@@ -492,9 +484,7 @@ class TestIntegration:
     """Integration tests."""
 
     @pytest_asyncio.async_test
-    async def test_end_to_end_workflow(
-        self, async_session, sample_event_data, sample_rule_data
-    ):
+    async def test_end_to_end_workflow(self, async_session, sample_event_data, sample_rule_data):
         """Test complete workflow from event to task execution."""
         # 1. Create event
         event = TemporalEvent(**sample_event_data)
@@ -521,8 +511,7 @@ class TestIntegration:
 
         # Check if rule conditions are met
         conditions_met = all(
-            evaluator.evaluate(condition["predicate"], context)
-            for condition in rule.conditions
+            evaluator.evaluate(condition["predicate"], context) for condition in rule.conditions
         )
 
         assert conditions_met is True

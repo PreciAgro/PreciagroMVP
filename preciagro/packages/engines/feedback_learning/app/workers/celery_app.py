@@ -26,24 +26,19 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    
     # Task execution settings
     task_acks_late=True,  # Ack after task completes for reliability
     task_reject_on_worker_lost=True,
     task_time_limit=300,  # 5 minute hard limit
     task_soft_time_limit=240,  # 4 minute soft limit
-    
     # Worker settings
     worker_prefetch_multiplier=1,  # One task at a time for ordering
     worker_concurrency=4,  # 4 concurrent workers
-    
     # Result settings
     result_expires=3600,  # Results expire after 1 hour
-    
     # Retry settings
     task_default_retry_delay=60,  # 1 minute retry delay
     task_max_retries=3,
-    
     # Queue settings
     task_default_queue="fle.default",
     task_queues={
@@ -51,7 +46,6 @@ celery_app.conf.update(
         "fle.priority": {"routing_key": "fle.priority"},
         "fle.batch": {"routing_key": "fle.batch"},
     },
-    
     # Beat schedule for periodic tasks
     beat_schedule={
         "process-pending-signals": {
@@ -70,12 +64,13 @@ celery_app.conf.update(
 @celery_app.task(bind=True, max_retries=3)
 def handle_task_failure(self, exc, task_id, args, kwargs, einfo):
     """Handle task failures.
-    
+
     Logs error and sends to dead letter if max retries exceeded.
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     logger.error(
         f"Task {task_id} failed: {exc}",
         extra={
@@ -83,5 +78,5 @@ def handle_task_failure(self, exc, task_id, args, kwargs, einfo):
             "args": args,
             "kwargs": kwargs,
             "traceback": str(einfo),
-        }
+        },
     )

@@ -48,10 +48,7 @@ class Settings(BaseSettings):
         # .env files that may contain shell-specific syntax (e.g. PowerShell
         # lines like "$env:FOO = \"bar\""). This mirrors other engines
         # and prevents Pydantic from treating unexpected keys as input.
-        env_file = (
-            ".env" if os.getenv("DEV", "").lower() in (
-                "1", "true", "yes") else None
-        )
+        env_file = ".env" if os.getenv("DEV", "").lower() in ("1", "true", "yes") else None
         case_sensitive = False
         extra = "ignore"  # Allow extra fields from .env file
 

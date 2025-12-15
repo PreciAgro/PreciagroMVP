@@ -28,4 +28,3 @@ try:
     register_models()
 except Exception:  # pragma: no cover - defensive logging
     logger.exception("Failed to register Farm Inventory models")
-

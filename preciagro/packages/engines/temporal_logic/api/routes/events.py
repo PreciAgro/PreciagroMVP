@@ -45,9 +45,7 @@ async def create_event(
     """Create a new temporal event."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CREATE_EVENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CREATE_EVENTS)
 
         # Create event in database
         event = TemporalEvent(
@@ -85,24 +83,17 @@ async def create_event(
 async def get_events(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
-    event_type: Optional[str] = Query(
-        None, description="Filter by event type"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
     source: Optional[str] = Query(None, description="Filter by source"),
-    start_date: Optional[datetime] = Query(
-        None, description="Filter events after this date"
-    ),
-    end_date: Optional[datetime] = Query(
-        None, description="Filter events before this date"
-    ),
+    start_date: Optional[datetime] = Query(None, description="Filter events after this date"),
+    end_date: Optional[datetime] = Query(None, description="Filter events before this date"),
     db: AsyncSession = Depends(get_db_session),
     current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
     """Get paginated list of events with optional filtering."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_EVENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_EVENTS)
 
         # Build query
         query = select(TemporalEvent)
@@ -124,8 +115,7 @@ async def get_events(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(TemporalEvent.id).select_from(
-            query.alias().subquery())
+        count_query = select(TemporalEvent.id).select_from(query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -172,9 +162,7 @@ async def get_event(
     """Get a specific event by ID."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_EVENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_EVENTS)
 
         # Get event
         stmt = select(TemporalEvent).where(TemporalEvent.id == event_id)
@@ -210,9 +198,7 @@ async def create_bulk_events(
     """Create multiple events in a single request."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CREATE_EVENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CREATE_EVENTS)
 
         if len(events_data) > 100:
             raise HTTPException(
@@ -239,10 +225,7 @@ async def create_bulk_events(
                 engine_metrics.event_received(event.event_type, event.source)
 
             except Exception as e:
-                errors.append(
-                    {"index": i, "error": str(
-                        e), "event_data": event_data.dict()}
-                )
+                errors.append({"index": i, "error": str(e), "event_data": event_data.dict()})
 
         await db.commit()
 
@@ -278,9 +261,7 @@ async def create_typed_event(
     """Create an event with specific type (convenience endpoint)."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CREATE_EVENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CREATE_EVENTS)
 
         # Create event data
         event_data = EventCreate(
@@ -331,15 +312,12 @@ async def get_event_types_summary(
     """Get summary of event types and their counts over a time period."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_EVENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_EVENTS)
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get events from the last N days
-        stmt = select(TemporalEvent).where(
-            TemporalEvent.created_at >= start_date)
+        stmt = select(TemporalEvent).where(TemporalEvent.created_at >= start_date)
 
         result = await db.execute(stmt)
         events = result.scalars().all()
@@ -390,9 +368,7 @@ async def process_event(
     """Manually trigger processing of a specific event."""
     try:
         # Check permissions (admin only)
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.ADMIN_SYSTEM
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.ADMIN_SYSTEM)
 
         # Get event
         stmt = select(TemporalEvent).where(TemporalEvent.id == event_id)

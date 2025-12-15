@@ -27,7 +27,7 @@ Usage:
         RoutingService,
         AuditService,
     )
-    
+
     # Or use the FastAPI app
     from preciagro.packages.engines.feedback_learning.app.main import app
 """
@@ -74,18 +74,18 @@ from .app.services.audit_service import AuditService
 
 def run(data: Dict[str, Any]) -> Dict[str, Any]:
     """Run feedback learning engine (sync interface).
-    
+
     Args:
         data: Input data containing feedback to process
-        
+
     Returns:
         Dictionary with processing results
     """
     import asyncio
-    
+
     # Determine feedback type
     feedback_type = data.get("feedback_type", "explicit")
-    
+
     # Create input based on type
     if feedback_type == "explicit":
         input_data = ExplicitFeedbackInput(
@@ -95,25 +95,25 @@ def run(data: Dict[str, Any]) -> Dict[str, Any]:
             user_id=data.get("user_id", "unknown"),
             region_code=data.get("region_code", "ZW"),
         )
-        
+
         capture = CaptureService()
-        
+
         async def _capture():
             return await capture.capture_explicit_feedback(input_data)
-        
+
         loop = asyncio.new_event_loop()
         try:
             event = loop.run_until_complete(_capture())
         finally:
             loop.close()
-        
+
         return {
             "engine": "feedback_learning",
             "status": "captured",
             "feedback_id": event.feedback_id,
             "feedback_type": feedback_type,
         }
-    
+
     return {
         "engine": "feedback_learning",
         "status": "error",
@@ -123,7 +123,7 @@ def run(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def status() -> Dict[str, Any]:
     """Get engine status.
-    
+
     Returns:
         Dictionary with engine state information
     """
@@ -160,10 +160,10 @@ def status() -> Dict[str, Any]:
 
 def collect_feedback(feedback_data: Dict[str, Any]) -> Dict[str, Any]:
     """Collect and store feedback.
-    
+
     Args:
         feedback_data: Feedback data including type, content, ratings, etc.
-        
+
     Returns:
         Feedback collection result
     """
@@ -172,10 +172,10 @@ def collect_feedback(feedback_data: Dict[str, Any]) -> Dict[str, Any]:
 
 def process_feedback_for_learning(feedback_id: str) -> Dict[str, Any]:
     """Process feedback for model learning/improvement.
-    
+
     Args:
         feedback_id: Identifier of the feedback to process
-        
+
     Returns:
         Learning insights and signal information
     """
@@ -193,11 +193,9 @@ __all__ = [
     "status",
     "collect_feedback",
     "process_feedback_for_learning",
-    
     # Configuration
     "FLESettings",
     "settings",
-    
     # Services
     "CaptureService",
     "ValidationService",
@@ -208,7 +206,6 @@ __all__ = [
     "RoutingService",
     "RoutingResult",
     "AuditService",
-    
     # Upstream contracts
     "ExplicitFeedbackInput",
     "ImplicitFeedbackInput",
@@ -218,7 +215,6 @@ __all__ = [
     "FarmerProfileContext",
     "OutcomeTimingContext",
     "FeedbackType",
-    
     # Downstream contracts
     "LearningSignalOutput",
     "FlaggedFeedbackOutput",
@@ -226,7 +222,6 @@ __all__ = [
     "SignalType",
     "FlagReason",
     "ReviewDecision",
-    
     # Models
     "FeedbackEvent",
     "WeightedFeedback",
@@ -234,4 +229,3 @@ __all__ = [
     "FeedbackAuditTrace",
     "AuditStep",
 ]
-

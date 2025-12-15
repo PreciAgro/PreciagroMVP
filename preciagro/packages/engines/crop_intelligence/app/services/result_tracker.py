@@ -19,7 +19,11 @@ class ResultTracker:
             log_recommendation_batch(field_id, count)
 
     def log_feedback(self, feedback: FeedbackIn, action_type: str) -> None:
-        acceptance = 1.0 if feedback.decision == "accepted" else 0.5 if feedback.decision == "modified" else 0.0
+        acceptance = (
+            1.0
+            if feedback.decision == "accepted"
+            else 0.5 if feedback.decision == "modified" else 0.0
+        )
         track_action_decision(
             field_id=feedback.field_id,
             action_id=feedback.action_id,

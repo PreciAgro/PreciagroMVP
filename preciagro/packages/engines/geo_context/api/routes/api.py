@@ -11,10 +11,12 @@ from ...config import settings
 
 os.environ.setdefault("DEV_MODE", "true")
 
-from preciagro.packages.shared.security import (TenantContext,  # noqa: E402
-                                                require_scopes,
-                                                sanitize_for_logs,
-                                                validate_polygon_size)
+from preciagro.packages.shared.security import (
+    TenantContext,  # noqa: E402
+    require_scopes,
+    sanitize_for_logs,
+    validate_polygon_size,
+)
 
 from ...contracts.v1.fco import FCOResponse  # noqa: E402
 from ...contracts.v1.requests import FCORequest  # noqa: E402
@@ -128,14 +130,10 @@ router.add_api_route(
     tags=["geo-context"],
 )
 
-router.add_api_route(
-    "/geo-context/health", _health_handler, methods=["GET"], tags=["geo-context"]
-)
+router.add_api_route("/geo-context/health", _health_handler, methods=["GET"], tags=["geo-context"])
 router.add_api_route("/health", _health_handler, methods=["GET"], tags=["geo-context"])
 
 router.add_api_route(
     "/geo-context/version", _version_handler, methods=["GET"], tags=["geo-context"]
 )
-router.add_api_route(
-    "/version", _version_handler, methods=["GET"], tags=["geo-context"]
-)
+router.add_api_route("/version", _version_handler, methods=["GET"], tags=["geo-context"])

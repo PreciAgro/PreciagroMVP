@@ -323,11 +323,7 @@ class ImageAnalysisService:
         """Run YOLO counting when enabled."""
 
         counts = CountsResult()
-        if (
-            image_matrix is None
-            or not payload.count_objects
-            or not crop_config.counting.enabled
-        ):
+        if image_matrix is None or not payload.count_objects or not crop_config.counting.enabled:
             return counts
 
         result = self.counting_engine.count(image_matrix, crop_config)

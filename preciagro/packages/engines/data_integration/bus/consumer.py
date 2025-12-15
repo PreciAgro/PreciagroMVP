@@ -36,9 +36,7 @@ async def run_consumer(
                 for stream, entries in msgs:
                     for entry_id, data in entries:
                         payload = data.get(b"payload") or data.get("payload")
-                        logger.info(
-                            "Consumed event id=%s payload=%s", entry_id, payload
-                        )
+                        logger.info("Consumed event id=%s payload=%s", entry_id, payload)
                         # advance pointer
                         last_id = entry_id
         except asyncio.CancelledError:

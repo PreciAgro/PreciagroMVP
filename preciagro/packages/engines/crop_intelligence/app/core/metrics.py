@@ -2,6 +2,7 @@
 Metrics Service for CIE Observability.
 Tracks: stage accuracy, action acceptance, disease false-alarms, data completeness, latency.
 """
+
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field, asdict
@@ -12,6 +13,7 @@ import json
 @dataclass
 class MetricValue:
     """Single metric observation."""
+
     timestamp: datetime
     value: float
     metadata: Dict = field(default_factory=dict)
@@ -20,6 +22,7 @@ class MetricValue:
 @dataclass
 class MetricSummary:
     """Aggregated metric statistics."""
+
     metric_name: str
     period_start: datetime
     period_end: datetime
@@ -44,32 +47,20 @@ class MetricsCollector:
 
     def record_metric(self, name: str, value: float, metadata: Dict = None):
         """Record a single metric observation."""
-        metric = MetricValue(
-            timestamp=datetime.now(),
-            value=value,
-            metadata=metadata or {}
-        )
+        metric = MetricValue(timestamp=datetime.now(), value=value, metadata=metadata or {})
         self.metrics[name].append(metric)
 
     def record_event(self, event_type: str, data: Dict):
         """Record an event for audit trail."""
-        event = {
-            "timestamp": datetime.now().isoformat(),
-            "event_type": event_type,
-            "data": data
-        }
+        event = {"timestamp": datetime.now().isoformat(), "event_type": event_type, "data": data}
         self.events.append(event)
 
     def get_metric_summary(
-        self,
-        name: str,
-        window_hours: int = 24,
-        breakdown_by: Optional[str] = None
+        self, name: str, window_hours: int = 24, breakdown_by: Optional[str] = None
     ) -> MetricSummary:
         """Get summary statistics for a metric over a time window."""
         cutoff = datetime.now() - timedelta(hours=window_hours)
-        recent = [m for m in self.metrics.get(
-            name, []) if m.timestamp >= cutoff]
+        recent = [m for m in self.metrics.get(name, []) if m.timestamp >= cutoff]
 
         if not recent:
             return MetricSummary(
@@ -81,7 +72,7 @@ class MetricsCollector:
                 min=0.0,
                 max=0.0,
                 p50=0.0,
-                p95=0.0
+                p95=0.0,
             )
 
         values = sorted([m.value for m in recent])
@@ -100,7 +91,7 @@ class MetricsCollector:
             min=min(values),
             max=max(values),
             p50=values[p50_idx] if count > 0 else 0.0,
-            p95=values[p95_idx] if count > 0 else 0.0
+            p95=values[p95_idx] if count > 0 else 0.0,
         )
 
         # Optional breakdown
@@ -111,10 +102,7 @@ class MetricsCollector:
                 breakdown[key].append(m.value)
 
             summary.breakdown = {
-                k: {
-                    "count": len(v),
-                    "mean": sum(v) / len(v) if v else 0.0
-                }
+                k: {"count": len(v), "mean": sum(v) / len(v) if v else 0.0}
                 for k, v in breakdown.items()
             }
 
@@ -140,19 +128,21 @@ def log_recommendation_batch(field_id: str, count: int) -> None:
 def log_stage_estimate(field_id: str, stage: str, confidence: float) -> None:
     """Record stage estimator outputs for later offline evaluation."""
     metrics = get_metrics_collector()
-    metrics.record_metric("stage_estimate_confidence", confidence, {"field_id": field_id, "stage": stage})
-    metrics.record_event("stage_estimate", {"field_id": field_id, "stage": stage, "confidence": confidence})
+    metrics.record_metric(
+        "stage_estimate_confidence", confidence, {"field_id": field_id, "stage": stage}
+    )
+    metrics.record_event(
+        "stage_estimate", {"field_id": field_id, "stage": stage, "confidence": confidence}
+    )
 
 
 # ===================================
 # CIE-Specific Metric Trackers
 # ===================================
 
+
 def track_stage_accuracy(
-    field_id: str,
-    predicted_stage: str,
-    ground_truth_stage: str,
-    confidence: float
+    field_id: str, predicted_stage: str, ground_truth_stage: str, confidence: float
 ):
     """
     Track stage prediction accuracy.
@@ -167,17 +157,20 @@ def track_stage_accuracy(
             "field_id": field_id,
             "predicted": predicted_stage,
             "actual": ground_truth_stage,
-            "confidence": confidence
-        }
+            "confidence": confidence,
+        },
     )
 
-    _metrics.record_event("stage_verification", {
-        "field_id": field_id,
-        "predicted_stage": predicted_stage,
-        "ground_truth_stage": ground_truth_stage,
-        "correct": correct == 1.0,
-        "confidence": confidence
-    })
+    _metrics.record_event(
+        "stage_verification",
+        {
+            "field_id": field_id,
+            "predicted_stage": predicted_stage,
+            "ground_truth_stage": ground_truth_stage,
+            "correct": correct == 1.0,
+            "confidence": confidence,
+        },
+    )
 
 
 def track_action_decision(
@@ -186,7 +179,7 @@ def track_action_decision(
     action_type: str,
     decision: str,  # "accepted", "rejected", "ignored"
     confidence: float,
-    metadata: Dict = None
+    metadata: Dict = None,
 ):
     """Track user's decision on an action recommendation."""
     acceptance_value = 1.0 if decision == "accepted" else 0.0
@@ -200,29 +193,28 @@ def track_action_decision(
             "action_type": action_type,
             "decision": decision,
             "confidence": confidence,
-            **(metadata or {})
-        }
+            **(metadata or {}),
+        },
     )
 
     # Track by action type
     _metrics.record_metric(
         f"action_acceptance_{action_type}",
         acceptance_value,
-        metadata={
-            "field_id": field_id,
-            "action_id": action_id,
-            "confidence": confidence
-        }
+        metadata={"field_id": field_id, "action_id": action_id, "confidence": confidence},
     )
 
-    _metrics.record_event("action_decision", {
-        "field_id": field_id,
-        "action_id": action_id,
-        "action_type": action_type,
-        "decision": decision,
-        "confidence": confidence,
-        "metadata": metadata
-    })
+    _metrics.record_event(
+        "action_decision",
+        {
+            "field_id": field_id,
+            "action_id": action_id,
+            "action_type": action_type,
+            "decision": decision,
+            "confidence": confidence,
+            "metadata": metadata,
+        },
+    )
 
 
 def track_disease_false_alarm(
@@ -230,16 +222,16 @@ def track_disease_false_alarm(
     disease: str,
     risk_level: str,
     follow_up_observation: str,  # "symptoms_confirmed", "no_symptoms", "unknown"
-    hours_since_alert: int
+    hours_since_alert: int,
 ):
     """
     Track disease false-alarm rate.
     False alarm = "High risk" alert with no symptoms within 72h.
     """
     is_false_alarm = (
-        risk_level in ["high", "critical"] and
-        follow_up_observation == "no_symptoms" and
-        hours_since_alert <= 72
+        risk_level in ["high", "critical"]
+        and follow_up_observation == "no_symptoms"
+        and hours_since_alert <= 72
     )
 
     _metrics.record_metric(
@@ -250,25 +242,28 @@ def track_disease_false_alarm(
             "disease": disease,
             "risk_level": risk_level,
             "observation": follow_up_observation,
-            "hours_since_alert": hours_since_alert
-        }
+            "hours_since_alert": hours_since_alert,
+        },
     )
 
     # Track by disease type
     _metrics.record_metric(
         f"disease_false_alarm_{disease}",
         1.0 if is_false_alarm else 0.0,
-        metadata={"field_id": field_id}
+        metadata={"field_id": field_id},
     )
 
-    _metrics.record_event("disease_verification", {
-        "field_id": field_id,
-        "disease": disease,
-        "risk_level": risk_level,
-        "observation": follow_up_observation,
-        "hours_since_alert": hours_since_alert,
-        "false_alarm": is_false_alarm
-    })
+    _metrics.record_event(
+        "disease_verification",
+        {
+            "field_id": field_id,
+            "disease": disease,
+            "risk_level": risk_level,
+            "observation": follow_up_observation,
+            "hours_since_alert": hours_since_alert,
+            "false_alarm": is_false_alarm,
+        },
+    )
 
 
 def track_data_completeness(
@@ -277,7 +272,7 @@ def track_data_completeness(
     photo_count: int,
     vi_observations: int,
     weather_days_available: int,
-    action_logs: int
+    action_logs: int,
 ):
     """
     Track data completeness for a field over a period.
@@ -292,15 +287,15 @@ def track_data_completeness(
     expected_vi = period_days / 6.0
     expected_weather = period_days
 
-    photo_completeness = min(
-        1.0, photo_count / expected_photos) if expected_photos > 0 else 0.0
-    vi_completeness = min(1.0, vi_observations /
-                          expected_vi) if expected_vi > 0 else 0.0
-    weather_completeness = weather_days_available / \
-        expected_weather if expected_weather > 0 else 0.0
+    photo_completeness = min(1.0, photo_count / expected_photos) if expected_photos > 0 else 0.0
+    vi_completeness = min(1.0, vi_observations / expected_vi) if expected_vi > 0 else 0.0
+    weather_completeness = (
+        weather_days_available / expected_weather if expected_weather > 0 else 0.0
+    )
 
-    overall_completeness = (photo_completeness * 0.3 +
-                            vi_completeness * 0.3 + weather_completeness * 0.4)
+    overall_completeness = (
+        photo_completeness * 0.3 + vi_completeness * 0.3 + weather_completeness * 0.4
+    )
 
     _metrics.record_metric(
         "data_completeness",
@@ -310,45 +305,36 @@ def track_data_completeness(
             "period_days": period_days,
             "photo_completeness": photo_completeness,
             "vi_completeness": vi_completeness,
-            "weather_completeness": weather_completeness
-        }
+            "weather_completeness": weather_completeness,
+        },
     )
 
-    _metrics.record_event("data_completeness_check", {
-        "field_id": field_id,
-        "period_days": period_days,
-        "photo_count": photo_count,
-        "vi_observations": vi_observations,
-        "weather_days_available": weather_days_available,
-        "action_logs": action_logs,
-        "overall_completeness": overall_completeness
-    })
+    _metrics.record_event(
+        "data_completeness_check",
+        {
+            "field_id": field_id,
+            "period_days": period_days,
+            "photo_count": photo_count,
+            "vi_observations": vi_observations,
+            "weather_days_available": weather_days_available,
+            "action_logs": action_logs,
+            "overall_completeness": overall_completeness,
+        },
+    )
 
 
-def track_endpoint_latency(
-    endpoint: str,
-    latency_ms: float,
-    status_code: int
-):
+def track_endpoint_latency(endpoint: str, latency_ms: float, status_code: int):
     """Track API endpoint latency."""
     _metrics.record_metric(
         "endpoint_latency_ms",
         latency_ms,
-        metadata={
-            "endpoint": endpoint,
-            "status_code": status_code
-        }
+        metadata={"endpoint": endpoint, "status_code": status_code},
     )
 
     # Track errors separately
     if status_code >= 400:
         _metrics.record_metric(
-            "endpoint_error",
-            1.0,
-            metadata={
-                "endpoint": endpoint,
-                "status_code": status_code
-            }
+            "endpoint_error", 1.0, metadata={"endpoint": endpoint, "status_code": status_code}
         )
 
 
@@ -357,7 +343,7 @@ def track_regret_proxy(
     action_id: str,
     decision: str,
     outcome_14d: Optional[str],  # "better", "worse", "neutral", "unknown"
-    outcome_30d: Optional[str]
+    outcome_30d: Optional[str],
 ):
     """
     Track regret proxy - did ignoring/accepting action lead to better outcome?
@@ -369,10 +355,10 @@ def track_regret_proxy(
     """
     if outcome_14d:
         regret_score = {
-            "better": 0.0,    # Good decision
-            "neutral": 0.2,   # Slight regret
-            "worse": 1.0,     # High regret
-            "unknown": 0.5    # Cannot assess
+            "better": 0.0,  # Good decision
+            "neutral": 0.2,  # Slight regret
+            "worse": 1.0,  # High regret
+            "unknown": 0.5,  # Cannot assess
         }.get(outcome_14d, 0.5)
 
         _metrics.record_metric(
@@ -382,17 +368,14 @@ def track_regret_proxy(
                 "field_id": field_id,
                 "action_id": action_id,
                 "decision": decision,
-                "outcome": outcome_14d
-            }
+                "outcome": outcome_14d,
+            },
         )
 
     if outcome_30d:
-        regret_score = {
-            "better": 0.0,
-            "neutral": 0.2,
-            "worse": 1.0,
-            "unknown": 0.5
-        }.get(outcome_30d, 0.5)
+        regret_score = {"better": 0.0, "neutral": 0.2, "worse": 1.0, "unknown": 0.5}.get(
+            outcome_30d, 0.5
+        )
 
         _metrics.record_metric(
             "regret_proxy_30d",
@@ -401,22 +384,26 @@ def track_regret_proxy(
                 "field_id": field_id,
                 "action_id": action_id,
                 "decision": decision,
-                "outcome": outcome_30d
-            }
+                "outcome": outcome_30d,
+            },
         )
 
-    _metrics.record_event("regret_assessment", {
-        "field_id": field_id,
-        "action_id": action_id,
-        "decision": decision,
-        "outcome_14d": outcome_14d,
-        "outcome_30d": outcome_30d
-    })
+    _metrics.record_event(
+        "regret_assessment",
+        {
+            "field_id": field_id,
+            "action_id": action_id,
+            "decision": decision,
+            "outcome_14d": outcome_14d,
+            "outcome_30d": outcome_30d,
+        },
+    )
 
 
 # ===================================
 # Pilot Scorecard Generator
 # ===================================
+
 
 def generate_pilot_scorecard(window_hours: int = 168) -> Dict:
     """
@@ -430,25 +417,22 @@ def generate_pilot_scorecard(window_hours: int = 168) -> Dict:
     stage_acc = metrics.get_metric_summary("stage_accuracy", window_hours)
 
     # Action acceptance (target: 60%+)
-    action_acc_overall = metrics.get_metric_summary(
-        "action_acceptance_overall", window_hours)
+    action_acc_overall = metrics.get_metric_summary("action_acceptance_overall", window_hours)
     action_acc_by_type = {
-        action_type: metrics.get_metric_summary(
-            f"action_acceptance_{action_type}", window_hours)
+        action_type: metrics.get_metric_summary(f"action_acceptance_{action_type}", window_hours)
         for action_type in ["nitrogen", "water", "disease", "photo_prompt"]
     }
 
     # Disease false-alarms (target: <15%)
-    disease_false_alarm = metrics.get_metric_summary(
-        "disease_false_alarm", window_hours)
+    disease_false_alarm = metrics.get_metric_summary("disease_false_alarm", window_hours)
 
     # Data completeness (target: 75%+)
-    data_completeness = metrics.get_metric_summary(
-        "data_completeness", window_hours)
+    data_completeness = metrics.get_metric_summary("data_completeness", window_hours)
 
     # Endpoint latency (target: p95 < 200ms)
     latency = metrics.get_metric_summary(
-        "endpoint_latency_ms", window_hours, breakdown_by="endpoint")
+        "endpoint_latency_ms", window_hours, breakdown_by="endpoint"
+    )
 
     # Error rate (target: <5%)
     errors = metrics.get_metric_summary("endpoint_error", window_hours)
@@ -458,53 +442,50 @@ def generate_pilot_scorecard(window_hours: int = 168) -> Dict:
         "period": {
             "start": (datetime.now() - timedelta(hours=window_hours)).isoformat(),
             "end": datetime.now().isoformat(),
-            "hours": window_hours
+            "hours": window_hours,
         },
         "stage_accuracy": {
             "mean": round(stage_acc.mean, 3),
             "count": stage_acc.count,
             "target": 0.80,
-            "status": "✓" if stage_acc.mean >= 0.80 else "⚠️"
+            "status": "✓" if stage_acc.mean >= 0.80 else "⚠️",
         },
         "action_acceptance": {
             "overall": {
                 "mean": round(action_acc_overall.mean, 3),
                 "count": action_acc_overall.count,
                 "target": 0.60,
-                "status": "✓" if action_acc_overall.mean >= 0.60 else "⚠️"
+                "status": "✓" if action_acc_overall.mean >= 0.60 else "⚠️",
             },
             "by_type": {
-                atype: {
-                    "mean": round(summary.mean, 3),
-                    "count": summary.count
-                }
+                atype: {"mean": round(summary.mean, 3), "count": summary.count}
                 for atype, summary in action_acc_by_type.items()
-            }
+            },
         },
         "disease_false_alarm_rate": {
             "mean": round(disease_false_alarm.mean, 3),
             "count": disease_false_alarm.count,
             "target": 0.15,
-            "status": "✓" if disease_false_alarm.mean <= 0.15 else "⚠️"
+            "status": "✓" if disease_false_alarm.mean <= 0.15 else "⚠️",
         },
         "data_completeness": {
             "mean": round(data_completeness.mean, 3),
             "count": data_completeness.count,
             "target": 0.75,
-            "status": "✓" if data_completeness.mean >= 0.75 else "⚠️"
+            "status": "✓" if data_completeness.mean >= 0.75 else "⚠️",
         },
         "latency_p95_ms": {
             "overall": round(latency.p95, 1),
             "by_endpoint": latency.breakdown,
             "target": 200.0,
-            "status": "✓" if latency.p95 <= 200.0 else "⚠️"
+            "status": "✓" if latency.p95 <= 200.0 else "⚠️",
         },
         "error_rate": {
             "rate": round(error_rate, 3),
             "count": errors.count,
             "target": 0.05,
-            "status": "✓" if error_rate <= 0.05 else "⚠️"
-        }
+            "status": "✓" if error_rate <= 0.05 else "⚠️",
+        },
     }
 
     return scorecard

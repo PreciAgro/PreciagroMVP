@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 # Authentication Schemas
 class LoginRequest(BaseModel):
     """Login request."""
+
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     password: str
@@ -17,6 +18,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     """Login response."""
+
     actor_id: str
     access_token: str
     refresh_token: str
@@ -28,11 +30,13 @@ class LoginResponse(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     """Refresh token request."""
+
     refresh_token: str
 
 
 class RefreshTokenResponse(BaseModel):
     """Refresh token response."""
+
     access_token: str
     refresh_token: str
     token_type: str = "Bearer"
@@ -41,12 +45,14 @@ class RefreshTokenResponse(BaseModel):
 
 class LogoutRequest(BaseModel):
     """Logout request."""
+
     revoke_all: bool = False
 
 
 # Actor Schemas
 class ActorCreateRequest(BaseModel):
     """Create actor request."""
+
     actor_type: str  # human, device, service, external
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -64,6 +70,7 @@ class ActorCreateRequest(BaseModel):
 
 class ActorResponse(BaseModel):
     """Actor response."""
+
     actor_id: str
     actor_type: str
     email: Optional[str] = None
@@ -78,7 +85,7 @@ class ActorResponse(BaseModel):
     is_verified: bool
     created_at: datetime
     last_login_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -86,12 +93,14 @@ class ActorResponse(BaseModel):
 # MFA Schemas
 class MFADeviceRegisterRequest(BaseModel):
     """Register MFA device request."""
+
     device_type: str = "totp"  # totp, sms, email
     device_name: Optional[str] = None
 
 
 class MFADeviceRegisterResponse(BaseModel):
     """Register MFA device response."""
+
     device_id: str
     provisioning_uri: str
     secret: str  # For TOTP, should be shown to user once
@@ -99,6 +108,7 @@ class MFADeviceRegisterResponse(BaseModel):
 
 class MFAVerifyRequest(BaseModel):
     """Verify MFA device request."""
+
     device_id: str
     verification_code: str
 
@@ -106,6 +116,7 @@ class MFAVerifyRequest(BaseModel):
 # Authorization Schemas
 class PermissionCheckRequest(BaseModel):
     """Permission check request."""
+
     resource: str
     action: str
     context: Optional[Dict[str, Any]] = None
@@ -113,6 +124,7 @@ class PermissionCheckRequest(BaseModel):
 
 class PermissionCheckResponse(BaseModel):
     """Permission check response."""
+
     allowed: bool
     reason: Optional[str] = None
 
@@ -120,30 +132,35 @@ class PermissionCheckResponse(BaseModel):
 # Encryption Schemas
 class EncryptRequest(BaseModel):
     """Encrypt data request."""
+
     data: str  # Base64 encoded
     key_id: Optional[str] = None
 
 
 class EncryptResponse(BaseModel):
     """Encrypt data response."""
+
     encrypted_data: str  # Base64 encoded
     key_reference: str  # Format: "key_id:key_version"
 
 
 class DecryptRequest(BaseModel):
     """Decrypt data request."""
+
     encrypted_data: str  # Base64 encoded
     key_reference: str  # Format: "key_id:key_version"
 
 
 class DecryptResponse(BaseModel):
     """Decrypt data response."""
+
     data: str  # Base64 encoded
 
 
 # Audit Schemas
 class AuditLogQuery(BaseModel):
     """Audit log query parameters."""
+
     actor_id: Optional[str] = None
     event_type: Optional[str] = None
     resource_type: Optional[str] = None
@@ -156,6 +173,7 @@ class AuditLogQuery(BaseModel):
 
 class AuditLogResponse(BaseModel):
     """Audit log entry response."""
+
     log_id: str
     actor_id: Optional[str] = None
     event_type: str
@@ -167,7 +185,7 @@ class AuditLogResponse(BaseModel):
     ip_address: Optional[str] = None
     region: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -175,6 +193,7 @@ class AuditLogResponse(BaseModel):
 # Role & Permission Schemas
 class RoleCreateRequest(BaseModel):
     """Create role request."""
+
     role_id: str
     role_name: str
     description: Optional[str] = None
@@ -183,6 +202,7 @@ class RoleCreateRequest(BaseModel):
 
 class PermissionCreateRequest(BaseModel):
     """Create permission request."""
+
     permission_id: str
     permission_name: str
     resource: str
@@ -192,12 +212,14 @@ class PermissionCreateRequest(BaseModel):
 
 class RoleAssignRequest(BaseModel):
     """Assign role to actor request."""
+
     role_id: str
 
 
 # ABAC Policy Schemas
 class ABACPolicyCreateRequest(BaseModel):
     """Create ABAC policy request."""
+
     policy_name: str
     policy_definition: Dict[str, Any]
     description: Optional[str] = None
@@ -206,6 +228,7 @@ class ABACPolicyCreateRequest(BaseModel):
 
 class ABACPolicyResponse(BaseModel):
     """ABAC policy response."""
+
     policy_id: str
     policy_name: str
     description: Optional[str] = None
@@ -214,7 +237,7 @@ class ABACPolicyResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -222,14 +245,15 @@ class ABACPolicyResponse(BaseModel):
 # Token Verification
 class TokenVerifyRequest(BaseModel):
     """Token verification request."""
+
     token: str
 
 
 class TokenVerifyResponse(BaseModel):
     """Token verification response."""
+
     valid: bool
     actor_id: Optional[str] = None
     scopes: List[str] = []
     expires_at: Optional[datetime] = None
     error: Optional[str] = None
-

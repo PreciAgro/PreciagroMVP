@@ -41,7 +41,9 @@ class ImageQualityResult(BaseModel):
     """Quality gate evaluation result."""
 
     passed: bool = True
-    notes: List[str] = Field(default_factory=list, description="Actionable guidance when gate fails")
+    notes: List[str] = Field(
+        default_factory=list, description="Actionable guidance when gate fails"
+    )
 
 
 class DiseasePrediction(BaseModel):

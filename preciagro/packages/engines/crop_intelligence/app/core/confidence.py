@@ -2,6 +2,7 @@
 Confidence and uncertainty tracking for CIE outputs.
 Attaches explicit uncertainty (state_conf, model_conf, data_gaps) to every action.
 """
+
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, date
@@ -10,6 +11,7 @@ from enum import Enum
 
 class ConfidenceSource(str, Enum):
     """Source of confidence degradation."""
+
     STATE_DETECTION = "state_detection"
     MODEL_PREDICTION = "model_prediction"
     DATA_QUALITY = "data_quality"
@@ -21,6 +23,7 @@ class ConfidenceSource(str, Enum):
 @dataclass
 class DataGap:
     """Specific data gap affecting confidence."""
+
     category: str  # "weather", "photo", "soil", "vi", "action_log"
     severity: str  # "minor", "moderate", "critical"
     description: str
@@ -32,6 +35,7 @@ class DataGap:
 @dataclass
 class ConfidenceBreakdown:
     """Detailed confidence breakdown for transparency."""
+
     overall: float  # 0.0-1.0
     state_conf: float  # Confidence in crop stage detection
     model_conf: float  # Confidence in model predictions (yield, risk)
@@ -52,17 +56,18 @@ class ConfidenceBreakdown:
                     "category": gap.category,
                     "severity": gap.severity,
                     "description": gap.description,
-                    "impact": round(gap.impact_on_confidence, 2)
+                    "impact": round(gap.impact_on_confidence, 2),
                 }
                 for gap in self.data_gaps
             ],
-            "explanation": self.explanation
+            "explanation": self.explanation,
         }
 
 
 @dataclass
 class ActionConfidence:
     """Confidence associated with a specific action recommendation."""
+
     action_id: str
     action_type: str  # "nitrogen", "water", "disease", "photo_prompt"
     confidence: ConfidenceBreakdown
@@ -72,10 +77,7 @@ class ActionConfidence:
 
 
 def calculate_state_confidence(
-    last_photo_date: Optional[date],
-    current_date: date,
-    vi_history_days: int,
-    ndvi_quality: str
+    last_photo_date: Optional[date], current_date: date, vi_history_days: int, ndvi_quality: str
 ) -> Tuple[float, List[DataGap]]:
     """
     Calculate confidence in crop stage detection.
@@ -95,57 +97,66 @@ def calculate_state_confidence(
     # Photo freshness
     if last_photo_date is None:
         conf *= 0.50  # Major penalty - no visual confirmation
-        gaps.append(DataGap(
-            category="photo",
-            severity="critical",
-            description="No field photos available for stage verification",
-            impact_on_confidence=0.50,
-            expected_frequency="14 days"
-        ))
+        gaps.append(
+            DataGap(
+                category="photo",
+                severity="critical",
+                description="No field photos available for stage verification",
+                impact_on_confidence=0.50,
+                expected_frequency="14 days",
+            )
+        )
     else:
         days_since_photo = (current_date - last_photo_date).days
         if days_since_photo > 21:
             penalty = min(0.40, days_since_photo / 100.0)
-            conf *= (1.0 - penalty)
-            gaps.append(DataGap(
-                category="photo",
-                severity="moderate",
-                description=f"Last photo {days_since_photo} days old - stage may have changed",
-                impact_on_confidence=penalty,
-                last_available=datetime.combine(
-                    last_photo_date, datetime.min.time()),
-                expected_frequency="14 days"
-            ))
+            conf *= 1.0 - penalty
+            gaps.append(
+                DataGap(
+                    category="photo",
+                    severity="moderate",
+                    description=f"Last photo {days_since_photo} days old - stage may have changed",
+                    impact_on_confidence=penalty,
+                    last_available=datetime.combine(last_photo_date, datetime.min.time()),
+                    expected_frequency="14 days",
+                )
+            )
 
     # VI data availability
     if vi_history_days < 7:
         penalty = 0.25
-        conf *= (1.0 - penalty)
-        gaps.append(DataGap(
-            category="vi",
-            severity="moderate",
-            description=f"Only {vi_history_days} days of VI data - insufficient for trend",
-            impact_on_confidence=penalty,
-            expected_frequency="7 days"
-        ))
+        conf *= 1.0 - penalty
+        gaps.append(
+            DataGap(
+                category="vi",
+                severity="moderate",
+                description=f"Only {vi_history_days} days of VI data - insufficient for trend",
+                impact_on_confidence=penalty,
+                expected_frequency="7 days",
+            )
+        )
 
     # NDVI quality
     if ndvi_quality == "poor":
         conf *= 0.85
-        gaps.append(DataGap(
-            category="vi",
-            severity="minor",
-            description="NDVI quality degraded (cloud cover or sensor issues)",
-            impact_on_confidence=0.15
-        ))
+        gaps.append(
+            DataGap(
+                category="vi",
+                severity="minor",
+                description="NDVI quality degraded (cloud cover or sensor issues)",
+                impact_on_confidence=0.15,
+            )
+        )
     elif ndvi_quality == "missing":
         conf *= 0.70
-        gaps.append(DataGap(
-            category="vi",
-            severity="moderate",
-            description="Recent NDVI data missing",
-            impact_on_confidence=0.30
-        ))
+        gaps.append(
+            DataGap(
+                category="vi",
+                severity="moderate",
+                description="Recent NDVI data missing",
+                impact_on_confidence=0.30,
+            )
+        )
 
     return conf, gaps
 
@@ -155,7 +166,7 @@ def calculate_model_confidence(
     training_samples: Optional[int],
     validation_metric: Optional[float],
     regional_match: bool,
-    crop_match: bool
+    crop_match: bool,
 ) -> Tuple[float, str]:
     """
     Calculate confidence in model predictions (yield, risk, timing).
@@ -210,7 +221,7 @@ def calculate_data_quality_confidence(
     weather_gaps_days: int,
     weather_last_update: Optional[datetime],
     soil_data_source: str,
-    action_log_completeness: float  # 0-1, estimated from user engagement
+    action_log_completeness: float,  # 0-1, estimated from user engagement
 ) -> Tuple[float, List[DataGap]]:
     """
     Calculate confidence based on input data completeness and freshness.
@@ -230,59 +241,61 @@ def calculate_data_quality_confidence(
     # Weather data quality
     if weather_gaps_days > 7:
         penalty = min(0.40, weather_gaps_days / 30.0)
-        conf *= (1.0 - penalty)
-        gaps.append(DataGap(
-            category="weather",
-            severity="moderate" if weather_gaps_days < 15 else "critical",
-            description=f"{weather_gaps_days} days of weather data missing in last 30d",
-            impact_on_confidence=penalty,
-            expected_frequency="daily"
-        ))
+        conf *= 1.0 - penalty
+        gaps.append(
+            DataGap(
+                category="weather",
+                severity="moderate" if weather_gaps_days < 15 else "critical",
+                description=f"{weather_gaps_days} days of weather data missing in last 30d",
+                impact_on_confidence=penalty,
+                expected_frequency="daily",
+            )
+        )
 
     # Weather freshness
     if weather_last_update:
-        hours_stale = (datetime.now() -
-                       weather_last_update).total_seconds() / 3600.0
+        hours_stale = (datetime.now() - weather_last_update).total_seconds() / 3600.0
         if hours_stale > 48:
             penalty = min(0.30, hours_stale / 240.0)  # Max penalty at 10 days
-            conf *= (1.0 - penalty)
-            gaps.append(DataGap(
-                category="weather",
-                severity="moderate",
-                description=f"Weather data {int(hours_stale)} hours stale",
-                impact_on_confidence=penalty,
-                last_available=weather_last_update,
-                expected_frequency="daily"
-            ))
+            conf *= 1.0 - penalty
+            gaps.append(
+                DataGap(
+                    category="weather",
+                    severity="moderate",
+                    description=f"Weather data {int(hours_stale)} hours stale",
+                    impact_on_confidence=penalty,
+                    last_available=weather_last_update,
+                    expected_frequency="daily",
+                )
+            )
 
     # Soil data quality
-    soil_confidence = {
-        "lab": 1.0,
-        "soilgrids": 0.85,
-        "farmer_estimate": 0.60,
-        "unknown": 0.50
-    }
+    soil_confidence = {"lab": 1.0, "soilgrids": 0.85, "farmer_estimate": 0.60, "unknown": 0.50}
     soil_conf = soil_confidence.get(soil_data_source, 0.70)
     conf *= soil_conf
     if soil_conf < 0.85:
-        gaps.append(DataGap(
-            category="soil",
-            severity="minor" if soil_conf > 0.7 else "moderate",
-            description=f"Soil data from {soil_data_source} - uncertainty ±15-25%",
-            impact_on_confidence=1.0 - soil_conf
-        ))
+        gaps.append(
+            DataGap(
+                category="soil",
+                severity="minor" if soil_conf > 0.7 else "moderate",
+                description=f"Soil data from {soil_data_source} - uncertainty ±15-25%",
+                impact_on_confidence=1.0 - soil_conf,
+            )
+        )
 
     # Action log completeness
     if action_log_completeness < 0.70:
         penalty = (1.0 - action_log_completeness) * 0.20  # Up to 20% penalty
-        conf *= (1.0 - penalty)
-        gaps.append(DataGap(
-            category="action_log",
-            severity="minor",
-            description="Incomplete action history - limits learning",
-            impact_on_confidence=penalty,
-            expected_frequency="per action"
-        ))
+        conf *= 1.0 - penalty
+        gaps.append(
+            DataGap(
+                category="action_log",
+                severity="minor",
+                description="Incomplete action history - limits learning",
+                impact_on_confidence=penalty,
+                expected_frequency="per action",
+            )
+        )
 
     return conf, gaps
 
@@ -293,7 +306,7 @@ def build_confidence_breakdown(
     model_conf: float,
     model_explanation: str,
     data_quality: float,
-    data_gaps: List[DataGap]
+    data_gaps: List[DataGap],
 ) -> ConfidenceBreakdown:
     """
     Combine component confidences into overall breakdown.
@@ -301,7 +314,7 @@ def build_confidence_breakdown(
     Confidence formula: overall = state_conf^0.4 × model_conf^0.3 × data_quality^0.3
     (Geometric mean with weights)
     """
-    overall = (state_conf ** 0.4) * (model_conf ** 0.3) * (data_quality ** 0.3)
+    overall = (state_conf**0.4) * (model_conf**0.3) * (data_quality**0.3)
 
     all_gaps = state_gaps + data_gaps
 
@@ -328,9 +341,9 @@ def build_confidence_breakdown(
         sources={
             ConfidenceSource.STATE_DETECTION: state_conf,
             ConfidenceSource.MODEL_PREDICTION: model_conf,
-            ConfidenceSource.DATA_QUALITY: data_quality
+            ConfidenceSource.DATA_QUALITY: data_quality,
         },
-        explanation=explanation
+        explanation=explanation,
     )
 
 
@@ -338,7 +351,7 @@ def assess_action_confidence(
     action_id: str,
     action_type: str,
     confidence_breakdown: ConfidenceBreakdown,
-    min_display_threshold: float = 0.40
+    min_display_threshold: float = 0.40,
 ) -> ActionConfidence:
     """
     Determine if action should be displayed based on confidence.
@@ -358,8 +371,7 @@ def assess_action_confidence(
     # Display warnings for marginal confidence
     display_warning = None
     if overall_conf < 0.60 and should_display:
-        critical_gaps = [
-            g for g in confidence_breakdown.data_gaps if g.severity == "critical"]
+        critical_gaps = [g for g in confidence_breakdown.data_gaps if g.severity == "critical"]
         if critical_gaps:
             gap_desc = critical_gaps[0].description
             display_warning = f"⚠️ Low confidence: {gap_desc}"
@@ -371,7 +383,7 @@ def assess_action_confidence(
         action_type=action_type,
         confidence=confidence_breakdown,
         should_display=should_display,
-        display_warning=display_warning
+        display_warning=display_warning,
     )
 
 
@@ -379,7 +391,7 @@ def confidence_decay_over_time(
     base_confidence: float,
     recommendation_date: date,
     current_date: date,
-    decay_rate_per_week: float = 0.10
+    decay_rate_per_week: float = 0.10,
 ) -> float:
     """
     Apply temporal decay to confidence as recommendation ages.
@@ -400,7 +412,7 @@ def confidence_decay_over_time(
 
 
 def aggregate_confidence_for_multi_action_card(
-    action_confidences: List[ActionConfidence]
+    action_confidences: List[ActionConfidence],
 ) -> ConfidenceBreakdown:
     """
     Aggregate confidence across multiple actions in a single card.
@@ -413,7 +425,7 @@ def aggregate_confidence_for_multi_action_card(
             state_conf=0.0,
             model_conf=0.0,
             data_quality=0.0,
-            explanation="No actions to assess"
+            explanation="No actions to assess",
         )
 
     # Take minimum (most conservative)
@@ -438,5 +450,5 @@ def aggregate_confidence_for_multi_action_card(
         model_conf=min_model,
         data_quality=min_data,
         data_gaps=all_gaps,
-        explanation=f"Card confidence based on {len(action_confidences)} actions (minimum approach)"
+        explanation=f"Card confidence based on {len(action_confidences)} actions (minimum approach)",
     )

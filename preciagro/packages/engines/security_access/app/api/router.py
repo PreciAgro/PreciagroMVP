@@ -9,13 +9,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.base import get_db
 from ..models.schemas import (
-    LoginRequest, LoginResponse, RefreshTokenRequest, RefreshTokenResponse,
-    LogoutRequest, ActorCreateRequest, ActorResponse, MFADeviceRegisterRequest,
-    MFADeviceRegisterResponse, MFAVerifyRequest, PermissionCheckRequest,
-    PermissionCheckResponse, EncryptRequest, EncryptResponse, DecryptRequest,
-    DecryptResponse, AuditLogQuery, AuditLogResponse, TokenVerifyRequest,
-    TokenVerifyResponse, RoleCreateRequest, PermissionCreateRequest,
-    RoleAssignRequest, ABACPolicyCreateRequest, ABACPolicyResponse,
+    LoginRequest,
+    LoginResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    LogoutRequest,
+    ActorCreateRequest,
+    ActorResponse,
+    MFADeviceRegisterRequest,
+    MFADeviceRegisterResponse,
+    MFAVerifyRequest,
+    PermissionCheckRequest,
+    PermissionCheckResponse,
+    EncryptRequest,
+    EncryptResponse,
+    DecryptRequest,
+    DecryptResponse,
+    AuditLogQuery,
+    AuditLogResponse,
+    TokenVerifyRequest,
+    TokenVerifyResponse,
+    RoleCreateRequest,
+    PermissionCreateRequest,
+    RoleAssignRequest,
+    ABACPolicyCreateRequest,
+    ABACPolicyResponse,
 )
 from ..services.auth_service import AuthenticationService
 from ..services.identity_service import IdentityService
@@ -47,21 +65,23 @@ async def login(
 ):
     """Authenticate with email/phone and password."""
     auth_service = AuthenticationService(db)
-    
-    actor, access_token, refresh_token, requires_mfa = await auth_service.authenticate_with_password(
-        email=request.email,
-        phone=request.phone,
-        password=request.password,
-        ip_address=get_client_ip(http_request),
-        user_agent=http_request.headers.get("User-Agent"),
+
+    actor, access_token, refresh_token, requires_mfa = (
+        await auth_service.authenticate_with_password(
+            email=request.email,
+            phone=request.phone,
+            password=request.password,
+            ip_address=get_client_ip(http_request),
+            user_agent=http_request.headers.get("User-Agent"),
+        )
     )
-    
+
     if not actor:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
         )
-    
+
     if requires_mfa:
         # If MFA code provided, verify it
         if request.mfa_code:
@@ -87,7 +107,7 @@ async def login(
                 expires_in=0,
                 requires_mfa=True,
             )
-    
+
     return LoginResponse(
         actor_id=actor.actor_id,
         access_token=access_token,
@@ -105,19 +125,19 @@ async def refresh_token(
 ):
     """Refresh access token."""
     auth_service = AuthenticationService(db)
-    
+
     access_token, refresh_token, success = await auth_service.refresh_access_token(
         request.refresh_token,
         get_client_ip(http_request),
         http_request.headers.get("User-Agent"),
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
-    
+
     return RefreshTokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -138,18 +158,18 @@ async def logout(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authorization header",
         )
-    
+
     token = authorization.split(" ", 1)[1]
     auth_service = AuthenticationService(db)
-    
+
     success = await auth_service.logout(token, request.revoke_all, get_client_ip(http_request))
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
     return {"message": "Logged out successfully"}
 
 
@@ -161,12 +181,12 @@ async def verify_token(
     """Verify a token."""
     token_service = TokenService(db)
     payload = await token_service.verify_token(request.token)
-    
+
     if not payload:
         return TokenVerifyResponse(valid=False, error="Invalid or expired token")
-    
+
     expires_at = datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.utc)
-    
+
     return TokenVerifyResponse(
         valid=True,
         actor_id=payload.get("sub"),
@@ -189,29 +209,31 @@ async def register_mfa_device(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     token = authorization.split(" ", 1)[1]
     token_service = TokenService(db)
     payload = await token_service.verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
     actor_id = payload.get("sub")
     auth_service = AuthenticationService(db)
-    
+
     device_id, provisioning_uri = await auth_service.register_mfa_device(
         actor_id,
         request.device_type,
         request.device_name,
     )
-    
+
     # Extract secret from provisioning URI (for TOTP)
-    secret = provisioning_uri.split("secret=")[1].split("&")[0] if "secret=" in provisioning_uri else ""
-    
+    secret = (
+        provisioning_uri.split("secret=")[1].split("&")[0] if "secret=" in provisioning_uri else ""
+    )
+
     return MFADeviceRegisterResponse(
         device_id=device_id,
         provisioning_uri=provisioning_uri,
@@ -232,32 +254,32 @@ async def verify_mfa_device(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     token = authorization.split(" ", 1)[1]
     token_service = TokenService(db)
     payload = await token_service.verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
     actor_id = payload.get("sub")
     auth_service = AuthenticationService(db)
-    
+
     success = await auth_service.verify_mfa_device(
         actor_id,
         request.device_id,
         request.verification_code,
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid verification code",
         )
-    
+
     return {"message": "MFA device verified successfully"}
 
 
@@ -271,16 +293,16 @@ async def create_actor(
     """Create a new actor."""
     identity_service = IdentityService(db)
     password_service = PasswordService()
-    
+
     # Hash password if provided
     password_hash = None
     if request.password:
         password_hash = password_service.hash_password(request.password)
-    
+
     # Convert string to enum
     actor_type = ActorType(request.actor_type)
     role = HumanRole(request.role) if request.role else None
-    
+
     actor = await identity_service.create_actor(
         actor_type=actor_type,
         email=request.email,
@@ -296,9 +318,9 @@ async def create_actor(
         capabilities=request.capabilities,
         metadata=request.metadata,
     )
-    
+
     await db.commit()
-    
+
     return ActorResponse.model_validate(actor)
 
 
@@ -310,13 +332,13 @@ async def get_actor(
     """Get actor by ID."""
     identity_service = IdentityService(db)
     actor = await identity_service.get_actor_by_id(actor_id)
-    
+
     if not actor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Actor not found",
         )
-    
+
     return ActorResponse.model_validate(actor)
 
 
@@ -334,33 +356,33 @@ async def check_permission(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     token = authorization.split(" ", 1)[1]
     token_service = TokenService(db)
     payload = await token_service.verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
     actor_id = payload.get("sub")
     authz_service = AuthorizationService(db)
     audit_service = AuditService(db)
-    
+
     # Add request context
     context = request.context or {}
     context["ip_address"] = get_client_ip(http_request)
     context["user_agent"] = http_request.headers.get("User-Agent")
-    
+
     allowed = await authz_service.check_permission(
         actor_id,
         request.resource,
         request.action,
         context,
     )
-    
+
     # Log permission check
     await audit_service.log_permission_event(
         actor_id,
@@ -371,7 +393,7 @@ async def check_permission(
         get_client_ip(http_request),
         metadata=context,
     )
-    
+
     return PermissionCheckResponse(
         allowed=allowed,
         reason=None if allowed else "Permission denied",
@@ -391,31 +413,31 @@ async def encrypt_data(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     token = authorization.split(" ", 1)[1]
     token_service = TokenService(db)
     payload = await token_service.verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
     encryption_service = EncryptionService(db)
-    
+
     # Decode base64 data
     data_bytes = base64.b64decode(request.data)
-    
+
     # Encrypt
     encrypted_data, key_reference = await encryption_service.encrypt_data(
         data_bytes,
         request.key_id,
     )
-    
+
     # Encode result
     encrypted_b64 = base64.b64encode(encrypted_data).decode()
-    
+
     return EncryptResponse(
         encrypted_data=encrypted_b64,
         key_reference=key_reference,
@@ -434,31 +456,31 @@ async def decrypt_data(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     token = authorization.split(" ", 1)[1]
     token_service = TokenService(db)
     payload = await token_service.verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
     encryption_service = EncryptionService(db)
-    
+
     # Decode base64 data
     encrypted_bytes = base64.b64decode(request.encrypted_data)
-    
+
     # Decrypt
     decrypted_data = await encryption_service.decrypt_data(
         encrypted_bytes,
         request.key_reference,
     )
-    
+
     # Encode result
     decrypted_b64 = base64.b64encode(decrypted_data).decode()
-    
+
     return DecryptResponse(data=decrypted_b64)
 
 
@@ -475,7 +497,7 @@ async def get_audit_logs(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     # TODO: Implement audit log query
     # This is a placeholder - implement proper querying
     return []
@@ -486,4 +508,3 @@ async def get_audit_logs(
 async def health():
     """Health check endpoint."""
     return {"status": "ok", "engine": "security_access"}
-

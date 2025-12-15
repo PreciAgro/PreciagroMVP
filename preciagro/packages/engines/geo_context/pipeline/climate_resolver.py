@@ -61,9 +61,7 @@ class ClimateResolver:
         self, lat: float, lon: float, reference_date: datetime
     ) -> List[Dict]:
         """Fetch historical climate data (last 30 days)."""
-        should_query_db = settings.ENABLE_POSTGIS or isinstance(
-            query_climate_data, AsyncMock
-        )
+        should_query_db = settings.ENABLE_POSTGIS or isinstance(query_climate_data, AsyncMock)
         # FIX: GeoContext perf regression - async DB fetch attempted with PostGIS off - short-circuit to stub climate normals - prevents 8s timeout
         if should_query_db:
             return await query_climate_data(lat, lon, reference_date)
@@ -77,51 +75,31 @@ class ClimateResolver:
     def _summarise(self, historical: List[Dict], current: Optional[Dict]) -> Dict:
         """Combine historical and current observations."""
         temps_avg = [
-            d.get("temperature_avg")
-            for d in historical
-            if d.get("temperature_avg") is not None
+            d.get("temperature_avg") for d in historical if d.get("temperature_avg") is not None
         ]
         temps_min = [
-            d.get("temperature_min")
-            for d in historical
-            if d.get("temperature_min") is not None
+            d.get("temperature_min") for d in historical if d.get("temperature_min") is not None
         ]
         temps_max = [
-            d.get("temperature_max")
-            for d in historical
-            if d.get("temperature_max") is not None
+            d.get("temperature_max") for d in historical if d.get("temperature_max") is not None
         ]
-        precip = [
-            d.get("precipitation")
-            for d in historical
-            if d.get("precipitation") is not None
-        ]
-        humidity_hist = [
-            d.get("humidity") for d in historical if d.get("humidity") is not None
-        ]
-        wind_hist = [
-            d.get("wind_speed") for d in historical if d.get("wind_speed") is not None
-        ]
+        precip = [d.get("precipitation") for d in historical if d.get("precipitation") is not None]
+        humidity_hist = [d.get("humidity") for d in historical if d.get("humidity") is not None]
+        wind_hist = [d.get("wind_speed") for d in historical if d.get("wind_speed") is not None]
 
         summary = {
             "temperature_avg": sum(temps_avg) / len(temps_avg) if temps_avg else 20.0,
             "temperature_min": sum(temps_min) / len(temps_min) if temps_min else 10.0,
             "temperature_max": sum(temps_max) / len(temps_max) if temps_max else 30.0,
             "precipitation": sum(precip) if precip else 0.0,
-            "humidity": (
-                sum(humidity_hist) / len(humidity_hist) if humidity_hist else 60.0
-            ),
+            "humidity": (sum(humidity_hist) / len(humidity_hist) if humidity_hist else 60.0),
             "wind_speed": sum(wind_hist) / len(wind_hist) if wind_hist else 5.0,
         }
 
         if current:
-            summary["temperature_avg"] = current["main"].get(
-                "temp", summary["temperature_avg"]
-            )
+            summary["temperature_avg"] = current["main"].get("temp", summary["temperature_avg"])
             summary["humidity"] = current["main"].get("humidity", summary["humidity"])
-            summary["wind_speed"] = current.get("wind", {}).get(
-                "speed", summary["wind_speed"]
-            )
+            summary["wind_speed"] = current.get("wind", {}).get("speed", summary["wind_speed"])
 
         return summary
 
@@ -136,25 +114,15 @@ class ClimateResolver:
             }
 
         temps_avg = [
-            d.get("temperature_avg")
-            for d in historical
-            if d.get("temperature_avg") is not None
+            d.get("temperature_avg") for d in historical if d.get("temperature_avg") is not None
         ]
         temps_min = [
-            d.get("temperature_min")
-            for d in historical
-            if d.get("temperature_min") is not None
+            d.get("temperature_min") for d in historical if d.get("temperature_min") is not None
         ]
         temps_max = [
-            d.get("temperature_max")
-            for d in historical
-            if d.get("temperature_max") is not None
+            d.get("temperature_max") for d in historical if d.get("temperature_max") is not None
         ]
-        precip = [
-            d.get("precipitation")
-            for d in historical
-            if d.get("precipitation") is not None
-        ]
+        precip = [d.get("precipitation") for d in historical if d.get("precipitation") is not None]
 
         return {
             "temp_avg": sum(temps_avg) / len(temps_avg) if temps_avg else 20.0,
@@ -182,9 +150,7 @@ class ClimateResolver:
                 * inverse_rel_dist
                 * (
                     sunset_hour_angle * math.sin(lat_rad) * math.sin(declination)
-                    + math.cos(lat_rad)
-                    * math.cos(declination)
-                    * math.sin(sunset_hour_angle)
+                    + math.cos(lat_rad) * math.cos(declination) * math.sin(sunset_hour_angle)
                 )
             )
 
@@ -200,9 +166,7 @@ class ClimateResolver:
             print(f"Error calculating ET0: {exc}")
             return 4.0
 
-    def _calculate_gdd_ytd(
-        self, historical: List[Dict], base_temp: float = 10.0
-    ) -> float:
+    def _calculate_gdd_ytd(self, historical: List[Dict], base_temp: float = 10.0) -> float:
         """Calculate Growing Degree Days year-to-date."""
         gdd_total = 0.0
         for record in historical:

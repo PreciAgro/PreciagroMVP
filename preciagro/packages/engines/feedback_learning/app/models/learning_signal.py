@@ -26,132 +26,134 @@ Base = declarative_base()
 
 class LearningSignal(BaseModel):
     """Pydantic model for LearningSignal - typed signal for downstream engines."""
-    
+
     model_config = ConfigDict(extra="forbid")
-    
+
     # Primary identity
     signal_id: str = Field(default_factory=lambda: str(uuid4()), description="Unique signal ID")
     version: str = Field(default="1.0", description="Signal schema version")
-    
+
     # Signal classification
     signal_type: SignalType = Field(..., description="Type of learning signal")
     signal_strength: float = Field(..., ge=0, le=1, description="Signal strength (0-1)")
-    
+
     # References to source feedback (multiple feedback can aggregate into one signal)
     source_feedback_ids: List[str] = Field(..., description="Source feedback IDs")
-    source_weighted_ids: List[str] = Field(default_factory=list, description="Source weighted feedback IDs")
-    
+    source_weighted_ids: List[str] = Field(
+        default_factory=list, description="Source weighted feedback IDs"
+    )
+
     # Original recommendation reference
     recommendation_id: str = Field(..., description="Original recommendation ID")
     reasoning_trace_id: Optional[str] = Field(None, description="Reasoning trace ID if available")
-    
+
     # Target engine routing
-    target_engine: Literal[
-        "evaluation", "model_orchestration", "pie", "all"
-    ] = Field(..., description="Target consumer engine")
-    
+    target_engine: Literal["evaluation", "model_orchestration", "pie", "all"] = Field(
+        ..., description="Target consumer engine"
+    )
+
     # Region scope
     region_scope: str = Field(..., description="Region scope of this signal")
-    cross_region_propagation: bool = Field(
-        default=False, description="Allow cross-region use"
-    )
-    
+    cross_region_propagation: bool = Field(default=False, description="Allow cross-region use")
+
     # Model context (for Model Orchestration Engine)
     model_id: Optional[str] = Field(None, description="Model that generated recommendation")
     model_version: Optional[str] = Field(None, description="Model version")
     model_type: Optional[str] = Field(None, description="Model type (cv, tabular, llm, rule)")
-    
+
     # Aggregation metrics
     feedback_count: int = Field(..., ge=1, description="Number of feedback items aggregated")
-    average_weight: float = Field(..., ge=0, le=1, description="Average weight of aggregated feedback")
+    average_weight: float = Field(
+        ..., ge=0, le=1, description="Average weight of aggregated feedback"
+    )
     confidence_score: float = Field(..., ge=0, le=1, description="Confidence in this signal")
-    
+
     # Timing window
     feedback_window_start: datetime = Field(..., description="Start of feedback collection window")
     feedback_window_end: datetime = Field(..., description="End of feedback collection window")
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="Signal creation time")
-    
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Signal creation time"
+    )
+
     # Routing status
     is_routed: bool = Field(default=False, description="Has been routed to target")
     routed_at: Optional[datetime] = Field(None, description="When routed")
     routing_stream: Optional[str] = Field(None, description="Redis stream routed to")
-    
+
     # Audit
-    correlation_id: str = Field(
-        default_factory=lambda: str(uuid4()), description="Correlation ID"
-    )
+    correlation_id: str = Field(default_factory=lambda: str(uuid4()), description="Correlation ID")
     audit_trace_id: Optional[str] = Field(None, description="Audit trace ID")
-    
+
     # Additional context for consumers
     context: Dict[str, Any] = Field(default_factory=dict, description="Additional context")
-    
+
     # Metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata")
 
 
 class LearningSignalDB(Base):
     """SQLAlchemy model for LearningSignal."""
-    
+
     __tablename__ = "learning_signals"
-    
+
     # Primary key
     signal_id = Column(String(36), primary_key=True, index=True)
     version = Column(String(10), nullable=False, default="1.0")
-    
+
     # Signal classification
     signal_type = Column(String(30), nullable=False, index=True)
     signal_strength = Column(Float, nullable=False)
-    
+
     # Source references
     source_feedback_ids = Column(JSONB, nullable=False)
     source_weighted_ids = Column(JSONB, nullable=False, default=list)
-    
+
     # Recommendation reference
     recommendation_id = Column(String(36), nullable=False, index=True)
     reasoning_trace_id = Column(String(36), nullable=True)
-    
+
     # Target routing
     target_engine = Column(String(30), nullable=False, index=True)
-    
+
     # Region scope
     region_scope = Column(String(10), nullable=False, index=True)
     cross_region_propagation = Column(Boolean, nullable=False, default=False)
-    
+
     # Model context
     model_id = Column(String(100), nullable=True, index=True)
     model_version = Column(String(20), nullable=True)
     model_type = Column(String(30), nullable=True)
-    
+
     # Aggregation metrics
     feedback_count = Column(Integer, nullable=False)
     average_weight = Column(Float, nullable=False)
     confidence_score = Column(Float, nullable=False)
-    
+
     # Timing
     feedback_window_start = Column(DateTime, nullable=False)
     feedback_window_end = Column(DateTime, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    
+
     # Routing status
     is_routed = Column(Boolean, nullable=False, default=False, index=True)
     routed_at = Column(DateTime, nullable=True)
     routing_stream = Column(String(100), nullable=True)
-    
+
     # Audit
     correlation_id = Column(String(36), nullable=False, index=True)
     audit_trace_id = Column(String(36), nullable=True)
-    
+
     # Context and metadata
     context = Column(JSONB, nullable=False, default=dict)
     extra_metadata = Column(JSONB, nullable=False, default=dict)
-    
+
     # Indexes
     __table_args__ = (
         Index("ix_learning_signals_target_routed", "target_engine", "is_routed"),
         Index("ix_learning_signals_rec_type", "recommendation_id", "signal_type"),
         Index("ix_learning_signals_model_strength", "model_id", "signal_strength"),
     )
-    
+
     def to_pydantic(self) -> LearningSignal:
         """Convert to Pydantic model."""
         return LearningSignal(
@@ -183,7 +185,7 @@ class LearningSignalDB(Base):
             context=self.context or {},
             metadata=self.extra_metadata or {},
         )
-    
+
     @classmethod
     def from_pydantic(cls, model: LearningSignal) -> "LearningSignalDB":
         """Create from Pydantic model."""

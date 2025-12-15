@@ -1,6 +1,5 @@
 """Twilio SMS channel sender."""
 
-
 from twilio.rest import Client
 
 from ..config import TWILIO_FROM, TWILIO_SID, TWILIO_TOKEN

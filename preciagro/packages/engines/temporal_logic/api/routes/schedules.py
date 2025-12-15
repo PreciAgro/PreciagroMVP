@@ -9,9 +9,13 @@ from fastapi.security import HTTPBearer
 from sqlalchemy import and_, desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...contracts import (BulkOperationResponse, PaginatedResponse,
-                          ScheduledTaskCreate, ScheduledTaskResponse,
-                          ScheduledTaskUpdate)
+from ...contracts import (
+    BulkOperationResponse,
+    PaginatedResponse,
+    ScheduledTaskCreate,
+    ScheduledTaskResponse,
+    ScheduledTaskUpdate,
+)
 from ...models import ScheduledTask, TaskStatus, TemporalRule
 from ...security.auth_old import Permission, security_middleware
 from ...telemetry.metrics import engine_metrics
@@ -52,9 +56,7 @@ async def get_scheduled_tasks(
     """Get paginated list of scheduled tasks with optional filtering."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         # Build query
         query = select(ScheduledTask)
@@ -79,8 +81,7 @@ async def get_scheduled_tasks(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(ScheduledTask.id).select_from(
-            query.alias().subquery())
+        count_query = select(ScheduledTask.id).select_from(query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -135,9 +136,7 @@ async def get_scheduled_task(
     """Get a specific scheduled task by ID."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         # Get task
         stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
@@ -187,8 +186,7 @@ async def create_scheduled_task(
         )
 
         # Validate rule exists
-        rule_stmt = select(TemporalRule).where(
-            TemporalRule.id == task_data.rule_id)
+        rule_stmt = select(TemporalRule).where(TemporalRule.id == task_data.rule_id)
         rule_result = await db.execute(rule_stmt)
         rule = rule_result.scalar_one_or_none()
 
@@ -253,9 +251,7 @@ async def update_scheduled_task(
     """Update a scheduled task."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.UPDATE_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.UPDATE_TASKS)
 
         # Get task
         stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
@@ -315,9 +311,7 @@ async def cancel_scheduled_task(
     """Cancel a scheduled task."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CANCEL_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CANCEL_TASKS)
 
         # Get task
         stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
@@ -364,15 +358,12 @@ async def get_tasks_summary(
     """Get summary statistics of scheduled tasks."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get tasks from the last N days
-        stmt = select(ScheduledTask).where(
-            ScheduledTask.created_at >= start_date)
+        stmt = select(ScheduledTask).where(ScheduledTask.created_at >= start_date)
 
         result = await db.execute(stmt)
         tasks = result.scalars().all()
@@ -403,16 +394,12 @@ async def get_tasks_summary(
         # Calculate success rates by type
         for task_type in type_counts:
             type_tasks = [t for t in tasks if t.task_type == task_type]
-            completed_tasks = [
-                t for t in type_tasks if t.status == TaskStatus.COMPLETED.value
-            ]
+            completed_tasks = [t for t in type_tasks if t.status == TaskStatus.COMPLETED.value]
 
             success_rates[task_type] = {
                 "total": len(type_tasks),
                 "completed": len(completed_tasks),
-                "success_rate": (
-                    len(completed_tasks) / len(type_tasks) if type_tasks else 0
-                ),
+                "success_rate": (len(completed_tasks) / len(type_tasks) if type_tasks else 0),
             }
 
         return {
@@ -441,14 +428,10 @@ async def bulk_cancel_tasks(
     """Cancel multiple tasks in bulk."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CANCEL_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CANCEL_TASKS)
 
         if len(task_ids) > 100:
-            raise HTTPException(
-                status_code=400, detail="Cannot cancel more than 100 tasks at once"
-            )
+            raise HTTPException(status_code=400, detail="Cannot cancel more than 100 tasks at once")
 
         # Update tasks
         current_time = datetime.utcnow()
@@ -458,9 +441,7 @@ async def bulk_cancel_tasks(
             .where(
                 and_(
                     ScheduledTask.id.in_(task_ids),
-                    ScheduledTask.status.in_(
-                        [TaskStatus.PENDING.value, TaskStatus.RUNNING.value]
-                    ),
+                    ScheduledTask.status.in_([TaskStatus.PENDING.value, TaskStatus.RUNNING.value]),
                 )
             )
             .values(
@@ -500,9 +481,7 @@ async def get_due_tasks_count(
     """Get count of tasks due for execution."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         current_time = datetime.utcnow()
 

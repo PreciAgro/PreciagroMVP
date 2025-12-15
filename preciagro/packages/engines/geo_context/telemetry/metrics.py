@@ -30,13 +30,9 @@ DATA_SOURCES_USED = Counter(
     ["source_type"],  # spatial, soil, climate, calendar
 )
 
-ACTIVE_CONNECTIONS = Gauge(
-    "geo_context_db_connections_active", "Active database connections"
-)
+ACTIVE_CONNECTIONS = Gauge("geo_context_db_connections_active", "Active database connections")
 
-ACTIVE_REQUESTS = Gauge(
-    "geo_context_active_requests", "Number of active geocontext requests"
-)
+ACTIVE_REQUESTS = Gauge("geo_context_active_requests", "Number of active geocontext requests")
 
 RESOLVER_DURATION = Histogram(
     "geo_context_resolver_duration_seconds",
@@ -44,9 +40,7 @@ RESOLVER_DURATION = Histogram(
     ["resolver_type"],  # spatial, soil, climate, calendar
 )
 
-API_ERRORS = Counter(
-    "geo_context_errors_total", "Total API errors", ["error_type", "endpoint"]
-)
+API_ERRORS = Counter("geo_context_errors_total", "Total API errors", ["error_type", "endpoint"])
 
 
 class MetricsCollector:
@@ -161,7 +155,9 @@ def _calculate_cache_hit_rate() -> Optional[float]:
         misses = CACHE_OPERATIONS.labels(operation="get", result="miss")._value.get()
         total = hits + misses
         return hits / total if total > 0 else None
-    except Exception:  # FIX: Ruff E722 lint - use explicit exception to avoid masking SystemExit/KeyboardInterrupt.
+    except (
+        Exception
+    ):  # FIX: Ruff E722 lint - use explicit exception to avoid masking SystemExit/KeyboardInterrupt.
         return None
 
 
@@ -176,7 +172,9 @@ def _get_average_response_time() -> Optional[float]:
                 elif metric.name.endswith("_count"):
                     count = metric.value
             return duration_sum / count if count > 0 else None
-    except Exception:  # FIX: Ruff E722 lint - use explicit exception to avoid masking SystemExit/KeyboardInterrupt.
+    except (
+        Exception
+    ):  # FIX: Ruff E722 lint - use explicit exception to avoid masking SystemExit/KeyboardInterrupt.
         return None
 
 

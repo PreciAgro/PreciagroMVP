@@ -41,9 +41,7 @@ async def record_task_outcome(
     """Record an outcome for a specific task."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.UPDATE_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.UPDATE_TASKS)
 
         # Validate task exists
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
@@ -65,8 +63,7 @@ async def record_task_outcome(
         await db.commit()
         await db.refresh(outcome)
 
-        logger.info(
-            f"Recorded outcome for task {task_id}: {outcome_data.outcome_type}")
+        logger.info(f"Recorded outcome for task {task_id}: {outcome_data.outcome_type}")
 
         return OutcomeResponse(
             id=outcome.id,
@@ -93,9 +90,7 @@ async def get_task_outcomes(
     """Get all outcomes for a specific task."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         # Validate task exists
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
@@ -138,8 +133,7 @@ async def get_task_outcomes(
 async def get_outcomes(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
-    outcome_type: Optional[str] = Query(
-        None, description="Filter by outcome type"),
+    outcome_type: Optional[str] = Query(None, description="Filter by outcome type"),
     task_id: Optional[int] = Query(None, description="Filter by task ID"),
     source: Optional[str] = Query(None, description="Filter by source"),
     recorded_after: Optional[datetime] = Query(
@@ -154,9 +148,7 @@ async def get_outcomes(
     """Get paginated list of task outcomes with optional filtering."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         # Build query
         query = select(TaskOutcome)
@@ -181,8 +173,7 @@ async def get_outcomes(
             query = query.where(and_(*conditions))
 
         # Count total
-        count_query = select(TaskOutcome.id).select_from(
-            query.alias().subquery())
+        count_query = select(TaskOutcome.id).select_from(query.alias().subquery())
         total_result = await db.execute(count_query)
         total = len(total_result.fetchall())
 
@@ -228,9 +219,7 @@ async def get_outcome(
     """Get a specific outcome by ID."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         # Get outcome
         stmt = select(TaskOutcome).where(TaskOutcome.id == outcome_id)
@@ -270,9 +259,7 @@ async def record_user_response(
     try:
         # Check permissions - allow users to record their own responses
         if current_user["user_id"] != user_id:
-            security_middleware.authorize_request(
-                current_user["user_id"], Permission.UPDATE_TASKS
-            )
+            security_middleware.authorize_request(current_user["user_id"], Permission.UPDATE_TASKS)
 
         # Validate task exists
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)
@@ -303,8 +290,7 @@ async def record_user_response(
         # Record metrics
         engine_metrics.message_delivery_status(channel, "responded")
 
-        logger.info(
-            f"Recorded user response for task {task_id} from user {user_id}")
+        logger.info(f"Recorded user response for task {task_id} from user {user_id}")
 
         return {
             "outcome_id": outcome.id,
@@ -330,9 +316,7 @@ async def get_outcomes_summary(
     """Get summary statistics of task outcomes."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
@@ -365,13 +349,9 @@ async def get_outcomes_summary(
             daily_counts[day_key] += 1
 
         # Calculate response rates
-        user_responses = [
-            o for o in outcomes if o.outcome_type == "user_response"]
-        total_messages = len(
-            [o for o in outcomes if "message" in o.source.lower()])
-        response_rate = (
-            len(user_responses) / total_messages if total_messages > 0 else 0
-        )
+        user_responses = [o for o in outcomes if o.outcome_type == "user_response"]
+        total_messages = len([o for o in outcomes if "message" in o.source.lower()])
+        response_rate = len(user_responses) / total_messages if total_messages > 0 else 0
 
         return {
             "period_days": days,
@@ -399,9 +379,7 @@ async def get_task_conversation(
     """Get the conversation thread for a specific task (task + outcomes)."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_TASKS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_TASKS)
 
         # Get task
         task_stmt = select(ScheduledTask).where(ScheduledTask.id == task_id)

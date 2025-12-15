@@ -46,10 +46,10 @@ class AlertRepository:
         query = self.session.query(models.InventoryAlert).filter(
             models.InventoryAlert.farmer_id == farmer_id
         )
-        
+
         if resolved is not None:
             query = query.filter(models.InventoryAlert.resolved == resolved)
-        
+
         return query.order_by(models.InventoryAlert.created_at.desc()).all()
 
     def get_by_item(
@@ -59,10 +59,10 @@ class AlertRepository:
         query = self.session.query(models.InventoryAlert).filter(
             models.InventoryAlert.item_id == item_id
         )
-        
+
         if resolved is not None:
             query = query.filter(models.InventoryAlert.resolved == resolved)
-        
+
         return query.order_by(models.InventoryAlert.created_at.desc()).all()
 
     def resolve(self, alert_id: str) -> Optional[models.InventoryAlert]:
@@ -70,7 +70,7 @@ class AlertRepository:
         db_alert = self.session.get(models.InventoryAlert, alert_id)
         if not db_alert:
             return None
-        
+
         db_alert.resolved = True
         db_alert.resolved_at = datetime.utcnow()
         self.session.flush()
@@ -90,4 +90,3 @@ class AlertRepository:
             .order_by(models.InventoryAlert.created_at.desc())
             .all()
         )
-

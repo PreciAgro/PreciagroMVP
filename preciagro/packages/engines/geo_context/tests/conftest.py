@@ -7,7 +7,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for the test session."""
@@ -116,9 +115,7 @@ def mock_external_apis(monkeypatch):
     monkeypatch.setattr(
         "aiohttp.ClientSession.get",
         AsyncMock(
-            return_value=AsyncMock(
-                status=200, json=AsyncMock(return_value=mock_weather_api())
-            )
+            return_value=AsyncMock(status=200, json=AsyncMock(return_value=mock_weather_api()))
         ),
     )
 

@@ -19,18 +19,22 @@ class DiagnosisRecommendationClient:
         self, recommendation_id: str, required_items: list
     ) -> Optional[Dict[str, Any]]:
         """Validate a recommendation against inventory before execution.
-        
+
         This method should be called by the Diagnosis & Recommendation Engine
         before executing any recommendation that requires inventory.
         """
         if not self.client:
             return None
-        
+
         try:
             response = await self.client.post(
                 f"{self.base_url}/recommendations/{recommendation_id}/validate-inventory",
                 json={"required_items": required_items},
-                headers={"X-PreciAgro-Token": settings.API_AUTH_TOKEN} if settings.API_AUTH_TOKEN else {},
+                headers=(
+                    {"X-PreciAgro-Token": settings.API_AUTH_TOKEN}
+                    if settings.API_AUTH_TOKEN
+                    else {}
+                ),
             )
             if response.status_code == 200:
                 return response.json()
@@ -42,4 +46,3 @@ class DiagnosisRecommendationClient:
         """Close the HTTP client."""
         if self.client:
             await self.client.aclose()
-

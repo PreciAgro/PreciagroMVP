@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from ..api.routes.api import router
-from ..contracts.v1.fco import (FCOResponse, SoilData)
+from ..contracts.v1.fco import FCOResponse, SoilData
 
 # Create test app
 app = FastAPI()
@@ -148,9 +148,7 @@ class TestGeoContextAPI:
 
     @patch("preciagro.packages.engines.geo_context.security.auth.jwt.decode")
     @patch("preciagro.packages.engines.geo_context.api.routes.api.GeoContextResolver")
-    def test_get_field_context_polygon_request(
-        self, mock_resolver_class, mock_jwt_decode
-    ):
+    def test_get_field_context_polygon_request(self, mock_resolver_class, mock_jwt_decode):
         """Test FCO request with polygon location."""
         mock_jwt_decode.return_value = {"sub": "test"}
 

@@ -1,10 +1,10 @@
 # tests/test_smoke_orchestrator.py
 import asyncio
 
-from preciagro.packages.engines.data_integration.pipeline.normalize_openweather import \
-    normalize_openweather
-from preciagro.packages.engines.data_integration.pipeline.orchestrator import \
-    run_job
+from preciagro.packages.engines.data_integration.pipeline.normalize_openweather import (
+    normalize_openweather,
+)
+from preciagro.packages.engines.data_integration.pipeline.orchestrator import run_job
 
 
 class MockConnector:

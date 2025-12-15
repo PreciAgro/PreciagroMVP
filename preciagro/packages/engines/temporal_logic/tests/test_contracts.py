@@ -6,12 +6,15 @@ from datetime import datetime, timezone
 
 import pytest
 
-from preciagro.packages.engines.temporal_logic.contracts import (Clause,
-                                                                 Dedupe,
-                                                                 EngineEvent,
-                                                                 Message, Rule,
-                                                                 Trigger,
-                                                                 Window)
+from preciagro.packages.engines.temporal_logic.contracts import (
+    Clause,
+    Dedupe,
+    EngineEvent,
+    Message,
+    Rule,
+    Trigger,
+    Window,
+)
 
 # Set test database URL
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"

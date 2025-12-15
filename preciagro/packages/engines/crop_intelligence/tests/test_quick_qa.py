@@ -2,19 +2,28 @@
 Quick QA Tests for CIE MVP - Fuzz testing and boundary conditions.
 Validates robustness before pilot launch.
 """
+
 import pytest
 from datetime import date, datetime, timedelta
 from app.core.water_physics import (
-    calculate_et0_fao56, get_crop_kc, run_soil_water_bucket,
-    WeatherDay, SoilBucket, get_water_stress_level
+    calculate_et0_fao56,
+    get_crop_kc,
+    run_soil_water_bucket,
+    WeatherDay,
+    SoilBucket,
+    get_water_stress_level,
 )
 from app.core.disease_physics import (
-    estimate_leaf_wetness_duration, assess_disease_risk,
-    WeatherConditions, CanopyState
+    estimate_leaf_wetness_duration,
+    assess_disease_risk,
+    WeatherConditions,
+    CanopyState,
 )
 from app.core.confidence import (
-    calculate_state_confidence, calculate_model_confidence,
-    calculate_data_quality_confidence, build_confidence_breakdown
+    calculate_state_confidence,
+    calculate_model_confidence,
+    calculate_data_quality_confidence,
+    build_confidence_breakdown,
 )
 
 
@@ -24,9 +33,14 @@ class TestWaterPhysicsFuzz:
     def test_et0_handles_missing_radiation(self):
         """ET₀ calculation should work with estimated radiation."""
         et0, conf = calculate_et0_fao56(
-            tmax_c=30, tmin_c=18, rh_mean=70, wind_ms=2.5,
-            latitude=-18.0, elevation_m=1500, day_of_year=350,
-            radiation_mjm2=None  # Missing - will estimate
+            tmax_c=30,
+            tmin_c=18,
+            rh_mean=70,
+            wind_ms=2.5,
+            latitude=-18.0,
+            elevation_m=1500,
+            day_of_year=350,
+            radiation_mjm2=None,  # Missing - will estimate
         )
         assert et0 > 0
         assert conf < 1.0  # Reduced confidence
@@ -35,8 +49,13 @@ class TestWaterPhysicsFuzz:
     def test_et0_handles_zero_wind(self):
         """ET₀ should default wind to 2.0 m/s when missing."""
         et0, conf = calculate_et0_fao56(
-            tmax_c=28, tmin_c=16, rh_mean=65, wind_ms=0.0,
-            latitude=-18.0, elevation_m=1500, day_of_year=1
+            tmax_c=28,
+            tmin_c=16,
+            rh_mean=65,
+            wind_ms=0.0,
+            latitude=-18.0,
+            elevation_m=1500,
+            day_of_year=1,
         )
         assert et0 > 0
         assert conf < 1.0
@@ -45,24 +64,32 @@ class TestWaterPhysicsFuzz:
         """ET₀ should handle extreme (but valid) temperatures."""
         # Hot
         et0_hot, _ = calculate_et0_fao56(
-            tmax_c=45, tmin_c=30, rh_mean=20, wind_ms=5.0,
-            latitude=0, elevation_m=100, day_of_year=180
+            tmax_c=45,
+            tmin_c=30,
+            rh_mean=20,
+            wind_ms=5.0,
+            latitude=0,
+            elevation_m=100,
+            day_of_year=180,
         )
         assert et0_hot > 8.0  # Very high ET
 
         # Cold
         et0_cold, _ = calculate_et0_fao56(
-            tmax_c=5, tmin_c=-2, rh_mean=80, wind_ms=1.0,
-            latitude=52, elevation_m=200, day_of_year=30
+            tmax_c=5,
+            tmin_c=-2,
+            rh_mean=80,
+            wind_ms=1.0,
+            latitude=52,
+            elevation_m=200,
+            day_of_year=30,
         )
         assert et0_cold >= 0  # Should not be negative
 
     def test_kc_unknown_crop(self):
         """Unknown crop should return conservative Kc."""
         kc, stage, conf = get_crop_kc(
-            crop="unknown_xyz",
-            planting_date=date(2025, 11, 1),
-            current_date=date(2025, 12, 15)
+            crop="unknown_xyz", planting_date=date(2025, 11, 1), current_date=date(2025, 12, 15)
         )
         assert kc == 1.0
         assert stage == "unknown"
@@ -71,9 +98,7 @@ class TestWaterPhysicsFuzz:
     def test_water_stress_sensitive_stage(self):
         """Water stress should trigger critical alert during sensitive stages."""
         stress, urgency, rec = get_water_stress_level(
-            current_soil_mm=35,
-            whc_mm=140,
-            crop_stage="mid-season"  # Water-sensitive
+            current_soil_mm=35, whc_mm=140, crop_stage="mid-season"  # Water-sensitive
         )
         assert stress == "severe"
         assert urgency > 0.9
@@ -82,8 +107,9 @@ class TestWaterPhysicsFuzz:
     def test_soil_bucket_handles_no_rain(self):
         """Soil bucket should deplete without rain."""
         weather = [
-            WeatherDay(date=date(2025, 12, i), tmax_c=32, tmin_c=20,
-                       rh_mean=60, wind_ms=3.0, rain_mm=0.0)
+            WeatherDay(
+                date=date(2025, 12, i), tmax_c=32, tmin_c=20, rh_mean=60, wind_ms=3.0, rain_mm=0.0
+            )
             for i in range(1, 8)
         ]
         bucket = SoilBucket(whc_mm=140, current_mm=100)
@@ -93,7 +119,7 @@ class TestWaterPhysicsFuzz:
             soil_bucket=bucket,
             crop="maize",
             planting_date=date(2025, 11, 10),
-            latitude=-18.0
+            latitude=-18.0,
         )
 
         # Soil moisture should decline
@@ -107,11 +133,9 @@ class TestDiseasePhysicsFuzz:
     def test_leaf_wetness_no_drivers(self):
         """Leaf wetness should be minimal with no rain/dew."""
         weather = WeatherConditions(
-            timestamp=datetime.now(),
-            temp_c=25, rh_pct=50, wind_ms=5.0, rain_mm=0.0
+            timestamp=datetime.now(), temp_c=25, rh_pct=50, wind_ms=5.0, rain_mm=0.0
         )
-        canopy = CanopyState(stage="V6", lai=2.5,
-                             height_cm=60, density="moderate")
+        canopy = CanopyState(stage="V6", lai=2.5, height_cm=60, density="moderate")
 
         result = estimate_leaf_wetness_duration(weather, canopy)
         assert result.wetness_hours < 2.0
@@ -120,11 +144,9 @@ class TestDiseasePhysicsFuzz:
     def test_leaf_wetness_rain_event(self):
         """Heavy rain should produce significant wetness hours."""
         weather = WeatherConditions(
-            timestamp=datetime.now(),
-            temp_c=22, rh_pct=95, wind_ms=1.0, rain_mm=15.0
+            timestamp=datetime.now(), temp_c=22, rh_pct=95, wind_ms=1.0, rain_mm=15.0
         )
-        canopy = CanopyState(stage="R1", lai=5.0,
-                             height_cm=200, density="dense")
+        canopy = CanopyState(stage="R1", lai=5.0, height_cm=200, density="dense")
 
         result = estimate_leaf_wetness_duration(weather, canopy)
         assert result.wetness_hours >= 6.0
@@ -135,9 +157,8 @@ class TestDiseasePhysicsFuzz:
         risk = assess_disease_risk(
             disease_key="late_blight_potato",
             weather_history=[],
-            canopy=CanopyState(stage="tuber_bulking", lai=4.0,
-                               height_cm=50, density="dense"),
-            crop_stage="tuber_bulking"
+            canopy=CanopyState(stage="tuber_bulking", lai=4.0, height_cm=50, density="dense"),
+            crop_stage="tuber_bulking",
         )
         assert risk.risk_level == "unknown"
         assert risk.confidence < 0.2
@@ -148,19 +169,21 @@ class TestDiseasePhysicsFuzz:
         # Simulate 72 hours of late blight-favorable weather
         weather_history = [
             WeatherConditions(
-                timestamp=datetime.now() - timedelta(hours=72-i),
-                temp_c=20, rh_pct=95, wind_ms=1.5, rain_mm=2.0 if i % 24 == 0 else 0
+                timestamp=datetime.now() - timedelta(hours=72 - i),
+                temp_c=20,
+                rh_pct=95,
+                wind_ms=1.5,
+                rain_mm=2.0 if i % 24 == 0 else 0,
             )
             for i in range(72)
         ]
-        canopy = CanopyState(stage="tuber_bulking", lai=4.5,
-                             height_cm=50, density="dense")
+        canopy = CanopyState(stage="tuber_bulking", lai=4.5, height_cm=50, density="dense")
 
         risk = assess_disease_risk(
             disease_key="late_blight_potato",
             weather_history=weather_history,
             canopy=canopy,
-            crop_stage="tuber_bulking"
+            crop_stage="tuber_bulking",
         )
         assert risk.risk_level in ["high", "critical"]
         assert risk.risk_score > 0.60
@@ -175,11 +198,10 @@ class TestConfidencePlumbing:
             last_photo_date=None,
             current_date=date(2025, 12, 15),
             vi_history_days=14,
-            ndvi_quality="good"
+            ndvi_quality="good",
         )
         assert conf < 0.6
-        assert any(g.category == "photo" and g.severity ==
-                   "critical" for g in gaps)
+        assert any(g.category == "photo" and g.severity == "critical" for g in gaps)
 
     def test_state_confidence_stale_photo(self):
         """Old photos should moderately reduce confidence."""
@@ -187,7 +209,7 @@ class TestConfidencePlumbing:
             last_photo_date=date(2025, 11, 1),
             current_date=date(2025, 12, 15),  # 44 days old
             vi_history_days=14,
-            ndvi_quality="good"
+            ndvi_quality="good",
         )
         assert conf < 0.85
         assert any(g.category == "photo" for g in gaps)
@@ -199,7 +221,7 @@ class TestConfidencePlumbing:
             training_samples=300,
             validation_metric=0.55,  # Poor R²
             regional_match=True,
-            crop_match=True
+            crop_match=True,
         )
         assert conf < 0.75
         assert "validation" in explanation.lower()
@@ -210,7 +232,7 @@ class TestConfidencePlumbing:
             weather_gaps_days=12,  # 12 missing days
             weather_last_update=datetime.now() - timedelta(hours=6),
             soil_data_source="soilgrids",
-            action_log_completeness=0.80
+            action_log_completeness=0.80,
         )
         assert conf < 0.80
         assert any(g.category == "weather" for g in gaps)
@@ -223,7 +245,7 @@ class TestConfidencePlumbing:
             model_conf=0.75,
             model_explanation="Test model",
             data_quality=0.85,
-            data_gaps=[]
+            data_gaps=[],
         )
         # Formula: 0.8^0.4 × 0.75^0.3 × 0.85^0.3 ≈ 0.80
         assert 0.78 <= breakdown.overall <= 0.82
@@ -260,19 +282,21 @@ class TestEdgeCases:
         """Powdery mildew should be detected even without leaf wetness."""
         weather_history = [
             WeatherConditions(
-                timestamp=datetime.now() - timedelta(hours=72-i),
-                temp_c=18, rh_pct=75, wind_ms=2.0, rain_mm=0
+                timestamp=datetime.now() - timedelta(hours=72 - i),
+                temp_c=18,
+                rh_pct=75,
+                wind_ms=2.0,
+                rain_mm=0,
             )
             for i in range(72)
         ]
-        canopy = CanopyState(stage="GS31", lai=3.0,
-                             height_cm=40, density="moderate")
+        canopy = CanopyState(stage="GS31", lai=3.0, height_cm=40, density="moderate")
 
         risk = assess_disease_risk(
             disease_key="powdery_mildew_wheat",
             weather_history=weather_history,
             canopy=canopy,
-            crop_stage="GS31"
+            crop_stage="GS31",
         )
         # Powdery mildew has lower RH threshold (70%) and no wetness requirement
         assert risk.risk_level in ["moderate", "high"]

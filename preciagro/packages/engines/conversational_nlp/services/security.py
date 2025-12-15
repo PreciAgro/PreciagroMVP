@@ -27,7 +27,9 @@ class RateLimiter:
         now = time.time()
         bucket = self.buckets.get(key, {"tokens": float(limit), "ts": now})
         elapsed = now - bucket["ts"]
-        bucket["tokens"] = min(float(limit), bucket["tokens"] + (elapsed / self.window_seconds) * limit)
+        bucket["tokens"] = min(
+            float(limit), bucket["tokens"] + (elapsed / self.window_seconds) * limit
+        )
         bucket["ts"] = now
         if bucket["tokens"] < 1.0:
             self.buckets[key] = bucket
@@ -37,7 +39,11 @@ class RateLimiter:
                 detail={
                     "status": "error",
                     "errors": [
-                        {"code": ErrorCode.RATE_LIMITED.value, "message": "Rate limit exceeded", "component": "rate_limit"}
+                        {
+                            "code": ErrorCode.RATE_LIMITED.value,
+                            "message": "Rate limit exceeded",
+                            "component": "rate_limit",
+                        }
                     ],
                 },
             )

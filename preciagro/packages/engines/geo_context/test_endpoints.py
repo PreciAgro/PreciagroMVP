@@ -115,9 +115,7 @@ class GeoContextEndpointTester:
                         "soil",
                         "calendars",
                     ]
-                    missing_fields = [
-                        field for field in required_fields if field not in data
-                    ]
+                    missing_fields = [field for field in required_fields if field not in data]
 
                     if not missing_fields:
                         result = {
@@ -128,24 +126,14 @@ class GeoContextEndpointTester:
                             "context_hash": data.get("context_hash"),
                             "location": data.get("location", {}).get("admin_l0"),
                             "et0_mm_day": data.get("climate", {}).get("et0_mm_day"),
-                            "gdd_base10_ytd": data.get("climate", {}).get(
-                                "gdd_base10_ytd"
-                            ),
+                            "gdd_base10_ytd": data.get("climate", {}).get("gdd_base10_ytd"),
                             "validation": "All required fields present",
                         }
-                        print(
-                            f"   PASS Poland FCO resolve passed - {round(response_time, 2)}ms"
-                        )
+                        print(f"   PASS Poland FCO resolve passed - {round(response_time, 2)}ms")
                         print(f"   METRICS Context Hash: {data.get('context_hash')}")
-                        print(
-                            f"   GLOBE Location: {data.get('location', {}).get('admin_l0')}"
-                        )
-                        print(
-                            f"   WEATHER ET0: {data.get('climate', {}).get('et0_mm_day')} mm/day"
-                        )
-                        print(
-                            f"   TREND GDD YTD: {data.get('climate', {}).get('gdd_base10_ytd')}"
-                        )
+                        print(f"   GLOBE Location: {data.get('location', {}).get('admin_l0')}")
+                        print(f"   WEATHER ET0: {data.get('climate', {}).get('et0_mm_day')} mm/day")
+                        print(f"   TREND GDD YTD: {data.get('climate', {}).get('gdd_base10_ytd')}")
                     else:
                         result = {
                             "test": test_name,
@@ -164,9 +152,7 @@ class GeoContextEndpointTester:
                         "status_code": response.status,
                         "error": f"Status {response.status}: {error_text}",
                     }
-                    print(
-                        f"   FAIL Poland FCO resolve failed - Status: {response.status}"
-                    )
+                    print(f"   FAIL Poland FCO resolve failed - Status: {response.status}")
                     print(f"   REPORT Error: {error_text}")
 
         except Exception as e:
@@ -222,9 +208,7 @@ class GeoContextEndpointTester:
                         "elevation": data.get("location", {}).get("elevation_m"),
                         "soil_texture": data.get("soil", {}).get("texture"),
                     }
-                    print(
-                        f"   PASS Zimbabwe FCO resolve passed - {round(response_time, 2)}ms"
-                    )
+                    print(f"   PASS Zimbabwe FCO resolve passed - {round(response_time, 2)}ms")
                     print(f"   METRICS Context Hash: {data.get('context_hash')}")
                     print(
                         f"   GLOBE Location: {data.get('location', {}).get('admin_l0', 'Unknown')}"
@@ -241,9 +225,7 @@ class GeoContextEndpointTester:
                         "status_code": response.status,
                         "error": f"Status {response.status}: {error_text}",
                     }
-                    print(
-                        f"   FAIL Zimbabwe FCO resolve failed - Status: {response.status}"
-                    )
+                    print(f"   FAIL Zimbabwe FCO resolve failed - Status: {response.status}")
 
         except Exception as e:
             result = {"test": test_name, "status": "FAIL ERROR", "error": str(e)}
@@ -351,20 +333,14 @@ class GeoContextEndpointTester:
                         "response_time_ms": round(response_time, 2),
                         "status_code": response.status,
                         "metrics_found": found_metrics,
-                        "metrics_missing": [
-                            m for m in expected_metrics if m not in found_metrics
-                        ],
+                        "metrics_missing": [m for m in expected_metrics if m not in found_metrics],
                         "total_metrics_lines": len(metrics_text.splitlines()),
                     }
 
                     if found_metrics:
-                        print(
-                            f"   PASS Metrics endpoint passed - {round(response_time, 2)}ms"
-                        )
+                        print(f"   PASS Metrics endpoint passed - {round(response_time, 2)}ms")
                         print(f"   METRICS Found metrics: {found_metrics}")
-                        print(
-                            f"   TREND Total metrics lines: {len(metrics_text.splitlines())}"
-                        )
+                        print(f"   TREND Total metrics lines: {len(metrics_text.splitlines())}")
                     else:
                         print("   FAIL No expected metrics found")
                 else:
@@ -417,11 +393,7 @@ class GeoContextEndpointTester:
         skipped_tests = len([r for r in self.test_results if r["status"] == "SKIP SKIP"])
 
         avg_response_time = sum(
-            [
-                r.get("response_time_ms", 0)
-                for r in self.test_results
-                if "response_time_ms" in r
-            ]
+            [r.get("response_time_ms", 0) for r in self.test_results if "response_time_ms" in r]
         ) / max(1, len([r for r in self.test_results if "response_time_ms" in r]))
 
         summary = {
@@ -497,4 +469,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

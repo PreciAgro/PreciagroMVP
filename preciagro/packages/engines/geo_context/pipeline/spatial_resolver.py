@@ -17,9 +17,7 @@ class SpatialResolver:
             lat, lon = location["lat"], location["lon"]
 
             record = None
-            should_query_db = settings.ENABLE_POSTGIS or isinstance(
-                query_spatial_data, AsyncMock
-            )
+            should_query_db = settings.ENABLE_POSTGIS or isinstance(query_spatial_data, AsyncMock)
 
             if should_query_db:
                 try:
@@ -45,9 +43,7 @@ class SpatialResolver:
         except Exception:  # pragma: no cover - defensive logging
             return None
 
-    async def _query_external_api(
-        self, lat: float, lon: float
-    ) -> Optional[Dict[str, Any]]:
+    async def _query_external_api(self, lat: float, lon: float) -> Optional[Dict[str, Any]]:
         """Stub for external spatial API lookups (patched in tests)."""
         # FIX: Geo tests flaky - external stub unused - reuse deterministic classifier - enables golden snapshots without DB
         return self._classify_location(lat, lon)
@@ -81,9 +77,7 @@ class SpatialResolver:
                 "agro_zone": "subtropical_highland",
                 "admin_l0": "Zimbabwe",
                 "admin_l1": "Mashonaland East",
-                "admin_l2": (
-                    "Murewa District" if self._is_murewa(lat, lon) else "Rural District"
-                ),
+                "admin_l2": ("Murewa District" if self._is_murewa(lat, lon) else "Rural District"),
             }
 
         return {

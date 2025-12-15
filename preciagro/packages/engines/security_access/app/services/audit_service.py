@@ -13,16 +13,16 @@ from ..core.config import settings
 
 class AuditService:
     """Service for immutable audit logging."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     def _compute_event_hash(self, event_data: Dict[str, Any]) -> str:
         """Compute tamper-evident hash for an event."""
         # Create a deterministic JSON representation
         event_str = json.dumps(event_data, sort_keys=True, default=str)
         return hashlib.sha256(event_str.encode()).hexdigest()
-    
+
     async def log_event(
         self,
         event_type: AuditEventType,
@@ -39,7 +39,7 @@ class AuditService:
     ) -> AuditLog:
         """Log a security event."""
         event_timestamp = datetime.now(timezone.utc)
-        
+
         # Build event data for hashing
         event_data = {
             "event_type": event_type.value,
@@ -54,10 +54,10 @@ class AuditService:
             "region": region,
             "metadata": metadata or {},
         }
-        
+
         # Compute hash
         event_hash = self._compute_event_hash(event_data)
-        
+
         # Create audit log entry
         log_entry = AuditLog(
             log_id=f"audit_{hashlib.sha256(f'{event_timestamp.isoformat()}{actor_id or ""}{event_type.value}'.encode()).hexdigest()[:16]}",
@@ -75,12 +75,12 @@ class AuditService:
             metadata_=metadata,
             event_hash=event_hash,
         )
-        
+
         self.db.add(log_entry)
         await self.db.flush()
-        
+
         return log_entry
-    
+
     async def log_auth_event(
         self,
         event_type: AuditEventType,
@@ -101,7 +101,7 @@ class AuditService:
             error_message=error_message,
             metadata=metadata,
         )
-    
+
     async def log_permission_event(
         self,
         actor_id: str,
@@ -114,8 +114,10 @@ class AuditService:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AuditLog:
         """Log a permission check event."""
-        event_type = AuditEventType.PERMISSION_GRANTED if allowed else AuditEventType.PERMISSION_DENIED
-        
+        event_type = (
+            AuditEventType.PERMISSION_GRANTED if allowed else AuditEventType.PERMISSION_DENIED
+        )
+
         return await self.log_event(
             event_type=event_type,
             actor_id=actor_id,
@@ -127,7 +129,7 @@ class AuditService:
             region=region,
             metadata=metadata,
         )
-    
+
     async def log_data_access(
         self,
         actor_id: str,
@@ -144,7 +146,7 @@ class AuditService:
             "write": AuditEventType.DATA_MODIFY,
             "delete": AuditEventType.DATA_DELETE,
         }.get(action, AuditEventType.DATA_ACCESS)
-        
+
         return await self.log_event(
             event_type=event_type,
             actor_id=actor_id,
@@ -156,7 +158,7 @@ class AuditService:
             region=region,
             metadata=metadata,
         )
-    
+
     async def log_ai_event(
         self,
         actor_id: str,
@@ -171,7 +173,7 @@ class AuditService:
         ai_metadata = metadata or {}
         if confidence is not None:
             ai_metadata["confidence"] = confidence
-        
+
         return await self.log_event(
             event_type=event_type,
             actor_id=actor_id,
@@ -181,7 +183,7 @@ class AuditService:
             ip_address=ip_address,
             metadata=ai_metadata,
         )
-    
+
     async def log_admin_action(
         self,
         actor_id: str,
@@ -202,7 +204,7 @@ class AuditService:
             ip_address=ip_address,
             metadata=metadata,
         )
-    
+
     async def log_offline_sync(
         self,
         actor_id: str,
@@ -222,4 +224,3 @@ class AuditService:
             region=region,
             metadata=sync_result,
         )
-

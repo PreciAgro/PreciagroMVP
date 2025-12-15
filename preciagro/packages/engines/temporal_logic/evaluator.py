@@ -24,9 +24,7 @@ class PredicateEvaluator:
         ast.LtE,
     )
 
-    def evaluate_condition(
-        self, condition: Condition, event_data: Dict[str, Any]
-    ) -> bool:
+    def evaluate_condition(self, condition: Condition, event_data: Dict[str, Any]) -> bool:
         """Evaluate a single condition against event data."""
         try:
             field_value = self._get_nested_field(event_data, condition.field)
@@ -34,9 +32,7 @@ class PredicateEvaluator:
             if field_value is None and condition.operator != "exists":
                 return False
 
-            return self._apply_operator(
-                field_value, condition.operator, condition.value
-            )
+            return self._apply_operator(field_value, condition.operator, condition.value)
 
         except Exception as e:
             logger.error(
@@ -88,9 +84,7 @@ class PredicateEvaluator:
 
         return current
 
-    def _apply_operator(
-        self, field_value: Any, operator: str, condition_value: Any
-    ) -> bool:
+    def _apply_operator(self, field_value: Any, operator: str, condition_value: Any) -> bool:
         """Apply comparison operator."""
         try:
             if operator == "eq":
@@ -172,8 +166,7 @@ class PredicateEvaluator:
         try:
             return bool(eval(normalized, {"__builtins__": {}}, context))
         except Exception as exc:  # noqa: BLE001 - broad for safety
-            logger.warning(
-                "Predicate evaluation error for %s: %s", predicate, exc)
+            logger.warning("Predicate evaluation error for %s: %s", predicate, exc)
             return False
 
     def _validate_predicate(self, predicate: str) -> bool:
@@ -197,8 +190,7 @@ class WindowEvaluator:
         if current_time is None:
             current_time = datetime.utcnow()
 
-        window_start = self._calculate_window_start(
-            current_time, window_config)
+        window_start = self._calculate_window_start(current_time, window_config)
 
         # Filter events within window
         window_events = []
@@ -260,9 +252,7 @@ class WindowEvaluator:
         elif window_config.type == "tumbling":
             # Align to window boundaries
             seconds_since_epoch = int(current_time.timestamp())
-            window_start_epoch = (
-                seconds_since_epoch // window_config.size
-            ) * window_config.size
+            window_start_epoch = (seconds_since_epoch // window_config.size) * window_config.size
             return datetime.fromtimestamp(window_start_epoch)
         elif window_config.type == "session":
             # Session windows are more complex - for now, treat like sliding
@@ -289,15 +279,11 @@ class ContextEvaluator:
         current_time = datetime.utcnow()
 
         # Get events in window
-        window_events = self.window_evaluator.get_window_events(
-            events, window_config, current_time
-        )
+        window_events = self.window_evaluator.get_window_events(events, window_config, current_time)
 
         # Evaluate conditions
-        matches, confidence, matching_events = (
-            self.window_evaluator.evaluate_window_conditions(
-                window_events, conditions, window_config
-            )
+        matches, confidence, matching_events = self.window_evaluator.evaluate_window_conditions(
+            window_events, conditions, window_config
         )
 
         # Build evaluation result
@@ -373,8 +359,7 @@ class RuleEvaluator:
         """Evaluate a complete rule against events."""
         try:
             # Parse rule components
-            conditions = [Condition(**cond)
-                          for cond in rule_data.get("conditions", [])]
+            conditions = [Condition(**cond) for cond in rule_data.get("conditions", [])]
             window_config = WindowConfig(**rule_data.get("window_config", {}))
 
             # Evaluate with context
@@ -395,9 +380,7 @@ class RuleEvaluator:
             return evaluation_result
 
         except Exception as e:
-            logger.error(
-                f"Error evaluating rule {rule_data.get('name', 'unknown')}: {e}"
-            )
+            logger.error(f"Error evaluating rule {rule_data.get('name', 'unknown')}: {e}")
             return {
                 "matches": False,
                 "confidence": 0.0,

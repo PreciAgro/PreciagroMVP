@@ -29,7 +29,9 @@ class RotationService:
             hint = "Rotate with a broadleaf crop to break cereal disease cycles."
             risk_flags.append("disease_carryover")
         elif crop == "potato":
-            hint = "Avoid planting potato on the same field within 3 years to limit late blight risk."
+            hint = (
+                "Avoid planting potato on the same field within 3 years to limit late blight risk."
+            )
             risk_flags.append("soil_pathogen_pressure")
 
         health_score = max(0.3, base_health - 0.05 * len(risk_flags))

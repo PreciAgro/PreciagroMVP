@@ -52,7 +52,7 @@ class ArtifactStorage:
     ) -> str:
         """Persist the raw binary mask for downstream analytics."""
 
-        binary = (mask.astype(np.uint8) * 255)
+        binary = mask.astype(np.uint8) * 255
         return self._write_image(binary, crop, request_id, suffix)
 
     def _write_image(

@@ -135,7 +135,7 @@ class LesionSegmenter:
         if heatmap is not None:
             cam = heatmap.astype(np.float32)
             cam = cv2.resize(cam, (image_bgr.shape[1], image_bgr.shape[0]))
-            cam /= (cam.max() + 1e-6)
+            cam /= cam.max() + 1e-6
             for quantile in (0.9, 0.95, 0.97, 0.99):
                 candidate = cam >= np.quantile(cam, quantile)
                 ratio = candidate.mean()
@@ -151,7 +151,7 @@ class LesionSegmenter:
             for quantile in (0.85, 0.9, 0.95):
                 thresh = np.quantile(inverted, quantile)
                 mask = inverted >= thresh
-                mask_uint = (mask.astype(np.uint8) * 255)
+                mask_uint = mask.astype(np.uint8) * 255
                 mask_uint = cv2.medianBlur(mask_uint, 5)
                 candidate = mask_uint > 0
                 ratio = candidate.mean()
@@ -168,11 +168,13 @@ class LesionSegmenter:
     def _mask_to_overlay(self, image_bgr: np.ndarray, mask: np.ndarray) -> np.ndarray:
         """Blend a red mask over the original image."""
 
-        mask_uint = (mask.astype(np.uint8) * 255)
+        mask_uint = mask.astype(np.uint8) * 255
         color = np.zeros_like(image_bgr)
         color[:, :] = (0, 0, 255)
         overlay = image_bgr.copy()
-        overlay = np.where(mask_uint[..., None] > 0, cv2.addWeighted(image_bgr, 0.4, color, 0.6, 0), image_bgr)
+        overlay = np.where(
+            mask_uint[..., None] > 0, cv2.addWeighted(image_bgr, 0.4, color, 0.6, 0), image_bgr
+        )
         return overlay
 
     def _select_seed_point(

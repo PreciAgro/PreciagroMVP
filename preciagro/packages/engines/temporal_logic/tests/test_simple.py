@@ -6,10 +6,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from preciagro.packages.engines.temporal_logic.contracts import (EngineEvent)
+from preciagro.packages.engines.temporal_logic.contracts import EngineEvent
 from preciagro.packages.engines.temporal_logic.dsl.compiler import TaskCompiler
-from preciagro.packages.engines.temporal_logic.dsl.evaluator import \
-    RuleEvaluator
+from preciagro.packages.engines.temporal_logic.dsl.evaluator import RuleEvaluator
 
 # Add the project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
@@ -51,7 +50,9 @@ class TestTemporalLogicEngine:
         assert event.metadata["humidity"] == 85
 
         # Test the _apply_operator method directly
-        assert evaluator._apply_operator(85, "gt", 80)  # FIX: Ruff E712 lint - rely on truthiness instead of explicit True comparison.
+        assert evaluator._apply_operator(
+            85, "gt", 80
+        )  # FIX: Ruff E712 lint - rely on truthiness instead of explicit True comparison.
         assert not evaluator._apply_operator(75, "gt", 80)
         assert evaluator._apply_operator("tomato", "eq", "tomato")
 
@@ -82,7 +83,11 @@ class TestTemporalLogicEngine:
     def test_dedupe_key_generation(self):
         """Test deduplication key generation."""
         from preciagro.packages.engines.temporal_logic.contracts import (
-            Deduplication, Rule, ScheduleWindow, Trigger)
+            Deduplication,
+            Rule,
+            ScheduleWindow,
+            Trigger,
+        )
 
         compiler = TaskCompiler()
 

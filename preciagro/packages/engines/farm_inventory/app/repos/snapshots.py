@@ -50,15 +50,15 @@ class SnapshotRepository:
         query = self.session.query(models.InventorySnapshot).filter(
             models.InventorySnapshot.farmer_id == farmer_id
         )
-        
+
         if snapshot_type:
             query = query.filter(models.InventorySnapshot.snapshot_type == snapshot_type)
-        
+
         query = query.order_by(models.InventorySnapshot.created_at.desc())
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
 
     def get_latest(
@@ -68,9 +68,8 @@ class SnapshotRepository:
         query = self.session.query(models.InventorySnapshot).filter(
             models.InventorySnapshot.farmer_id == farmer_id
         )
-        
+
         if snapshot_type:
             query = query.filter(models.InventorySnapshot.snapshot_type == snapshot_type)
-        
-        return query.order_by(models.InventorySnapshot.created_at.desc()).first()
 
+        return query.order_by(models.InventorySnapshot.created_at.desc()).first()

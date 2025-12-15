@@ -61,9 +61,7 @@ class GeoContextCache:
 
             # Set with TTL
             ttl = ttl_seconds or self.default_ttl
-            success = await self.redis.setex(
-                key, ttl, json.dumps(cache_data, default=str)
-            )
+            success = await self.redis.setex(key, ttl, json.dumps(cache_data, default=str))
 
             return bool(success)
 

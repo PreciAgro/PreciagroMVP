@@ -194,16 +194,12 @@ class RateLimitPolicy:
         if earliest_reset and earliest_reset > scheduled_time:
             delay_seconds = int((earliest_reset - scheduled_time).total_seconds())
             reason = f"Rate limited by {blocking_limit}, delayed {delay_seconds}s"
-            logger.info(
-                f"Message for user {user_id} delayed due to rate limit: {reason}"
-            )
+            logger.info(f"Message for user {user_id} delayed due to rate limit: {reason}")
             return earliest_reset, reason, limit_info
 
         return scheduled_time, "Rate limit check passed", limit_info
 
-    def _consume_multiple_limits(
-        self, user_id: str, channel: str, current_time: datetime
-    ):
+    def _consume_multiple_limits(self, user_id: str, channel: str, current_time: datetime):
         """Consume tokens for multiple applicable limits."""
         limits_to_consume = [
             (f"user:{user_id}", "user_hourly"),
@@ -214,9 +210,7 @@ class RateLimitPolicy:
 
         # Add channel-specific limit
         if channel in self.channel_limits:
-            limits_to_consume.append(
-                (f"user:{user_id}:channel:{channel}", f"{channel}_limit")
-            )
+            limits_to_consume.append((f"user:{user_id}:channel:{channel}", f"{channel}_limit"))
 
         for key, limit_type in limits_to_consume:
             self.consume(key, limit_type, current_time)
@@ -241,9 +235,7 @@ class RateLimitPolicy:
         """Get rate limit status for a specific user."""
         status = {}
 
-        user_buckets = {
-            k: v for k, v in self.buckets.items() if k.startswith(f"user:{user_id}:")
-        }
+        user_buckets = {k: v for k, v in self.buckets.items() if k.startswith(f"user:{user_id}:")}
 
         for bucket_key, bucket in user_buckets.items():
             limit_type = bucket_key.split(":", 2)[-1]

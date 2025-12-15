@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 
 class ImageAnalysisClient(ABC):
     """Client interface for Image Analysis Engine."""
-    
+
     def __init__(self, endpoint: Optional[str] = None, api_key: Optional[str] = None):
         """Initialize image analysis client.
-        
+
         Args:
             endpoint: Image analysis service endpoint
             api_key: API key if required
@@ -20,35 +20,29 @@ class ImageAnalysisClient(ABC):
         self.endpoint = endpoint
         self.api_key = api_key
         logger.info(f"ImageAnalysisClient initialized (endpoint={endpoint})")
-    
+
     @abstractmethod
-    async def analyze_image(
-        self,
-        image_id: str,
-        crop_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def analyze_image(self, image_id: str, crop_type: Optional[str] = None) -> Dict[str, Any]:
         """Analyze image for diseases, pests, etc.
-        
+
         Args:
             image_id: Image identifier
             crop_type: Optional crop type hint
-            
+
         Returns:
             Analysis results dictionary
         """
         pass
-    
+
     async def analyze_images(
-        self,
-        image_ids: List[str],
-        crop_type: Optional[str] = None
+        self, image_ids: List[str], crop_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Analyze multiple images.
-        
+
         Args:
             image_ids: List of image identifiers
             crop_type: Optional crop type hint
-            
+
         Returns:
             List of analysis results
         """
@@ -65,12 +59,8 @@ class ImageAnalysisClient(ABC):
 
 class StubImageAnalysisClient(ImageAnalysisClient):
     """Stub implementation of Image Analysis Client."""
-    
-    async def analyze_image(
-        self,
-        image_id: str,
-        crop_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+
+    async def analyze_image(self, image_id: str, crop_type: Optional[str] = None) -> Dict[str, Any]:
         """Stub implementation."""
         logger.warning(f"Stub ImageAnalysisClient.analyze_image called for {image_id}")
         return {
@@ -78,14 +68,11 @@ class StubImageAnalysisClient(ImageAnalysisClient):
             "crop": crop_type or "unknown",
             "disease": None,
             "health_score": 0.8,
-            "status": "stub"
+            "status": "stub",
         }
-    
+
     async def analyze_images(
-        self,
-        image_ids: List[str],
-        crop_type: Optional[str] = None
+        self, image_ids: List[str], crop_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Stub implementation for multiple images."""
         return await super().analyze_images(image_ids, crop_type)
-

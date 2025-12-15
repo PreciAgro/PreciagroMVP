@@ -16,8 +16,7 @@ DATABASE_URL = settings.DATABASE_URL
 
 # Convert to async URL if needed
 if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgresql://", "postgresql+asyncpg://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 # Lazy-load engine to avoid asyncpg import errors at module load time
 _engine = None
@@ -30,11 +29,11 @@ def _init_engine():
     if _engine is None:
         try:
             _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-            _AsyncSessionLocal = sessionmaker(
-                _engine, class_=AsyncSession, expire_on_commit=False)
+            _AsyncSessionLocal = sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
         except Exception as e:
             # If engine creation fails (e.g., asyncpg not available), log and continue
             import logging
+
             logging.warning(f"Failed to initialize async database engine: {e}")
     return _engine
 
@@ -51,8 +50,7 @@ async def get_db_session():
         _init_engine()
 
     if _AsyncSessionLocal is None:
-        raise RuntimeError(
-            "Database engine not initialized. Check DATABASE_URL and dependencies.")
+        raise RuntimeError("Database engine not initialized. Check DATABASE_URL and dependencies.")
 
     async with _AsyncSessionLocal() as session:
         yield session
@@ -87,9 +85,7 @@ async def query_spatial_data(lat: float, lon: float) -> Dict[str, Any]:
         return {}
 
 
-async def get_nearest_weather_station(
-    lat: float, lon: float
-) -> Optional[Dict[str, Any]]:
+async def get_nearest_weather_station(lat: float, lon: float) -> Optional[Dict[str, Any]]:
     """Get nearest weather station."""
     async with AsyncSessionLocal() as session:
         query = text(
@@ -217,9 +213,7 @@ async def query_calendar_events(
                 ORDER BY recommended_date
             """
             )
-            result = await session.execute(
-                query, {"region": region, "crop_type": crop_type}
-            )
+            result = await session.execute(query, {"region": region, "crop_type": crop_type})
         else:
             query = text(
                 """
@@ -259,9 +253,7 @@ async def get_cached_fco(cache_key: str) -> Optional[FCOResponse]:
         """
         )
 
-        result = await session.execute(
-            query, {"cache_key": cache_key, "now": datetime.now()}
-        )
+        result = await session.execute(query, {"cache_key": cache_key, "now": datetime.now()})
 
         row = result.fetchone()
         if row:
@@ -282,8 +274,7 @@ async def cache_fco(cache_key: str, response: FCOResponse) -> None:
         _init_engine()
 
     if _AsyncSessionLocal is None:
-        raise RuntimeError(
-            "Database engine not initialized. Check DATABASE_URL and dependencies.")
+        raise RuntimeError("Database engine not initialized. Check DATABASE_URL and dependencies.")
 
     async with _AsyncSessionLocal() as session:
         expires_at = datetime.now() + timedelta(seconds=settings.CACHE_TTL)

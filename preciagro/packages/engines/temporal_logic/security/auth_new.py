@@ -14,8 +14,6 @@ def svc_auth(authorization: str = Header(None)):
     token = authorization.split(" ", 1)[1]
 
     try:
-        jwt.decode(
-            token, JWT_PUBKEY, algorithms=["RS256"], options={"verify_aud": False}
-        )
+        jwt.decode(token, JWT_PUBKEY, algorithms=["RS256"], options={"verify_aud": False})
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")

@@ -110,10 +110,10 @@ class OpenAIBackend:
     async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         TODO: Implement OpenAI classification call.
-        
+
         Expected payload structure:
         - prompt: JSON string with instructions, message, session_context, examples
-        
+
         Expected response format:
         {
             "intent": "plan_planting",
@@ -121,7 +121,7 @@ class OpenAIBackend:
             "confidence": 0.85,
             "schema_version": "v0"
         }
-        
+
         Implementation steps:
         1. Parse prompt from payload
         2. Build OpenAI chat completion request with system/user messages
@@ -149,11 +149,11 @@ class OpenAIBackend:
     async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
         """
         TODO: Implement OpenAI generation call.
-        
+
         Expected payload structure:
         - prompt: Full prompt string with system/user/tools/RAG context
         - message, intent, session_context, tools_context, rag_context
-        
+
         Expected response format:
         {
             "summary": "Main answer text",
@@ -161,7 +161,7 @@ class OpenAIBackend:
             "warnings": ["warning1"],
             "extras": {}
         }
-        
+
         Implementation steps:
         1. Build chat messages from prompt and context
         2. Call OpenAI chat completion with appropriate model
@@ -205,10 +205,10 @@ class AnthropicBackend:
     async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         TODO: Implement Anthropic classification call.
-        
+
         Use Claude's structured output capabilities or prompt engineering
         to return JSON with intent, entities, confidence.
-        
+
         Implementation steps:
         1. Build messages array from payload
         2. Call messages.create() with model and system prompt
@@ -224,7 +224,7 @@ class AnthropicBackend:
     async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
         """
         TODO: Implement Anthropic generation call.
-        
+
         Use Claude for response generation with tools/RAG context.
         """
         if not self.available:
@@ -260,16 +260,16 @@ class OllamaBackend:
     async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         TODO: Implement Ollama classification call.
-        
+
         Ollama uses a simple HTTP API:
         POST /api/generate or /api/chat
-        
+
         Implementation steps:
         1. Build prompt from payload
         2. POST to {base_url}/api/chat with model and messages
         3. Parse JSON response (may need to extract JSON from text)
         4. Return structured dict
-        
+
         Note: Ollama models may not always return valid JSON, so add parsing/validation.
         """
         if not self.available:
@@ -292,7 +292,7 @@ class OllamaBackend:
     async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
         """
         TODO: Implement Ollama generation call.
-        
+
         Similar to classify but with full context for response generation.
         """
         if not self.available:
@@ -330,9 +330,9 @@ class VLLMBackend:
     async def classify(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         TODO: Implement vLLM classification call.
-        
+
         vLLM typically exposes OpenAI-compatible API at /v1/chat/completions
-        
+
         Implementation steps:
         1. Build OpenAI-format request
         2. POST to {base_url}/v1/chat/completions
@@ -348,7 +348,7 @@ class VLLMBackend:
     async def generate(self, payload: Dict[str, Any]) -> Optional[Any]:
         """
         TODO: Implement vLLM generation call.
-        
+
         Use OpenAI-compatible endpoint for response generation.
         """
         if not self.available:
@@ -425,11 +425,15 @@ class StubAgroLLMBackend:
     @staticmethod
     def _summary_from_tools(intent: str, user_text: str, tools: Dict[str, Any]) -> str:
         if intent == "plan_planting":
-            window = tools.get("temporal_logic", {}).get("recommended_window", "the next planting window")
+            window = tools.get("temporal_logic", {}).get(
+                "recommended_window", "the next planting window"
+            )
             region = tools.get("geo_context", {}).get("region", "your area")
             return f"Plan to plant in {region} during {window}. User asked: {user_text[:80]}."
         if intent == "diagnose_disease":
-            diagnosis = tools.get("crop_intelligence", {}).get("diagnosis") or tools.get("image_analysis", {}).get("diagnosis")
+            diagnosis = tools.get("crop_intelligence", {}).get("diagnosis") or tools.get(
+                "image_analysis", {}
+            ).get("diagnosis")
             diagnosis = diagnosis or "symptoms require inspection."
             return f"Preliminary diagnosis: {diagnosis}"
         if intent == "inventory_status":
@@ -441,28 +445,43 @@ class StubAgroLLMBackend:
     @staticmethod
     def _steps_from_tools(intent: str, tools: Dict[str, Any]) -> List[str]:
         if intent == "plan_planting":
-            steps = ["Ensure soil moisture is adequate.", "Treat seed before planting.", "Calibrate planter for uniform stands."]
+            steps = [
+                "Ensure soil moisture is adequate.",
+                "Treat seed before planting.",
+                "Calibrate planter for uniform stands.",
+            ]
             recs = tools.get("crop_intelligence", {}).get("recommendations")
             if isinstance(recs, list):
                 steps.extend(recs[:2])
             return steps
         if intent == "diagnose_disease":
-            steps = ["Inspect affected plants and capture photos.", "Consult local agronomist before spraying."]
+            steps = [
+                "Inspect affected plants and capture photos.",
+                "Consult local agronomist before spraying.",
+            ]
             diag = tools.get("image_analysis", {}).get("diagnosis")
             if diag:
                 steps.insert(0, f"Image analysis suggests: {diag}")
             return steps
         if intent == "inventory_status":
-            return ["Reconcile seed and fertilizer stock with recent deliveries.", "Set reorder points for two-week buffer."]
+            return [
+                "Reconcile seed and fertilizer stock with recent deliveries.",
+                "Set reorder points for two-week buffer.",
+            ]
         if intent == "check_weather":
-            return ["Check forecast for next 7 days.", "Delay planting until soil moisture is stable."]
+            return [
+                "Check forecast for next 7 days.",
+                "Delay planting until soil moisture is stable.",
+            ]
         return ["Collect additional data from field sensors or notes."]
 
 
 class AgroLLMClient:
     """High-level interface used by the conversational engine."""
 
-    def __init__(self, backend: AgroLLMBackend, fallback_backend: Optional[AgroLLMBackend] = None) -> None:
+    def __init__(
+        self, backend: AgroLLMBackend, fallback_backend: Optional[AgroLLMBackend] = None
+    ) -> None:
         self.backend = backend
         self.fallback_backend = fallback_backend or StubAgroLLMBackend()
 
@@ -589,13 +608,17 @@ class AgroLLMClient:
         if not intent:
             return None
         entities_raw = data.get("entities", {})
-        entities = IntentEntities(**entities_raw) if isinstance(entities_raw, dict) else IntentEntities()
+        entities = (
+            IntentEntities(**entities_raw) if isinstance(entities_raw, dict) else IntentEntities()
+        )
         try:
             confidence = float(data.get("confidence", 0.6))
         except (TypeError, ValueError):
             confidence = 0.6
         schema_version = str(data.get("schema_version", "v0"))
-        return IntentResult(intent=intent, entities=entities, confidence=confidence, schema_version=schema_version)
+        return IntentResult(
+            intent=intent, entities=entities, confidence=confidence, schema_version=schema_version
+        )
 
     @staticmethod
     def _parse_generation_response(data: Optional[Any]) -> Optional[StructuredAnswer]:
@@ -621,13 +644,15 @@ class AgroLLMClient:
             extras = {"notes": extras_raw}
         else:
             extras = {}
-        return StructuredAnswer(summary=summary, steps=steps, warnings=warnings, extras=extras, raw_text=str(data))
+        return StructuredAnswer(
+            summary=summary, steps=steps, warnings=warnings, extras=extras, raw_text=str(data)
+        )
 
 
 def build_agrollm_client(config: Settings) -> AgroLLMClient:
     """
     Factory that selects backend based on AGROLLM_BACKEND setting.
-    
+
     Supported backends:
     - stub: Deterministic fallback (default)
     - http/remote: Generic HTTP endpoints
@@ -635,12 +660,12 @@ def build_agrollm_client(config: Settings) -> AgroLLMClient:
     - anthropic: Anthropic Claude API
     - ollama: Local Ollama models
     - vllm: vLLM inference server
-    
+
     See RUNBOOK_LLM_INTEGRATION.md for detailed setup instructions.
     """
     backend_choice = (config.agrollm_backend or "").lower()
     fallback = StubAgroLLMBackend()
-    
+
     # OpenAI backend
     if backend_choice == "openai":
         openai_backend = OpenAIBackend(
@@ -654,7 +679,7 @@ def build_agrollm_client(config: Settings) -> AgroLLMClient:
         if openai_backend.available:
             return AgroLLMClient(backend=openai_backend, fallback_backend=fallback)
         logger.warning("OpenAI backend configured but API key missing, using stub")
-    
+
     # Anthropic backend
     elif backend_choice == "anthropic":
         anthropic_backend = AnthropicBackend(
@@ -668,7 +693,7 @@ def build_agrollm_client(config: Settings) -> AgroLLMClient:
         if anthropic_backend.available:
             return AgroLLMClient(backend=anthropic_backend, fallback_backend=fallback)
         logger.warning("Anthropic backend configured but API key missing, using stub")
-    
+
     # Ollama backend
     elif backend_choice == "ollama":
         ollama_backend = OllamaBackend(
@@ -679,7 +704,7 @@ def build_agrollm_client(config: Settings) -> AgroLLMClient:
             timeout_seconds=config.agrollm_timeout_seconds,
         )
         return AgroLLMClient(backend=ollama_backend, fallback_backend=fallback)
-    
+
     # vLLM backend
     elif backend_choice == "vllm":
         vllm_backend = VLLMBackend(
@@ -691,7 +716,7 @@ def build_agrollm_client(config: Settings) -> AgroLLMClient:
             api_key=getattr(config, "vllm_api_key", None),
         )
         return AgroLLMClient(backend=vllm_backend, fallback_backend=fallback)
-    
+
     # HTTP/Remote backend (generic)
     elif backend_choice in {"http", "remote"}:
         http_backend = HTTPAgroLLMBackend(
@@ -703,6 +728,6 @@ def build_agrollm_client(config: Settings) -> AgroLLMClient:
         if http_backend.available:
             return AgroLLMClient(backend=http_backend, fallback_backend=fallback)
         logger.warning("HTTP backend configured but URLs missing, using stub")
-    
+
     # Stub backend (default)
     return AgroLLMClient(backend=fallback)

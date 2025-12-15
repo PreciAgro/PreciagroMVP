@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class InventoryCategory(str, Enum):
     """Inventory item categories."""
+
     SEED = "seed"
     FERTILIZER = "fertilizer"
     CHEMICAL = "chemical"
@@ -21,6 +22,7 @@ class InventoryCategory(str, Enum):
 
 class InventoryUnit(str, Enum):
     """Inventory quantity units."""
+
     KG = "kg"
     LITERS = "liters"
     UNITS = "units"
@@ -30,6 +32,7 @@ class InventoryUnit(str, Enum):
 
 class UsageReason(str, Enum):
     """Reason for inventory usage."""
+
     RECOMMENDATION = "recommendation"
     MANUAL = "manual"
     EMERGENCY = "emergency"
@@ -39,6 +42,7 @@ class UsageReason(str, Enum):
 # Request Schemas
 class InventoryItemCreate(BaseModel):
     """Schema for creating an inventory item."""
+
     farmer_id: str = Field(..., description="Farmer identifier")
     category: InventoryCategory = Field(..., description="Item category")
     name: str = Field(..., min_length=1, max_length=200, description="Item name")
@@ -49,21 +53,27 @@ class InventoryItemCreate(BaseModel):
     expiry_date: Optional[date] = Field(None, description="Expiry date")
     purchase_date: Optional[date] = Field(None, description="Purchase date")
     cost_per_unit: Decimal = Field(..., ge=0, description="Cost per unit")
-    storage_condition: Optional[str] = Field(None, max_length=200, description="Storage requirements")
+    storage_condition: Optional[str] = Field(
+        None, max_length=200, description="Storage requirements"
+    )
     metadata: Optional[dict] = Field(None, description="Additional metadata")
 
 
 class InventoryItemUpdate(BaseModel):
     """Schema for updating an inventory item."""
+
     quantity: Optional[Decimal] = Field(None, ge=0, description="New quantity")
     cost_per_unit: Optional[Decimal] = Field(None, ge=0, description="Updated cost per unit")
     expiry_date: Optional[date] = Field(None, description="Updated expiry date")
-    storage_condition: Optional[str] = Field(None, max_length=200, description="Storage requirements")
+    storage_condition: Optional[str] = Field(
+        None, max_length=200, description="Storage requirements"
+    )
     metadata: Optional[dict] = Field(None, description="Additional metadata")
 
 
 class UsageLogCreate(BaseModel):
     """Schema for recording inventory usage."""
+
     item_id: str = Field(..., description="Inventory item identifier")
     farmer_id: str = Field(..., description="Farmer identifier")
     field_id: Optional[str] = Field(None, description="Field identifier")
@@ -71,17 +81,17 @@ class UsageLogCreate(BaseModel):
     quantity_used: Decimal = Field(..., gt=0, description="Quantity used (must be positive)")
     usage_reason: UsageReason = Field(..., description="Reason for usage")
     source_engine: Optional[str] = Field(
-        None, 
+        None,
         max_length=50,
-        description="Engine that triggered this usage: crop_intelligence, temporal_logic, manual, emergency"
+        description="Engine that triggered this usage: crop_intelligence, temporal_logic, manual, emergency",
     )
     action_id: Optional[str] = Field(
         None,
         max_length=100,
-        description="ID of the action/recommendation/task that caused this usage"
+        description="ID of the action/recommendation/task that caused this usage",
     )
     metadata: Optional[dict] = Field(None, description="Additional metadata")
-    
+
     @field_validator("quantity_used")
     @classmethod
     def validate_quantity(cls, v: Decimal) -> Decimal:
@@ -92,6 +102,7 @@ class UsageLogCreate(BaseModel):
 
 class ActionValidationRequest(BaseModel):
     """Schema for validating an action against inventory."""
+
     farmer_id: str = Field(..., description="Farmer identifier")
     field_id: Optional[str] = Field(None, description="Field identifier")
     required_items: list[dict] = Field(..., description="List of required items with quantities")
@@ -101,6 +112,7 @@ class ActionValidationRequest(BaseModel):
 # Response Schemas
 class InventoryItemOut(BaseModel):
     """Schema for inventory item response."""
+
     item_id: str
     farmer_id: str
     category: InventoryCategory
@@ -116,13 +128,14 @@ class InventoryItemOut(BaseModel):
     last_updated: datetime
     created_at: datetime
     metadata: Optional[dict]
-    
+
     class Config:
         from_attributes = True
 
 
 class UsageLogOut(BaseModel):
     """Schema for usage log response."""
+
     usage_id: str
     item_id: str
     farmer_id: str
@@ -134,19 +147,22 @@ class UsageLogOut(BaseModel):
     action_id: Optional[str]
     timestamp: datetime
     metadata: Optional[dict]
-    
+
     class Config:
         from_attributes = True
 
 
 class InventoryStatusResponse(BaseModel):
     """Schema for inventory status response."""
+
     item_id: str
     name: str
     category: InventoryCategory
     current_quantity: Decimal
     unit: InventoryUnit
-    estimated_depletion_days: Optional[int] = Field(None, description="Days until depletion (if predictable)")
+    estimated_depletion_days: Optional[int] = Field(
+        None, description="Days until depletion (if predictable)"
+    )
     is_low_stock: bool
     is_critical: bool
     is_expiring_soon: bool
@@ -155,6 +171,7 @@ class InventoryStatusResponse(BaseModel):
 
 class LowStockAlertResponse(BaseModel):
     """Schema for low stock alert response."""
+
     alert_id: str
     item_id: str
     item_name: str
@@ -169,15 +186,21 @@ class LowStockAlertResponse(BaseModel):
 
 class ActionValidationResponse(BaseModel):
     """Schema for action validation response."""
+
     is_valid: bool
-    missing_items: list[dict] = Field(default_factory=list, description="Items with insufficient stock")
-    available_items: list[dict] = Field(default_factory=list, description="Items with sufficient stock")
+    missing_items: list[dict] = Field(
+        default_factory=list, description="Items with insufficient stock"
+    )
+    available_items: list[dict] = Field(
+        default_factory=list, description="Items with sufficient stock"
+    )
     total_cost: Decimal = Field(default=Decimal("0.00"), description="Total cost of required items")
     warnings: list[str] = Field(default_factory=list, description="Validation warnings")
 
 
 class DepletionPredictionResponse(BaseModel):
     """Schema for depletion prediction response."""
+
     item_id: str
     item_name: str
     current_quantity: Decimal
@@ -190,8 +213,11 @@ class DepletionPredictionResponse(BaseModel):
 
 class EconomicContextResponse(BaseModel):
     """Schema for economic context response."""
+
     farmer_id: str
-    total_invested_cost: Decimal = Field(..., description="Total cost already invested in inventory")
+    total_invested_cost: Decimal = Field(
+        ..., description="Total cost already invested in inventory"
+    )
     estimated_remaining_cost: Decimal = Field(..., description="Estimated cost until harvest")
     items_count: int
     low_stock_items_count: int
@@ -201,6 +227,7 @@ class EconomicContextResponse(BaseModel):
 
 class InventorySummaryResponse(BaseModel):
     """Schema for inventory summary response."""
+
     farmer_id: str
     total_items: int
     total_value: Decimal
@@ -208,4 +235,3 @@ class InventorySummaryResponse(BaseModel):
     low_stock_count: int
     critical_count: int
     expiring_soon_count: int
-

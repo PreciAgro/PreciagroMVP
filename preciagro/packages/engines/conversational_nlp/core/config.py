@@ -56,27 +56,27 @@ class Settings(BaseSettings):
     agrollm_timeout_seconds: float = float(os.getenv("AGROLLM_TIMEOUT_SECONDS", "15.0"))
     response_system_prompt: str = os.getenv("CONVERSATION_SYSTEM_PROMPT", "")
     flag_force_rule_based_mode: bool = _as_bool(os.getenv("FLAG_FORCE_RULE_BASED_MODE"), False)
-    
+
     # OpenAI-specific settings (when AGROLLM_BACKEND=openai)
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4")
     openai_classify_model: str = os.getenv("OPENAI_CLASSIFY_MODEL", "")
     openai_generate_model: str = os.getenv("OPENAI_GENERATE_MODEL", "")
     openai_base_url: str = os.getenv("OPENAI_BASE_URL", "")
-    
+
     # Anthropic-specific settings (when AGROLLM_BACKEND=anthropic)
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-3-opus-20240229")
     anthropic_classify_model: str = os.getenv("ANTHROPIC_CLASSIFY_MODEL", "")
     anthropic_generate_model: str = os.getenv("ANTHROPIC_GENERATE_MODEL", "")
     anthropic_base_url: str = os.getenv("ANTHROPIC_BASE_URL", "")
-    
+
     # Ollama-specific settings (when AGROLLM_BACKEND=ollama)
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama2")
     ollama_classify_model: str = os.getenv("OLLAMA_CLASSIFY_MODEL", "")
     ollama_generate_model: str = os.getenv("OLLAMA_GENERATE_MODEL", "")
-    
+
     # vLLM-specific settings (when AGROLLM_BACKEND=vllm)
     vllm_base_url: str = os.getenv("VLLM_BASE_URL", "http://localhost:8000")
     vllm_model: str = os.getenv("VLLM_MODEL", "")
@@ -101,7 +101,9 @@ class Settings(BaseSettings):
     rag_backend: str = os.getenv("RAG_BACKEND", "qdrant")
     rag_top_k: int = int(os.getenv("RAG_TOP_K", "3"))
     rag_index_path: str = os.getenv("RAG_INDEX_PATH", "")
-    rag_embedder_model: str = os.getenv("RAG_EMBEDDER_MODEL", "sentence-transformers/all-mpnet-base-v2")
+    rag_embedder_model: str = os.getenv(
+        "RAG_EMBEDDER_MODEL", "sentence-transformers/all-mpnet-base-v2"
+    )
     qdrant_host: str = os.getenv("QDRANT_HOST", ":memory:")
     qdrant_port: int = int(os.getenv("QDRANT_PORT", "6333"))
     qdrant_api_key: str = os.getenv("QDRANT_API_KEY", "")
@@ -109,9 +111,7 @@ class Settings(BaseSettings):
 
     # Timeouts / retries
     engine_timeout_seconds: float = float(os.getenv("ENGINE_TIMEOUT_SECONDS", "8.0"))
-    router_fanout_timeout_seconds: float = float(
-        os.getenv("ROUTER_FANOUT_TIMEOUT_SECONDS", "6.0")
-    )
+    router_fanout_timeout_seconds: float = float(os.getenv("ROUTER_FANOUT_TIMEOUT_SECONDS", "6.0"))
     engine_retry_attempts: int = int(os.getenv("ENGINE_RETRY_ATTEMPTS", "2"))
     engine_retry_backoff_seconds: float = float(os.getenv("ENGINE_RETRY_BACKOFF_SECONDS", "0.5"))
 
@@ -130,7 +130,9 @@ class Settings(BaseSettings):
     ]
 
     # Logging / privacy
-    conversation_log_path: str = os.getenv("CONVERSATION_LOG_PATH", "reports/conversation_turns.jsonl")
+    conversation_log_path: str = os.getenv(
+        "CONVERSATION_LOG_PATH", "reports/conversation_turns.jsonl"
+    )
     log_retention_days: int = int(os.getenv("LOG_RETENTION_DAYS", "30"))
     anonymize_logs: bool = _as_bool(os.getenv("ANONYMIZE_LOGS"), False)
 

@@ -9,7 +9,7 @@ configure_logging(debug=settings.DEBUG, service_name="crop-intelligence")
 app = FastAPI(
     title="PreciAgro Crop Intelligence Engine (MVP)",
     description="Explainable agronomic engine delivering accurate, trustable, region-relevant recommendations",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 app.include_router(cie_router)
@@ -21,11 +21,8 @@ if settings.ENABLE_PROMETHEUS:
 @app.get("/")
 def root():
     """Root info endpoint."""
-    return {
-        "service": "Crop Intelligence Engine",
-        "status": "operational",
-        "version": "0.1.0"
-    }
+    return {"service": "Crop Intelligence Engine", "status": "operational", "version": "0.1.0"}
+
 
 @app.get("/health")
 def health():

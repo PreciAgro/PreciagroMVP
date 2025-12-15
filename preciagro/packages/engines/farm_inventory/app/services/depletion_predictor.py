@@ -28,7 +28,7 @@ class DepletionPredictor:
         lookback_days: int = 7,
     ) -> Optional[DepletionPredictionResponse]:
         """Predict when an item will run out.
-        
+
         Uses rule-based estimation:
         - Calculates average daily usage from historical logs
         - Estimates remaining days = current_quantity / estimated_daily_usage
@@ -39,7 +39,7 @@ class DepletionPredictor:
 
         # Calculate average daily usage
         daily_usage = self.usage_repo.calculate_usage_rate(item_id, days=lookback_days)
-        
+
         if daily_usage is None or daily_usage == 0:
             # No usage history - cannot predict
             return DepletionPredictionResponse(
@@ -88,7 +88,7 @@ class DepletionPredictor:
         lookback_days: int = 7,
     ) -> Optional[DepletionPredictionResponse]:
         """Predict depletion with crop-specific context.
-        
+
         This method can incorporate agronomic rules for better predictions.
         For MVP, we use basic usage rate, but this can be enhanced with:
         - Crop-specific usage rates per growth stage
@@ -100,7 +100,7 @@ class DepletionPredictor:
         # - Crop-specific usage rates from Crop Intelligence Engine
         # - Growth stage multipliers
         # - Field size adjustments
-        
+
         base_prediction = self.predict_depletion(item_id, lookback_days)
         if not base_prediction:
             return None
@@ -114,10 +114,10 @@ class DepletionPredictor:
             "fruiting": 1.8,
             "maturity": 0.5,
         }
-        
+
         multiplier = stage_multipliers.get(crop_stage.lower(), 1.0)
         adjusted_daily_usage = base_prediction.estimated_daily_usage * Decimal(str(multiplier))
-        
+
         item = self.inventory_repo.get_by_id(item_id)
         if not item:
             return None
@@ -142,4 +142,3 @@ class DepletionPredictor:
             confidence=min(0.8, base_prediction.confidence),  # Slightly lower due to estimation
             prediction_basis=basis,
         )
-

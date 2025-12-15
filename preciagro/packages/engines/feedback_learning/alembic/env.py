@@ -8,9 +8,15 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import all models to ensure they're registered
-from preciagro.packages.engines.feedback_learning.app.models.feedback_event import Base as FeedbackEventBase
-from preciagro.packages.engines.feedback_learning.app.models.weighted_feedback import Base as WeightedBase
-from preciagro.packages.engines.feedback_learning.app.models.learning_signal import Base as SignalBase
+from preciagro.packages.engines.feedback_learning.app.models.feedback_event import (
+    Base as FeedbackEventBase,
+)
+from preciagro.packages.engines.feedback_learning.app.models.weighted_feedback import (
+    Base as WeightedBase,
+)
+from preciagro.packages.engines.feedback_learning.app.models.learning_signal import (
+    Base as SignalBase,
+)
 from preciagro.packages.engines.feedback_learning.app.models.audit_trace import Base as AuditBase
 
 # Alembic Config object
@@ -26,7 +32,7 @@ target_metadata = FeedbackEventBase.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
-    
+
     This configures the context with just a URL and not an Engine,
     though an Engine is acceptable here as well.
     """

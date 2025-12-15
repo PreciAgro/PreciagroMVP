@@ -17,9 +17,7 @@ from aiohttp import web
 
 async def mock_health(request):
     """Mock health endpoint."""
-    return web.json_response(
-        {"status": "healthy", "service": "geocontext", "version": "1.0.0"}
-    )
+    return web.json_response({"status": "healthy", "service": "geocontext", "version": "1.0.0"})
 
 
 async def mock_fco_resolve(request):
@@ -220,20 +218,12 @@ class MockGeoContextTester:
                         data = await response.json()
                         print("   ✅ Poland FCO resolve passed")
                         print(f"   📊 Context Hash: {data.get('context_hash')}")
-                        print(
-                            f"   🌍 Location: {data.get('location', {}).get('admin_l0')}"
-                        )
-                        print(
-                            f"   🌤️ ET0: {data.get('climate', {}).get('et0_mm_day')} mm/day"
-                        )
-                        print(
-                            f"   📈 GDD YTD: {data.get('climate', {}).get('gdd_base10_ytd')}"
-                        )
+                        print(f"   🌍 Location: {data.get('location', {}).get('admin_l0')}")
+                        print(f"   🌤️ ET0: {data.get('climate', {}).get('et0_mm_day')} mm/day")
+                        print(f"   📈 GDD YTD: {data.get('climate', {}).get('gdd_base10_ytd')}")
                         context_hash = data.get("context_hash")
                     else:
-                        print(
-                            f"   ❌ Poland FCO resolve failed - Status: {response.status}"
-                        )
+                        print(f"   ❌ Poland FCO resolve failed - Status: {response.status}")
                         context_hash = None
             except Exception as e:
                 print(f"   ❌ Poland FCO resolve error: {e}")
@@ -268,16 +258,10 @@ class MockGeoContextTester:
                         data = await response.json()
                         print("   ✅ Zimbabwe FCO resolve passed")
                         print(f"   📊 Context Hash: {data.get('context_hash')}")
-                        print(
-                            f"   🌍 Location: {data.get('location', {}).get('admin_l0')}"
-                        )
-                        print(
-                            f"   ⛰️ Elevation: {data.get('location', {}).get('elevation_m')}m"
-                        )
+                        print(f"   🌍 Location: {data.get('location', {}).get('admin_l0')}")
+                        print(f"   ⛰️ Elevation: {data.get('location', {}).get('elevation_m')}m")
                     else:
-                        print(
-                            f"   ❌ Zimbabwe FCO resolve failed - Status: {response.status}"
-                        )
+                        print(f"   ❌ Zimbabwe FCO resolve failed - Status: {response.status}")
             except Exception as e:
                 print(f"   ❌ Zimbabwe FCO resolve error: {e}")
 
@@ -291,13 +275,9 @@ class MockGeoContextTester:
                         if response.status == 200:
                             data = await response.json()
                             print("   ✅ Cache retrieval passed")
-                            print(
-                                f"   💾 Retrieved cached FCO for hash: {context_hash}"
-                            )
+                            print(f"   💾 Retrieved cached FCO for hash: {context_hash}")
                         else:
-                            print(
-                                f"   ❌ Cache retrieval failed - Status: {response.status}"
-                            )
+                            print(f"   ❌ Cache retrieval failed - Status: {response.status}")
                 except Exception as e:
                     print(f"   ❌ Cache retrieval error: {e}")
 
@@ -311,18 +291,12 @@ class MockGeoContextTester:
                             "geo_context_requests_total",
                             "geo_context_request_duration_seconds",
                         ]
-                        found_metrics = [
-                            m for m in expected_metrics if m in metrics_text
-                        ]
+                        found_metrics = [m for m in expected_metrics if m in metrics_text]
                         print("   ✅ Metrics endpoint passed")
                         print(f"   📊 Found metrics: {found_metrics}")
-                        print(
-                            f"   📈 Total metrics lines: {len(metrics_text.splitlines())}"
-                        )
+                        print(f"   📈 Total metrics lines: {len(metrics_text.splitlines())}")
                     else:
-                        print(
-                            f"   ❌ Metrics endpoint failed - Status: {response.status}"
-                        )
+                        print(f"   ❌ Metrics endpoint failed - Status: {response.status}")
             except Exception as e:
                 print(f"   ❌ Metrics endpoint error: {e}")
 

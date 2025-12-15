@@ -139,14 +139,8 @@ class TestGoldenSnapshots:
 
             # Key invariant checks
             assert normalized["context_hash"] == golden_data["context_hash"]
-            assert (
-                normalized["location"]["centroid"]
-                == golden_data["location"]["centroid"]
-            )
-            assert (
-                normalized["location"]["admin_l0"]
-                == golden_data["location"]["admin_l0"]
-            )
+            assert normalized["location"]["centroid"] == golden_data["location"]["centroid"]
+            assert normalized["location"]["admin_l0"] == golden_data["location"]["admin_l0"]
 
             # Soil data should be consistent
             if "soil" in normalized and "soil" in golden_data:
@@ -189,23 +183,13 @@ class TestGoldenSnapshots:
 
             # Key invariant checks
             assert normalized["context_hash"] == golden_data["context_hash"]
-            assert (
-                normalized["location"]["centroid"]
-                == golden_data["location"]["centroid"]
-            )
-            assert (
-                normalized["location"]["admin_l0"]
-                == golden_data["location"]["admin_l0"]
-            )
+            assert normalized["location"]["centroid"] == golden_data["location"]["centroid"]
+            assert normalized["location"]["admin_l0"] == golden_data["location"]["admin_l0"]
 
             # Multiple crops should be handled
             if "calendars" in normalized and "calendars" in golden_data:
-                crop_types_result = [
-                    cal.get("crop_type") for cal in normalized["calendars"]
-                ]
-                crop_types_golden = [
-                    cal.get("crop_type") for cal in golden_data["calendars"]
-                ]
+                crop_types_result = [cal.get("crop_type") for cal in normalized["calendars"]]
+                crop_types_golden = [cal.get("crop_type") for cal in golden_data["calendars"]]
                 assert set(crop_types_result) == set(crop_types_golden)
 
         else:
@@ -246,9 +230,7 @@ class TestGoldenSnapshots:
         resolver = ClimateResolver()
 
         # Test ET0 calculation with fixed inputs
-        et0 = resolver._calculate_et0_hargreaves(
-            25.0, 15.0, 52.0, 166
-        )  # June 15 in Poland
+        et0 = resolver._calculate_et0_hargreaves(25.0, 15.0, 52.0, 166)  # June 15 in Poland
 
         golden_et0_file = GOLDEN_DIR / "et0_calculation.json"
         calculation_data = {
@@ -284,9 +266,7 @@ class TestGoldenSnapshots:
 
         results = {}
         for location in locations:
-            result = await resolver.resolve(
-                {"lat": location["lat"], "lon": location["lon"]}
-            )
+            result = await resolver.resolve({"lat": location["lat"], "lon": location["lon"]})
             results[location["name"]] = result.model_dump() if result else None
 
         golden_soil_file = GOLDEN_DIR / "soil_mapping.json"
@@ -350,9 +330,7 @@ class TestRegressionChecks:
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
         # Performance regression check (MVP target: P95 ≤ 2000ms)
-        assert (
-            duration_ms < 3000
-        ), f"Response time {duration_ms}ms exceeds regression threshold"
+        assert duration_ms < 3000, f"Response time {duration_ms}ms exceeds regression threshold"
 
         # Should complete successfully
         assert result is not None

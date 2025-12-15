@@ -15,4 +15,3 @@ async def require_service_token(x_preciagro_token: str | None = Header(default=N
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid service token",
         )
-

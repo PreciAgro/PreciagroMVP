@@ -61,8 +61,7 @@ async def cancel_task(task_id: str):
     if cancelled:
         return {"status": "cancelled"}
     else:
-        raise HTTPException(
-            status_code=404, detail="Task not found or not cancellable")
+        raise HTTPException(status_code=404, detail="Task not found or not cancellable")
 
 
 @router.get("/intents")
@@ -135,9 +134,7 @@ async def debug_test_matching(event: EngineEvent):
         }
 
         if rule.trigger.topic == event.topic:
-            rule_eval["conditions_result"] = engine._evaluate_clauses(
-                rule.trigger.when, event
-            )
+            rule_eval["conditions_result"] = engine._evaluate_clauses(rule.trigger.when, event)
 
             # Test each condition
             for clause in rule.trigger.when:

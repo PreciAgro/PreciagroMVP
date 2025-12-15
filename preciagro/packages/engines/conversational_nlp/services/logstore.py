@@ -61,7 +61,11 @@ class ConversationLogStore:
             "versions": response.versions.model_dump(),
             "feedback": request.feedback,
             "request_sanitized": sanitize_payload(request.model_dump()),
-            "session_turns": [turn.model_dump() for turn in session_context.turns] if self.history_enabled else [],
+            "session_turns": (
+                [turn.model_dump() for turn in session_context.turns]
+                if self.history_enabled
+                else []
+            ),
         }
         if self.anonymize:
             record["user_id"] = "<anonymized>"

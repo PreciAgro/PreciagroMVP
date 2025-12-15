@@ -19,11 +19,9 @@ class ActionValidator:
     def __init__(self, inventory_repo: InventoryRepository):
         self.inventory_repo = inventory_repo
 
-    def validate_action(
-        self, request: ActionValidationRequest
-    ) -> ActionValidationResponse:
+    def validate_action(self, request: ActionValidationRequest) -> ActionValidationResponse:
         """Validate that all required items are available in inventory.
-        
+
         This is the core validation method that must be called before
         any recommendation or scheduled action executes.
         """
@@ -43,17 +41,19 @@ class ActionValidator:
 
             # Get inventory item
             item = self.inventory_repo.get_by_id(item_id)
-            
+
             if not item:
-                missing_items.append({
-                    "item_id": item_id,
-                    "item_name": required_item.get("name", "Unknown"),
-                    "required_quantity": float(required_quantity),
-                    "required_unit": required_unit,
-                    "available_quantity": 0.0,
-                    "available_unit": required_unit,
-                    "shortage": float(required_quantity),
-                })
+                missing_items.append(
+                    {
+                        "item_id": item_id,
+                        "item_name": required_item.get("name", "Unknown"),
+                        "required_quantity": float(required_quantity),
+                        "required_unit": required_unit,
+                        "available_quantity": 0.0,
+                        "available_unit": required_unit,
+                        "shortage": float(required_quantity),
+                    }
+                )
                 total_cost += required_quantity * Decimal("0.00")  # Unknown cost
                 continue
 
@@ -68,25 +68,27 @@ class ActionValidator:
             is_expired = False
             if item.expiry_date and item.expiry_date < date.today():
                 is_expired = True
-                missing_items.append({
-                    "item_id": item_id,
-                    "item_name": item.name,
-                    "required_quantity": float(required_quantity),
-                    "required_unit": item.unit,
-                    "available_quantity": float(item.quantity),
-                    "available_unit": item.unit,
-                    "shortage": float(required_quantity),
-                    "expired": True,
-                    "expiry_date": item.expiry_date.isoformat(),
-                    "reason": f"Item expired on {item.expiry_date.isoformat()}",
-                })
+                missing_items.append(
+                    {
+                        "item_id": item_id,
+                        "item_name": item.name,
+                        "required_quantity": float(required_quantity),
+                        "required_unit": item.unit,
+                        "available_quantity": float(item.quantity),
+                        "available_unit": item.unit,
+                        "shortage": float(required_quantity),
+                        "expired": True,
+                        "expiry_date": item.expiry_date.isoformat(),
+                        "reason": f"Item expired on {item.expiry_date.isoformat()}",
+                    }
+                )
                 total_cost += item.cost_per_unit * required_quantity
                 logger.warning(
                     f"Validation failed: expired item {item_id} ({item.name}) "
                     f"expired on {item.expiry_date}"
                 )
                 continue
-            
+
             # Check expiry warning (expiring soon)
             is_expiring_soon = False
             if item.expiry_date:
@@ -111,21 +113,23 @@ class ActionValidator:
                 if is_expiring_soon:
                     item_data["expiring_soon"] = True
                     item_data["expiry_date"] = item.expiry_date.isoformat()
-                
+
                 available_items.append(item_data)
                 total_cost += item.cost_per_unit * required_quantity
             else:
                 shortage = required_quantity - item.quantity
-                missing_items.append({
-                    "item_id": item_id,
-                    "item_name": item.name,
-                    "required_quantity": float(required_quantity),
-                    "required_unit": item.unit,
-                    "available_quantity": float(item.quantity),
-                    "available_unit": item.unit,
-                    "shortage": float(shortage),
-                    "cost_if_purchased": float(item.cost_per_unit * shortage),
-                })
+                missing_items.append(
+                    {
+                        "item_id": item_id,
+                        "item_name": item.name,
+                        "required_quantity": float(required_quantity),
+                        "required_unit": item.unit,
+                        "available_quantity": float(item.quantity),
+                        "available_unit": item.unit,
+                        "shortage": float(shortage),
+                        "cost_if_purchased": float(item.cost_per_unit * shortage),
+                    }
+                )
                 total_cost += item.cost_per_unit * required_quantity
 
         # Check for low stock warnings
@@ -133,7 +137,9 @@ class ActionValidator:
             item = self.inventory_repo.get_by_id(available_item["item_id"])
             if item:
                 # Simple heuristic: warn if usage would leave < 20% remaining
-                remaining_after_use = item.quantity - Decimal(str(available_item["required_quantity"]))
+                remaining_after_use = item.quantity - Decimal(
+                    str(available_item["required_quantity"])
+                )
                 if remaining_after_use > 0 and remaining_after_use < item.quantity * Decimal("0.2"):
                     warnings.append(
                         f"Using {item.name} will leave low stock: "
@@ -157,12 +163,9 @@ class ActionValidator:
             warnings=warnings,
         )
 
-    def check_item_availability(
-        self, item_id: str, required_quantity: Decimal
-    ) -> bool:
+    def check_item_availability(self, item_id: str, required_quantity: Decimal) -> bool:
         """Quick check if an item has sufficient quantity."""
         item = self.inventory_repo.get_by_id(item_id)
         if not item:
             return False
         return item.quantity >= required_quantity
-

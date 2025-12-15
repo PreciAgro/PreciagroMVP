@@ -19,17 +19,13 @@ async def run_openweather(
     scope: Literal["current", "hourly", "daily"] = "hourly",
 ):
     if openweather_client_singleton is None:
-        raise HTTPException(
-            status_code=503, detail="OpenWeather API key not configured"
-        )
+        raise HTTPException(status_code=503, detail="OpenWeather API key not configured")
 
     # Use the already created connector
     connector = openweather_client_singleton
     # run_registered_source will lookup the normalizer from the registry
     # and run the generic job runner.
-    await run_registered_source(
-        "openweather.onecall", connector, lat=lat, lon=lon, scope=scope
-    )
+    await run_registered_source("openweather.onecall", connector, lat=lat, lon=lon, scope=scope)
     return {
         "status": "ok",
         "source": "openweather.onecall",

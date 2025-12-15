@@ -62,8 +62,8 @@ class GeoContextResolver:
         climate = await self._resolve_climate(request, centroid)
         spatial = await self._resolve_spatial(request, centroid)
         calendar_events = await self._resolve_calendar(request, centroid)
-        planting_recommendations, spray_recommendations = (
-            await self._resolve_recommendations(request, centroid, soil, climate)
+        planting_recommendations, spray_recommendations = await self._resolve_recommendations(
+            request, centroid, soil, climate
         )
 
         data_sources = [
@@ -225,9 +225,7 @@ class GeoContextResolver:
             planting = []
         try:
             spray = await self._maybe_await(
-                self.rules_engine.get_spray_recommendations(
-                    location, climate, request.crop_types
-                )
+                self.rules_engine.get_spray_recommendations(location, climate, request.crop_types)
             )
         except Exception:
             spray = []
@@ -251,9 +249,7 @@ class GeoContextResolver:
             location = request.get_location()
         else:
             if request is None:
-                raise ValueError(
-                    "Request must be provided when passing explicit location"
-                )
+                raise ValueError("Request must be provided when passing explicit location")
             location = location_or_request  # type: ignore[assignment]
 
         payload = {
@@ -269,9 +265,7 @@ class GeoContextResolver:
                 "rules": request.include_rules,
             },
         }
-        return hashlib.sha256(
-            json.dumps(payload, sort_keys=True).encode("utf-8")
-        ).hexdigest()[:16]
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
     def _calculate_confidence(self, response: FCOResponse) -> float:
         """Calculate a simple confidence score based on available data."""
@@ -284,10 +278,7 @@ class GeoContextResolver:
 
         if response.soil:
             soil_score = 0.1
-            if (
-                response.soil.ph is not None
-                and response.soil.organic_matter is not None
-            ):
+            if response.soil.ph is not None and response.soil.organic_matter is not None:
                 soil_score = 0.2
             score += soil_score
             total += 0.2

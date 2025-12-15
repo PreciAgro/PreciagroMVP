@@ -5,7 +5,9 @@ from typing import Optional
 class NutrientTiming:
     """Manages nutrient application timing recommendations."""
 
-    def n_topdress_window(self, stage: Optional[str], rain_forecast_mm: Optional[float]) -> tuple[Optional[str], Optional[str], list[str]]:
+    def n_topdress_window(
+        self, stage: Optional[str], rain_forecast_mm: Optional[float]
+    ) -> tuple[Optional[str], Optional[str], list[str]]:
         """Determine optimal nitrogen top-dress window.
 
         Args:

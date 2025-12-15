@@ -24,9 +24,7 @@ class EventDispatcher:
         self.evaluator = RuleEvaluator()
         self.compiler = TaskCompiler()
 
-    async def process_event(
-        self, event: EngineEvent, context: Dict[str, Any] = None
-    ) -> List[str]:
+    async def process_event(self, event: EngineEvent, context: Dict[str, Any] = None) -> List[str]:
         """Process an incoming event and create scheduled tasks."""
         context = context or {}
 
@@ -40,8 +38,7 @@ class EventDispatcher:
         async with async_session() as session:
             for rule in rules:
                 if self.evaluator.should_trigger(rule, event, context):
-                    logger.info(
-                        f"Rule {rule.id} triggered for event {event.id}")
+                    logger.info(f"Rule {rule.id} triggered for event {event.id}")
 
                     # Compile tasks
                     tasks = self.compiler.compile_tasks(rule, event, context)
@@ -54,9 +51,7 @@ class EventDispatcher:
                             )
                             existing = await session.execute(existing_stmt)
                             if existing.scalar():
-                                logger.info(
-                                    f"Skipping duplicate task: {task_data['dedupe_key']}"
-                                )
+                                logger.info(f"Skipping duplicate task: {task_data['dedupe_key']}")
                                 continue
 
                         # Create schedule item
@@ -78,14 +73,10 @@ class EventDispatcher:
 
             await session.commit()
 
-        logger.info(
-            f"Created {len(created_tasks)} scheduled tasks for event {event.id}"
-        )
+        logger.info(f"Created {len(created_tasks)} scheduled tasks for event {event.id}")
         return created_tasks
 
-    async def get_user_schedule(
-        self, user_id: str, days_ahead: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_user_schedule(self, user_id: str, days_ahead: int = 7) -> List[Dict[str, Any]]:
         """Get upcoming scheduled notifications for a user."""
         async with async_session() as session:
             end_time = datetime.now(timezone.utc) + timedelta(days=days_ahead)
@@ -137,8 +128,7 @@ class EventDispatcher:
         async with async_session() as session:
             start_time = datetime.now(timezone.utc) - timedelta(days=days_back)
 
-            stmt = select(TaskOutcome).where(
-                TaskOutcome.timestamp >= start_time)
+            stmt = select(TaskOutcome).where(TaskOutcome.timestamp >= start_time)
 
             if user_id:
                 stmt = stmt.where(TaskOutcome.user_id == user_id)

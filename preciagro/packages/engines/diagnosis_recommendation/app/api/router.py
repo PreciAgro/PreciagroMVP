@@ -19,23 +19,22 @@ async def diagnose(
 ) -> DREResponse:
     """
     Main diagnosis and recommendation endpoint.
-    
+
     Accepts structured inputs from upstream engines and returns
     ranked diagnoses with validated recommendation plans.
     """
     try:
         from ..services.engine import DiagnosisRecommendationEngine
-        
+
         engine = DiagnosisRecommendationEngine()
         response = await engine.process(input_data)
-        
+
         return response
-    
+
     except Exception as e:
         logger.error(f"Error processing diagnosis request: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail=f"Internal error processing diagnosis: {str(e)}"
+            status_code=500, detail=f"Internal error processing diagnosis: {str(e)}"
         )
 
 
@@ -69,4 +68,3 @@ async def status():
             "graph": settings.ENABLE_GRAPH_ADAPTER,
         },
     }
-

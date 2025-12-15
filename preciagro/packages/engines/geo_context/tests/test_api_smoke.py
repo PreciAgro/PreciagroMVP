@@ -151,9 +151,7 @@ class TestGeoContextAPI:
             "use_cache": False,
         }
 
-        response = await api_client.post(
-            "/v1/resolve", json=invalid_request, headers=AUTH_HEADERS
-        )
+        response = await api_client.post("/v1/resolve", json=invalid_request, headers=AUTH_HEADERS)
 
         # Bad request or validation error
         assert response.status_code in [400, 422]

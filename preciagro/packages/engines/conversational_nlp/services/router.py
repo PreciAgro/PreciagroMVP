@@ -62,7 +62,11 @@ class EngineRouter:
             if image_used:
                 image_result, call, err = await self._call_image_analysis(request)
             else:
-                image_result, call, err = {}, ToolCallRecord(engine="image-analysis", status="skipped"), None
+                image_result, call, err = (
+                    {},
+                    ToolCallRecord(engine="image-analysis", status="skipped"),
+                    None,
+                )
             outputs["image_analysis"] = image_result
             calls.append(call)
             if err:
@@ -216,7 +220,10 @@ class EngineRouter:
             name="inventory",
             url=settings.inventory_url,
             payload={"user_id": request.user.id, "farm_ids": request.user.farm_ids},
-            stub={"status": "unavailable", "notes": "Inventory engine not configured; returning stub."},
+            stub={
+                "status": "unavailable",
+                "notes": "Inventory engine not configured; returning stub.",
+            },
             request=request,
         )
 
@@ -288,7 +295,9 @@ class EngineRouter:
                 ),
             )
 
-    def _inject_identity(self, payload: Dict[str, Any], request: ChatMessageRequest) -> Dict[str, Any]:
+    def _inject_identity(
+        self, payload: Dict[str, Any], request: ChatMessageRequest
+    ) -> Dict[str, Any]:
         enriched = dict(payload)
         enriched.setdefault("tenant_id", request.tenant_id)
         enriched.setdefault("farm_id", request.farm_id)

@@ -28,14 +28,18 @@ class EvalSample:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Evaluate Image Analysis Engine on a dataset slice.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate Image Analysis Engine on a dataset slice."
+    )
     parser.add_argument("--dataset", required=True, help="Path to dataset YAML manifest.")
     parser.add_argument("--metrics-out", help="Optional path to write metrics JSON.")
     parser.add_argument("--max-samples", type=int, help="Limit number of samples evaluated.")
     return parser.parse_args()
 
 
-def load_dataset(path: Path, max_samples: int | None = None) -> Tuple[Dict[str, Any], List[EvalSample]]:
+def load_dataset(
+    path: Path, max_samples: int | None = None
+) -> Tuple[Dict[str, Any], List[EvalSample]]:
     data = yaml.safe_load(path.read_text())
     samples_raw = data.get("samples", [])
     if max_samples is not None:

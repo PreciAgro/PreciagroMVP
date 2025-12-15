@@ -26,9 +26,7 @@ class ClimateResolver:
             historical_data = await self._get_historical_data(lat, lon, ref_date)
 
             # Get forecast data
-            forecast_data = await self._get_forecast_data(
-                lat, lon, ref_date, forecast_days
-            )
+            forecast_data = await self._get_forecast_data(lat, lon, ref_date, forecast_days)
 
             # Calculate 30-year normals (simplified)
             normals = self._calculate_normals(historical_data)
@@ -58,9 +56,7 @@ class ClimateResolver:
             print(f"Error resolving climate data: {e}")
             return None
 
-    async def _get_historical_data(
-        self, lat: float, lon: float, reference_date: datetime
-    ) -> list:
+    async def _get_historical_data(self, lat: float, lon: float, reference_date: datetime) -> list:
         """Get historical climate data."""
         # Get last 30 days for simple normals calculation
         return await query_climate_data(lat, lon, reference_date)
@@ -91,24 +87,10 @@ class ClimateResolver:
                 "precipitation_mm": 50.0,
             }
 
-        temps_avg = [
-            d.get("temperature_avg")
-            for d in historical_data
-            if d.get("temperature_avg")
-        ]
-        temps_min = [
-            d.get("temperature_min")
-            for d in historical_data
-            if d.get("temperature_min")
-        ]
-        temps_max = [
-            d.get("temperature_max")
-            for d in historical_data
-            if d.get("temperature_max")
-        ]
-        precip = [
-            d.get("precipitation") for d in historical_data if d.get("precipitation")
-        ]
+        temps_avg = [d.get("temperature_avg") for d in historical_data if d.get("temperature_avg")]
+        temps_min = [d.get("temperature_min") for d in historical_data if d.get("temperature_min")]
+        temps_max = [d.get("temperature_max") for d in historical_data if d.get("temperature_max")]
+        precip = [d.get("precipitation") for d in historical_data if d.get("precipitation")]
 
         return {
             "temp_avg": sum(temps_avg) / len(temps_avg) if temps_avg else 20.0,
@@ -157,9 +139,7 @@ class ClimateResolver:
             print(f"Error calculating ET0: {e}")
             return 4.0  # Default fallback value
 
-    def _calculate_gdd_ytd(
-        self, historical_data: list, base_temp: float = 10.0
-    ) -> float:
+    def _calculate_gdd_ytd(self, historical_data: list, base_temp: float = 10.0) -> float:
         """Calculate Growing Degree Days year-to-date."""
         try:
             gdd_total = 0.0

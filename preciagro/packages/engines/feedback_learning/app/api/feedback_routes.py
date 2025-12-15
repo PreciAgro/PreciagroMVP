@@ -45,6 +45,7 @@ audit_service = AuditService()
 
 class FeedbackResponse(BaseModel):
     """Standard response for feedback submission."""
+
     feedback_id: str
     status: str
     message: str
@@ -55,13 +56,14 @@ class FeedbackResponse(BaseModel):
 
 class ExplicitFeedbackRequest(BaseModel):
     """Request for explicit feedback submission."""
+
     recommendation_id: str = Field(..., description="ID of the recommendation")
     reasoning_trace_id: Optional[str] = Field(None, description="Reasoning trace ID")
     rating: Optional[int] = Field(None, ge=1, le=5, description="1-5 rating")
     feedback_category: str = Field("other", description="Feedback category")
     comment: Optional[str] = Field(None, max_length=2000, description="User comment")
     suggested_correction: Optional[str] = Field(None, description="Suggested correction")
-    
+
     # User context
     user_id: str = Field(..., description="User ID")
     user_role: str = Field(default="farmer", description="User role")
@@ -71,9 +73,10 @@ class ExplicitFeedbackRequest(BaseModel):
 
 class ImplicitFeedbackRequest(BaseModel):
     """Request for implicit feedback submission."""
+
     recommendation_id: str = Field(..., description="ID of the recommendation")
     reasoning_trace_id: Optional[str] = Field(None, description="Reasoning trace ID")
-    
+
     # Behavioral signals
     viewed: bool = Field(default=False)
     view_duration_seconds: Optional[float] = Field(None, ge=0)
@@ -81,7 +84,7 @@ class ImplicitFeedbackRequest(BaseModel):
     clicked_action: bool = Field(default=False)
     dismissed: bool = Field(default=False)
     scroll_depth: Optional[float] = Field(None, ge=0, le=1)
-    
+
     # User context
     user_id: str = Field(..., description="User ID")
     region_code: str = Field(..., description="Region code")
@@ -90,9 +93,10 @@ class ImplicitFeedbackRequest(BaseModel):
 
 class OutcomeFeedbackRequest(BaseModel):
     """Request for outcome feedback submission."""
+
     recommendation_id: str = Field(..., description="ID of the recommendation")
     action_id: Optional[str] = Field(None, description="Executed action ID")
-    
+
     # Outcome data
     action_executed: bool = Field(..., description="Whether action was executed")
     execution_timestamp: Optional[datetime] = Field(None)
@@ -100,11 +104,11 @@ class OutcomeFeedbackRequest(BaseModel):
     outcome_timestamp: Optional[datetime] = Field(None)
     outcome_category: Optional[str] = Field(None)
     outcome_description: Optional[str] = Field(None, max_length=1000)
-    
+
     # Evidence
     evidence_photo_refs: list[str] = Field(default_factory=list)
     evidence_sensor_refs: list[str] = Field(default_factory=list)
-    
+
     # User context
     user_id: str = Field(..., description="User ID")
     farm_id: str = Field(..., description="Farm ID")
@@ -118,7 +122,7 @@ async def process_feedback_pipeline(
     timing_context: Optional[dict] = None,
 ):
     """Background task to process feedback through the full pipeline.
-    
+
     Args:
         feedback_id: ID of the feedback to process
         farmer_profile: Optional farmer profile data
@@ -131,33 +135,29 @@ async def process_feedback_pipeline(
         if not event:
             logger.error(f"Feedback {feedback_id} not found for processing")
             return
-        
+
         # Create audit trace
         trace = await audit_service.create_trace(event)
-        
+
         # Get existing events for recommendation
-        existing = await capture_service.get_events_for_recommendation(
-            event.recommendation_id
-        )
-        
+        existing = await capture_service.get_events_for_recommendation(event.recommendation_id)
+
         # Parse optional contexts
         farmer_ctx = None
         if farmer_profile:
             farmer_ctx = FarmerProfileContext(**farmer_profile)
-        
+
         rec_ctx = None
         if recommendation_context:
             rec_ctx = RecommendationContext(**recommendation_context)
-        
+
         timing_ctx = None
         if timing_context:
             timing_ctx = OutcomeTimingContext(**timing_context)
-        
+
         # Validate
-        validation_result = await validation_service.validate(
-            event, existing, farmer_ctx
-        )
-        
+        validation_result = await validation_service.validate(event, existing, farmer_ctx)
+
         await audit_service.add_validation_step(
             trace.trace_id,
             validation_result.is_valid,
@@ -166,17 +166,15 @@ async def process_feedback_pipeline(
                 "is_contradiction": validation_result.is_contradiction,
                 "is_noise": validation_result.is_noise,
                 "errors": validation_result.errors,
-            }
+            },
         )
-        
+
         if not validation_result.is_valid:
             await audit_service.complete_trace(
-                trace.trace_id,
-                status="error",
-                error_message="Validation failed"
+                trace.trace_id, status="error", error_message="Validation failed"
             )
             return
-        
+
         # Weight
         weighted = await weighting_service.compute_weight(
             event=event,
@@ -190,23 +188,23 @@ async def process_feedback_pipeline(
                 "duplicate_of_id": validation_result.duplicate_of_id,
                 "contradiction_ids": validation_result.contradiction_ids,
                 "noise_reason": validation_result.noise_reason,
-            }
+            },
         )
-        
+
         await audit_service.add_weighting_step(trace.trace_id, weighted)
-        
+
         # Generate signal
         signal = await signal_service.generate_signal(
             weighted,
             recommendation_context=rec_ctx,
             target_engine="all",
         )
-        
+
         await audit_service.add_signal_step(trace.trace_id, signal)
-        
+
         # Route signal
         result = await routing_service.route_signal(signal)
-        
+
         await audit_service.add_routing_step(
             trace.trace_id,
             signal.signal_id,
@@ -214,22 +212,20 @@ async def process_feedback_pipeline(
             result.success,
             result.errors[0] if result.errors else None,
         )
-        
+
         # Mark signal as routed
         if result.success:
             await signal_service.mark_routed([signal.signal_id], result.stream)
-        
+
         # Complete trace
         await audit_service.complete_trace(
-            trace.trace_id,
-            status="flagged" if weighted.is_flagged else "completed"
+            trace.trace_id, status="flagged" if weighted.is_flagged else "completed"
         )
-        
+
         logger.info(
-            f"Processed feedback {feedback_id} successfully",
-            extra={"signal_id": signal.signal_id}
+            f"Processed feedback {feedback_id} successfully", extra={"signal_id": signal.signal_id}
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to process feedback {feedback_id}: {e}")
 
@@ -240,12 +236,12 @@ async def submit_explicit_feedback(
     background_tasks: BackgroundTasks,
 ):
     """Submit explicit user feedback.
-    
+
     Called by UX Orchestration Engine when user rates or comments
     on a recommendation.
     """
     correlation_id = str(uuid4())
-    
+
     try:
         # Convert to contract
         input_data = ExplicitFeedbackInput(
@@ -261,16 +257,16 @@ async def submit_explicit_feedback(
             session_id=request.session_id,
             correlation_id=correlation_id,
         )
-        
+
         # Capture feedback
         event = await capture_service.capture_explicit_feedback(input_data)
-        
+
         # Queue for processing
         background_tasks.add_task(
             process_feedback_pipeline,
             event.feedback_id,
         )
-        
+
         return FeedbackResponse(
             feedback_id=event.feedback_id,
             status="accepted",
@@ -278,13 +274,10 @@ async def submit_explicit_feedback(
             correlation_id=correlation_id,
             queued_for_processing=True,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to capture explicit feedback: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to capture feedback: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to capture feedback: {str(e)}")
 
 
 @router.post("/implicit", response_model=FeedbackResponse)
@@ -293,11 +286,11 @@ async def submit_implicit_feedback(
     background_tasks: BackgroundTasks,
 ):
     """Submit implicit behavioral feedback.
-    
+
     Called by UX Orchestration Engine with user interaction signals.
     """
     correlation_id = str(uuid4())
-    
+
     try:
         # Convert to contract
         input_data = ImplicitFeedbackInput(
@@ -313,16 +306,16 @@ async def submit_implicit_feedback(
             region_code=request.region_code,
             device_type=request.device_type,
         )
-        
+
         # Capture feedback
         event = await capture_service.capture_implicit_feedback(input_data)
-        
+
         # Queue for processing
         background_tasks.add_task(
             process_feedback_pipeline,
             event.feedback_id,
         )
-        
+
         return FeedbackResponse(
             feedback_id=event.feedback_id,
             status="accepted",
@@ -330,13 +323,10 @@ async def submit_implicit_feedback(
             correlation_id=correlation_id,
             queued_for_processing=True,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to capture implicit feedback: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to capture feedback: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to capture feedback: {str(e)}")
 
 
 @router.post("/outcome", response_model=FeedbackResponse)
@@ -345,11 +335,11 @@ async def submit_outcome_feedback(
     background_tasks: BackgroundTasks,
 ):
     """Submit outcome feedback.
-    
+
     Called by Farm Inventory Engine with action execution evidence.
     """
     correlation_id = str(uuid4())
-    
+
     try:
         # Convert to contract
         input_data = OutcomeFeedbackInput(
@@ -367,16 +357,16 @@ async def submit_outcome_feedback(
             farm_id=request.farm_id,
             region_code=request.region_code,
         )
-        
+
         # Capture feedback
         event = await capture_service.capture_outcome_feedback(input_data)
-        
+
         # Queue for processing
         background_tasks.add_task(
             process_feedback_pipeline,
             event.feedback_id,
         )
-        
+
         return FeedbackResponse(
             feedback_id=event.feedback_id,
             status="accepted",
@@ -384,13 +374,10 @@ async def submit_outcome_feedback(
             correlation_id=correlation_id,
             queued_for_processing=True,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to capture outcome feedback: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to capture feedback: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to capture feedback: {str(e)}")
 
 
 @router.get("/count")

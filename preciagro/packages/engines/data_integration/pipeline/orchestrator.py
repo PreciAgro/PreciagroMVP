@@ -19,8 +19,7 @@ import time
 from typing import Any, Callable, Dict, Literal, Optional
 
 from prometheus_client import Counter
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from ..bus.publisher import publish_ingest_created
 from ..config import settings
@@ -34,16 +33,10 @@ logger = logging.getLogger("preciagro.data_integration.orchestrator")
 _SEMAPHORES: Dict[str, asyncio.Semaphore] = {}
 
 # Prometheus metrics
-_UPsert_SUCC = Counter(
-    "preciagro_upsert_success_total", "Successful DB upserts", ["source"]
-)
+_UPsert_SUCC = Counter("preciagro_upsert_success_total", "Successful DB upserts", ["source"])
 _UPsert_FAIL = Counter("preciagro_upsert_fail_total", "Failed DB upserts", ["source"])
-_PUBLISH_SUCC = Counter(
-    "preciagro_publish_success_total", "Successful publish events", ["source"]
-)
-_PUBLISH_FAIL = Counter(
-    "preciagro_publish_fail_total", "Failed publish events", ["source"]
-)
+_PUBLISH_SUCC = Counter("preciagro_publish_success_total", "Successful publish events", ["source"])
+_PUBLISH_FAIL = Counter("preciagro_publish_fail_total", "Failed publish events", ["source"])
 
 
 # --- Simple cache layer: try Redis, otherwise in-memory TTL cache ---
@@ -52,9 +45,7 @@ try:
     # Try to use redis asyncio API (redis-py v4+ exposes redis.asyncio)
     import redis.asyncio as _redis_async_pkg
 
-    _redis_async = _redis_async_pkg.from_url(
-        os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    )
+    _redis_async = _redis_async_pkg.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     logger.debug("Using redis.asyncio for cache (preciagro.data_integration)")
 except Exception:
     _redis_async = None
@@ -160,9 +151,7 @@ async def run_job(
 
     try:
         # connectors may accept a 'cursor' kwarg; if they don't, they can ignore it.
-        for raw in connector.fetch(
-            cursor=last_cursor, lat=lat, lon=lon, scope=scope, units=units
-        ):
+        for raw in connector.fetch(cursor=last_cursor, lat=lat, lon=lon, scope=scope, units=units):
             try:
                 item = normalizer(raw, source_id=source_id, kind=kind)
             except TypeError:

@@ -21,7 +21,9 @@ class YieldOutlook:
     def __init__(self):
         self._model_cache: Dict[str, object] = {}
 
-    def p_bands(self, crop: Optional[str], season_features: dict) -> Tuple[float, float, float, str]:
+    def p_bands(
+        self, crop: Optional[str], season_features: dict
+    ) -> Tuple[float, float, float, str]:
         model_name = self.MODEL_BY_CROP.get((crop or "").lower())
         prediction = None
         model_version = "heuristic_v0"

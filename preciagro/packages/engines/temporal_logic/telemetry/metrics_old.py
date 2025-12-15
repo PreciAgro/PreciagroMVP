@@ -22,9 +22,7 @@ class MetricsCollector:
         self.labels: Dict[str, Dict[str, str]] = {}
         self.start_time = datetime.utcnow()
 
-    def increment(
-        self, metric_name: str, value: int = 1, labels: Optional[Dict[str, str]] = None
-    ):
+    def increment(self, metric_name: str, value: int = 1, labels: Optional[Dict[str, str]] = None):
         """Increment a counter metric."""
         if not self.enabled:
             return
@@ -52,9 +50,7 @@ class MetricsCollector:
         if labels:
             self.labels[key] = labels
 
-    def set_gauge(
-        self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None
-    ):
+    def set_gauge(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """Set a gauge metric value."""
         if not self.enabled:
             return
@@ -102,9 +98,7 @@ class MetricsCollector:
         self.labels.clear()
         self.start_time = datetime.utcnow()
 
-    def _build_metric_key(
-        self, metric_name: str, labels: Optional[Dict[str, str]] = None
-    ) -> str:
+    def _build_metric_key(self, metric_name: str, labels: Optional[Dict[str, str]] = None) -> str:
         """Build metric key including labels."""
         if not labels:
             return metric_name
@@ -195,9 +189,7 @@ class TemporalEngineMetrics:
 
     def rule_triggered(self, rule_name: str, actions_count: int):
         """Record a rule being triggered."""
-        self.collector.increment(
-            "rules_triggered_total", labels={"rule_name": rule_name}
-        )
+        self.collector.increment("rules_triggered_total", labels={"rule_name": rule_name})
         self.collector.increment(
             "actions_scheduled_total", actions_count, labels={"rule_name": rule_name}
         )
@@ -263,18 +255,14 @@ class TemporalEngineMetrics:
     # Rate limiting metrics
     def rate_limit_applied(self, limit_type: str, user_id: str, delay_seconds: int):
         """Record rate limiting being applied."""
-        self.collector.increment(
-            "rate_limits_applied_total", labels={"limit_type": limit_type}
-        )
+        self.collector.increment("rate_limits_applied_total", labels={"limit_type": limit_type})
         self.collector.record_histogram(
             "rate_limit_delay_seconds", delay_seconds, labels={"limit_type": limit_type}
         )
 
     def quiet_hours_applied(self, channel: str, delay_seconds: int):
         """Record quiet hours policy being applied."""
-        self.collector.increment(
-            "quiet_hours_applied_total", labels={"channel": channel}
-        )
+        self.collector.increment("quiet_hours_applied_total", labels={"channel": channel})
         self.collector.record_histogram(
             "quiet_hours_delay_seconds", delay_seconds, labels={"channel": channel}
         )

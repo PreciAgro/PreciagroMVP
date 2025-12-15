@@ -40,9 +40,7 @@ async def create_intent(
     """Create a new user intent."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CREATE_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CREATE_INTENTS)
 
         # Create intent
         intent = UserIntent(
@@ -60,8 +58,7 @@ async def create_intent(
         await db.refresh(intent)
 
         # Record metrics
-        engine_metrics.intent_created(
-            intent_data.intent_type, intent_data.channel)
+        engine_metrics.intent_created(intent_data.intent_type, intent_data.channel)
 
         logger.info(
             f"Created intent {intent.id} for user {intent_data.user_id}: {intent_data.intent_type}"
@@ -89,11 +86,9 @@ async def get_intents(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    intent_type: Optional[str] = Query(
-        None, description="Filter by intent type"),
+    intent_type: Optional[str] = Query(None, description="Filter by intent type"),
     channel: Optional[str] = Query(None, description="Filter by channel"),
-    processed: Optional[bool] = Query(
-        None, description="Filter by processing status"),
+    processed: Optional[bool] = Query(None, description="Filter by processing status"),
     recorded_after: Optional[datetime] = Query(
         None, description="Filter intents recorded after this date"
     ),
@@ -109,9 +104,7 @@ async def get_intents(
     """Get paginated list of user intents with optional filtering."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_INTENTS)
 
         # Build query
         query = select(UserIntent)
@@ -194,9 +187,7 @@ async def get_intent(
     """Get a specific intent by ID."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_INTENTS)
 
         # Get intent
         stmt = select(UserIntent).where(UserIntent.id == intent_id)
@@ -234,9 +225,7 @@ async def mark_intent_processed(
     """Mark an intent as processed."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.UPDATE_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.UPDATE_INTENTS)
 
         # Get intent
         stmt = select(UserIntent).where(UserIntent.id == intent_id)
@@ -281,9 +270,7 @@ async def process_intents_bulk(
     """Mark multiple intents as processed."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.UPDATE_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.UPDATE_INTENTS)
 
         # Update intents
         stmt = select(UserIntent).where(UserIntent.id.in_(intent_ids))
@@ -319,11 +306,8 @@ async def process_intents_bulk(
 @router.get("/user/{user_id}", response_model=List[IntentResponse])
 async def get_user_intents(
     user_id: str = Path(..., description="User ID"),
-    limit: int = Query(
-        50, ge=1, le=200, description="Maximum number of intents to return"
-    ),
-    days: int = Query(30, ge=1, le=365,
-                      description="Number of days to look back"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of intents to return"),
+    days: int = Query(30, ge=1, le=365, description="Number of days to look back"),
     db: AsyncSession = Depends(get_db_session),
     current_user: Dict[str, Any] = Depends(authenticate_user),
 ):
@@ -331,20 +315,14 @@ async def get_user_intents(
     try:
         # Check permissions - users can see their own intents
         if current_user["user_id"] != user_id:
-            security_middleware.authorize_request(
-                current_user["user_id"], Permission.READ_INTENTS
-            )
+            security_middleware.authorize_request(current_user["user_id"], Permission.READ_INTENTS)
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get user intents
         stmt = (
             select(UserIntent)
-            .where(
-                and_(
-                    UserIntent.user_id == user_id, UserIntent.recorded_at >= start_date
-                )
-            )
+            .where(and_(UserIntent.user_id == user_id, UserIntent.recorded_at >= start_date))
             .order_by(desc(UserIntent.recorded_at))
             .limit(limit)
         )
@@ -383,9 +361,7 @@ async def parse_user_input(
     """Parse user input to extract intent (NLP boundary)."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.CREATE_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.CREATE_INTENTS)
 
         text = user_input.get("text", "")
         user_id = user_input.get("user_id")
@@ -393,8 +369,7 @@ async def parse_user_input(
         context = user_input.get("context", {})
 
         if not text or not user_id:
-            raise HTTPException(
-                status_code=400, detail="Text and user_id are required")
+            raise HTTPException(status_code=400, detail="Text and user_id are required")
 
         # Simple rule-based intent classification
         # In a real implementation, this would use NLP/ML models
@@ -405,8 +380,7 @@ async def parse_user_input(
 
         # Weather intents
         if any(
-            word in text_lower
-            for word in ["weather", "rain", "temperature", "climate", "forecast"]
+            word in text_lower for word in ["weather", "rain", "temperature", "climate", "forecast"]
         ):
             intent_type = "weather_query"
             confidence = 0.8
@@ -421,32 +395,24 @@ async def parse_user_input(
 
         # Scheduling intents
         elif any(
-            word in text_lower
-            for word in ["remind", "schedule", "alert", "notification", "when"]
+            word in text_lower for word in ["remind", "schedule", "alert", "notification", "when"]
         ):
             intent_type = "schedule_request"
             confidence = 0.7
 
         # Status intents
-        elif any(
-            word in text_lower
-            for word in ["status", "update", "report", "progress", "how"]
-        ):
+        elif any(word in text_lower for word in ["status", "update", "report", "progress", "how"]):
             intent_type = "status_query"
             confidence = 0.7
 
         # Help intents
-        elif any(
-            word in text_lower
-            for word in ["help", "how to", "what is", "explain", "guide"]
-        ):
+        elif any(word in text_lower for word in ["help", "how to", "what is", "explain", "guide"]):
             intent_type = "help_request"
             confidence = 0.9
 
         # Settings intents
         elif any(
-            word in text_lower
-            for word in ["settings", "config", "change", "update", "preferences"]
+            word in text_lower for word in ["settings", "config", "change", "update", "preferences"]
         ):
             intent_type = "settings_change"
             confidence = 0.8
@@ -473,9 +439,7 @@ async def parse_user_input(
         # Record metrics
         engine_metrics.intent_created(intent_type, channel)
 
-        logger.info(
-            f"Parsed intent {intent.id}: {intent_type} (confidence: {confidence})"
-        )
+        logger.info(f"Parsed intent {intent.id}: {intent_type} (confidence: {confidence})")
 
         return {
             "intent_id": intent.id,
@@ -542,9 +506,7 @@ async def get_intents_summary(
     """Get summary statistics of user intents."""
     try:
         # Check permissions
-        security_middleware.authorize_request(
-            current_user["user_id"], Permission.READ_INTENTS
-        )
+        security_middleware.authorize_request(current_user["user_id"], Permission.READ_INTENTS)
 
         start_date = datetime.utcnow() - timedelta(days=days)
 
@@ -592,10 +554,7 @@ async def get_intents_summary(
                 processed_count += 1
 
         # Calculate averages
-        avg_confidence = (
-            sum(confidence_scores) /
-            len(confidence_scores) if confidence_scores else 0
-        )
+        avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
         processing_rate = processed_count / len(intents) if intents else 0
 
         return {
@@ -604,10 +563,7 @@ async def get_intents_summary(
             "unique_users": len(user_counts),
             "intent_types": intent_type_counts,
             "channels": channel_counts,
-            "top_users": dict(
-                sorted(user_counts.items(),
-                       key=lambda x: x[1], reverse=True)[:10]
-            ),
+            "top_users": dict(sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:10]),
             "daily_counts": daily_counts,
             "average_confidence": avg_confidence,
             "processed_count": processed_count,

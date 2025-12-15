@@ -6,7 +6,9 @@ from ..models.schemas import TelemetryBatch
 class PhenologyWater:
     """Water advisory helper; stage estimation handled by GrowthStageEstimator."""
 
-    def water_need_message(self, whc_mm: Optional[float], rain_forecast_mm: Optional[float]) -> dict:
+    def water_need_message(
+        self, whc_mm: Optional[float], rain_forecast_mm: Optional[float]
+    ) -> dict:
         """Calculate water management recommendations.
 
         Args:

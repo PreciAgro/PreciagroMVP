@@ -9,7 +9,14 @@ from ..models.schemas import CropPlanItem, CropPlanResponse, FieldStateOut, Acti
 class PlanBuilder:
     """Compose crop plans for the next horizon window."""
 
-    def build(self, field_id: str, state: FieldStateOut, schedule_items: List[dict], actions: List[ActionOut], horizon_days: int) -> CropPlanResponse:
+    def build(
+        self,
+        field_id: str,
+        state: FieldStateOut,
+        schedule_items: List[dict],
+        actions: List[ActionOut],
+        horizon_days: int,
+    ) -> CropPlanResponse:
         items: List[CropPlanItem] = []
         now = datetime.utcnow()
 
@@ -44,7 +51,9 @@ class PlanBuilder:
             )
 
         filtered = items[:]
-        return CropPlanResponse(field_id=field_id, horizon_days=horizon_days, items=filtered, explanations=[])
+        return CropPlanResponse(
+            field_id=field_id, horizon_days=horizon_days, items=filtered, explanations=[]
+        )
 
 
 plan_builder = PlanBuilder()

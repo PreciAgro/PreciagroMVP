@@ -1,6 +1,5 @@
 """WhatsApp Meta Business API channel sender."""
 
-
 import httpx
 
 from ..config import WHATSAPP_PHONE_ID, WHATSAPP_TOKEN

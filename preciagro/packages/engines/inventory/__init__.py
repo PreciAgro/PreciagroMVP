@@ -55,11 +55,9 @@ class StubInventoryRepository(InventoryRepository):
         alternatives = {
             "fungicide-X": [
                 {"id": "fungicide-Y", "name": "Fungicide Y", "ratio": 1.0},
-                {"id": "fungicide-Z", "name": "Fungicide Z", "ratio": 0.8}
+                {"id": "fungicide-Z", "name": "Fungicide Z", "ratio": 0.8},
             ],
-            "insecticide-A": [
-                {"id": "insecticide-B", "name": "Insecticide B", "ratio": 1.2}
-            ]
+            "insecticide-A": [{"id": "insecticide-B", "name": "Insecticide B", "ratio": 1.2}],
         }
         return alternatives.get(item_id, [])
 
@@ -93,16 +91,8 @@ def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
     # In production: implement async inventory lookup and reservation
 
     reservations = [
-        {
-            "item": "protective_gloves",
-            "qty": 1,
-            "reason": "disease_scouting"
-        },
-        {
-            "item": "pruning_shears",
-            "qty": 1,
-            "reason": "canopy_management"
-        }
+        {"item": "protective_gloves", "qty": 1, "reason": "disease_scouting"},
+        {"item": "pruning_shears", "qty": 1, "reason": "canopy_management"},
     ]
 
     shortages = [
@@ -112,7 +102,7 @@ def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
             "qty_available": 0,
             "suggested_substitute": "fungicide-Y",
             "substitute_qty": 1,
-            "estimated_cost_usd": 45.0
+            "estimated_cost_usd": 45.0,
         }
     ]
 
@@ -120,5 +110,5 @@ def plan_impact(plan: Dict[str, Any], farm_id: str = "default") -> dict:
         "reservations": reservations,
         "shortages": shortages,
         "total_cost_usd": sum(s.get("estimated_cost_usd", 0) for s in shortages),
-        "note": "MVP hardcoded inventory. Integrate with real stock ledger for accuracy."
+        "note": "MVP hardcoded inventory. Integrate with real stock ledger for accuracy.",
     }

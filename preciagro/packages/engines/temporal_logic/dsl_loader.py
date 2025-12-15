@@ -16,9 +16,7 @@ class DSLLoader:
 
     def __init__(self, rules_dir: Optional[str] = None):
         """Initialize DSL loader."""
-        self.rules_dir = (
-            Path(rules_dir) if rules_dir else Path(__file__).parent / "rules"
-        )
+        self.rules_dir = Path(rules_dir) if rules_dir else Path(__file__).parent / "rules"
 
     async def load_rules(self) -> List[Dict[str, Any]]:
         """Asynchronously load raw rule dictionaries."""
@@ -66,8 +64,7 @@ class DSLLoader:
             try:
                 file_rules = self.load_rules_from_file(yaml_file)
                 rules.extend(file_rules)
-                logger.info(
-                    f"Loaded {len(file_rules)} rules from {yaml_file.name}")
+                logger.info(f"Loaded {len(file_rules)} rules from {yaml_file.name}")
             except Exception as e:
                 logger.error(f"Failed to load rules from {yaml_file}: {e}")
 
@@ -91,9 +88,7 @@ class DSLLoader:
                 rule = self._parse_single_rule(rule_data)
                 rules.append(rule)
             except Exception as e:
-                logger.error(
-                    f"Error parsing rule {rule_data.get('name', 'unknown')}: {e}"
-                )
+                logger.error(f"Error parsing rule {rule_data.get('name', 'unknown')}: {e}")
                 raise
 
         return rules
@@ -176,9 +171,7 @@ class DSLLoader:
                 errors.append(f"{path}.conditions: Must be a list")
             else:
                 for i, cond in enumerate(rule["conditions"]):
-                    cond_errors = self._validate_condition_schema(
-                        cond, f"{path}.conditions[{i}]"
-                    )
+                    cond_errors = self._validate_condition_schema(cond, f"{path}.conditions[{i}]")
                     errors.extend(cond_errors)
 
         # Validate actions
@@ -187,23 +180,17 @@ class DSLLoader:
                 errors.append(f"{path}.actions: Must be a list")
             else:
                 for i, action in enumerate(rule["actions"]):
-                    action_errors = self._validate_action_schema(
-                        action, f"{path}.actions[{i}]"
-                    )
+                    action_errors = self._validate_action_schema(action, f"{path}.actions[{i}]")
                     errors.extend(action_errors)
 
         # Validate window config
         if "window" in rule:
-            window_errors = self._validate_window_schema(
-                rule["window"], f"{path}.window"
-            )
+            window_errors = self._validate_window_schema(rule["window"], f"{path}.window")
             errors.extend(window_errors)
 
         return errors
 
-    def _validate_condition_schema(
-        self, condition: Dict[str, Any], path: str
-    ) -> List[str]:
+    def _validate_condition_schema(self, condition: Dict[str, Any], path: str) -> List[str]:
         """Validate condition schema."""
         errors = []
 
@@ -226,9 +213,7 @@ class DSLLoader:
             "exists",
         ]
         if "operator" in condition and condition["operator"] not in valid_operators:
-            errors.append(
-                f"{path}.operator: Invalid operator '{condition['operator']}'"
-            )
+            errors.append(f"{path}.operator: Invalid operator '{condition['operator']}'")
 
         return errors
 
@@ -244,8 +229,7 @@ class DSLLoader:
         # Validate action type
         valid_types = ["message", "webhook", "schedule", "alert"]
         if "type" in action and action["type"] not in valid_types:
-            errors.append(
-                f"{path}.type: Invalid action type '{action['type']}'")
+            errors.append(f"{path}.type: Invalid action type '{action['type']}'")
 
         return errors
 
@@ -256,8 +240,7 @@ class DSLLoader:
         # Validate window type
         valid_types = ["sliding", "tumbling", "session"]
         if "type" in window and window["type"] not in valid_types:
-            errors.append(
-                f"{path}.type: Invalid window type '{window['type']}'")
+            errors.append(f"{path}.type: Invalid window type '{window['type']}'")
 
         # Validate size
         if "size" in window:

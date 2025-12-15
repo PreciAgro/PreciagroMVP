@@ -43,4 +43,3 @@ def get_session() -> Session:
 # Helpful for local development when migrations have not yet been executed.
 if settings.AUTO_CREATE_SCHEMA:
     Base.metadata.create_all(bind=engine, checkfirst=True)
-

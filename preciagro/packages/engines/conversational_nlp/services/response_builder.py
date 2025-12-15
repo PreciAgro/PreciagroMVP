@@ -116,12 +116,16 @@ class ResponseBuilder:
         )
         return answer, fallback_used
 
-    def _fallback_structured(self, intent: IntentResult, tools_context: ToolsContext) -> StructuredAnswer:
+    def _fallback_structured(
+        self, intent: IntentResult, tools_context: ToolsContext
+    ) -> StructuredAnswer:
         """Return deterministic structured answer when AgroLLM is unavailable."""
         summary = "Here is the best guidance based on available internal tools."
         if intent.intent == "plan_planting":
             region = tools_context.geo_context.get("region", "your area")
-            window = tools_context.temporal_logic.get("recommended_window", "the next suitable window")
+            window = tools_context.temporal_logic.get(
+                "recommended_window", "the next suitable window"
+            )
             summary = f"Plan to plant in {region} during {window}."
         elif intent.intent == "diagnose_disease":
             diagnosis = (
@@ -146,7 +150,9 @@ class ResponseBuilder:
     def _apply_guardrails(self, answer: StructuredAnswer) -> Tuple[bool, StructuredAnswer]:
         """Detect unsafe language and provide a safe fallback when triggered."""
         unsafe_keywords = ["illegal", "banned chemical", "overdose", "ignore label", "poison"]
-        text_blob = " ".join([answer.summary, " ".join(answer.steps), " ".join(answer.warnings or [])]).lower()
+        text_blob = " ".join(
+            [answer.summary, " ".join(answer.steps), " ".join(answer.warnings or [])]
+        ).lower()
         if any(keyword in text_blob for keyword in unsafe_keywords):
             safe = StructuredAnswer(
                 summary="I do not know. Consult a certified agronomist and follow product labels.",
@@ -197,6 +203,11 @@ class ResponseBuilder:
     def _history_snapshot(session_context: SessionContext) -> List[Dict[str, Any]]:
         turns = session_context.turns[-5:]
         return [
-            {"role": turn.role, "text": turn.text[:200], "intent": turn.intent, "timestamp": turn.timestamp}
+            {
+                "role": turn.role,
+                "text": turn.text[:200],
+                "intent": turn.intent,
+                "timestamp": turn.timestamp,
+            }
             for turn in turns
         ]

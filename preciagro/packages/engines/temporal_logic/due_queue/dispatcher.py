@@ -211,9 +211,7 @@ class TaskDispatcher:
         if rate_limit_reason != "Within rate limits":
             policy_reasons.append(f"Rate limit: {rate_limit_reason}")
 
-        combined_reason = (
-            "; ".join(policy_reasons) if policy_reasons else "No policy delays"
-        )
+        combined_reason = "; ".join(policy_reasons) if policy_reasons else "No policy delays"
 
         return final_time, combined_reason
 
@@ -289,9 +287,7 @@ class TaskDispatcher:
 
         logger.debug(f"Enqueued job {job_id} to queue {queue_name}")
 
-    async def _mark_task_failed(
-        self, task: ScheduledTask, error: str, session: AsyncSession
-    ):
+    async def _mark_task_failed(self, task: ScheduledTask, error: str, session: AsyncSession):
         """Mark a task as failed."""
         task.status = TaskStatus.FAILED.value
         task.error_message = error
@@ -343,9 +339,7 @@ class TaskDispatcher:
         """Reschedule failed tasks that might be retryable."""
         try:
             async with self.db_session_factory() as session:
-                cutoff_time = datetime.now(timezone.utc) - timedelta(
-                    hours=max_age_hours
-                )
+                cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
 
                 # Find failed tasks that are recent and haven't exceeded max attempts
                 stmt = select(ScheduledTask).where(
@@ -448,18 +442,14 @@ class PriorityTaskDispatcher(TaskDispatcher):
                         total_dispatched += 1
 
                 if total_dispatched > 0:
-                    logger.info(
-                        f"Dispatched {total_dispatched} tasks across priority levels"
-                    )
+                    logger.info(f"Dispatched {total_dispatched} tasks across priority levels")
 
                 await session.commit()
 
         except Exception as e:
             logger.error(f"Error in priority-based dispatch: {e}")
 
-    async def _get_tasks_by_priority(
-        self, session: AsyncSession
-    ) -> Dict[int, List[ScheduledTask]]:
+    async def _get_tasks_by_priority(self, session: AsyncSession) -> Dict[int, List[ScheduledTask]]:
         """Get tasks grouped by priority level."""
         current_time = datetime.now(timezone.utc)
 

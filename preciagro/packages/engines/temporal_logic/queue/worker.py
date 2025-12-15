@@ -19,8 +19,7 @@ from ..config import REDIS_URL, config
 from ..models import NotificationJob, ScheduleItem, async_session
 from ..policies.quiet_hours import is_quiet_hours
 from ..policies.rate_limits import should_rate_limit
-from ..telemetry.metrics import (notification_attempts, notification_latency,
-                                 notification_results)
+from ..telemetry.metrics import notification_attempts, notification_latency, notification_results
 
 logger = logging.getLogger(__name__)
 

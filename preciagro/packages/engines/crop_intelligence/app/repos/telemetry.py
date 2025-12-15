@@ -76,9 +76,8 @@ class TelemetryRepository:
         self.session.flush()
 
     def season_summary(self, field_id: str) -> dict:
-        rain_stmt = (
-            select(func.coalesce(func.sum(models.TelemetryWeather.rain_mm), 0.0))
-            .where(models.TelemetryWeather.field_id == field_id)
+        rain_stmt = select(func.coalesce(func.sum(models.TelemetryWeather.rain_mm), 0.0)).where(
+            models.TelemetryWeather.field_id == field_id
         )
         rain_total = float(self.session.execute(rain_stmt).scalar_one())
         return {"cumulative_rain_mm": rain_total}

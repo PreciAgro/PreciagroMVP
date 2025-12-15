@@ -6,17 +6,38 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 from pydantic.config import ConfigDict
 
-from .contracts_old import (Action, BulkOperationResponse,  # noqa: F401
-                            ChannelType, Condition, EventBase, EventCreate,
-                            EventResponse, EventType, HealthCheck, IntentBase,
-                            IntentCreate, IntentResponse, MessageRequest,
-                            MessageTemplate, OutcomeBase, OutcomeCreate,
-                            OutcomeResponse, PaginatedResponse,
-                            ProcessedIntent, RuleBase, RuleCreate,
-                            RuleResponse, RuleUpdate, ScheduledTaskBase,
-                            ScheduledTaskCreate, ScheduledTaskResponse,
-                            ScheduledTaskUpdate, TaskConfig, TaskStatus,
-                            WindowConfig)
+from .contracts_old import (
+    Action,
+    BulkOperationResponse,  # noqa: F401
+    ChannelType,
+    Condition,
+    EventBase,
+    EventCreate,
+    EventResponse,
+    EventType,
+    HealthCheck,
+    IntentBase,
+    IntentCreate,
+    IntentResponse,
+    MessageRequest,
+    MessageTemplate,
+    OutcomeBase,
+    OutcomeCreate,
+    OutcomeResponse,
+    PaginatedResponse,
+    ProcessedIntent,
+    RuleBase,
+    RuleCreate,
+    RuleResponse,
+    RuleUpdate,
+    ScheduledTaskBase,
+    ScheduledTaskCreate,
+    ScheduledTaskResponse,
+    ScheduledTaskUpdate,
+    TaskConfig,
+    TaskStatus,
+    WindowConfig,
+)
 
 # Event coming from other engines (e.g., diagnosis)
 
@@ -181,9 +202,7 @@ class Rule(BaseModel):
                 if isinstance(window, ScheduleWindow):
                     normalized_windows.append(window)
                 elif isinstance(window, Window):
-                    normalized_windows.append(
-                        ScheduleWindow.model_validate(window.model_dump())
-                    )
+                    normalized_windows.append(ScheduleWindow.model_validate(window.model_dump()))
                 else:
                     normalized_windows.append(ScheduleWindow.model_validate(window))
             result["windows"] = normalized_windows
