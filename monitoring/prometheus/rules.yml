@@ -1,0 +1,407 @@
+"""Prometheus alerting rules for PreciAgro observability."""
+
+# This file should be placed at: monitoring/prometheus/rules.yml
+# And referenced in prometheus.yml as:
+#   rule_files:
+#     - "rules.yml"
+
+groups:
+  # ========== AUTHENTICATION & SECURITY ALERTS ==========
+  - name: security_alerts
+    interval: 30s
+    rules:
+      - alert: AuthenticationFailuresSpike
+        expr: |
+          rate(authentication_failures_total[5m]) > 1
+        for: 2m
+        annotations:
+          summary: "Authentication failures spiking ({{ $value | humanize }}/sec)"
+          description: |
+            Multiple authentication failures detected.
+            Possible brute force attack or expired credentials.
+          dashboard: "https://grafana.local/d/security"
+          runbook: "https://wiki.internal/runbooks/auth-failures"
+          severity: "warning"
+
+      - alert: InvalidTokensDetected
+        expr: |
+          increase(invalid_token_errors_total[5m]) > 10
+        annotations:
+          summary: "Invalid tokens detected ({{ $value }} in 5m)"
+          description: |
+            Multiple invalid token errors.
+            Check for compromised tokens or expired certificates.
+          action: "Review security audit logs"
+          severity: "critical"
+
+      - alert: AuthorizationDenialsSpike
+        expr: |
+          rate(authorization_denied_total[5m]) > 0.5
+        for: 2m
+        annotations:
+          summary: "Authorization denials spiking ({{ $value | humanize }}/sec)"
+          description: |
+            Multiple authorization failures (user lacks permissions).
+            May indicate misconfigured roles or privilege escalation attempts.
+          severity: "warning"
+
+      - alert: FailedSecurityInitialization
+        expr: |
+          security_initialization_failures_total > 0
+        for: 1m
+        annotations:
+          summary: "Security initialization failed"
+          description: |
+            Failed to initialize security module (JWT keys, TLS certs).
+            Service may not be properly secured.
+          severity: "critical"
+
+  # ========== RATE LIMITING & QUOTA ALERTS ==========
+  - name: rate_limiting_alerts
+    interval: 30s
+    rules:
+      - alert: RateLimitBreaches
+        expr: |
+          rate(rate_limit_exceeded_total[5m]) > 0.1
+        for: 2m
+        annotations:
+          summary: "Rate limit breaches ({{ $value | humanize }}/sec)"
+          description: |
+            Clients are being rate-limited.
+            May indicate spike in traffic or misconfigured limits.
+          dashboard: "https://grafana.local/d/ratelimit"
+          severity: "warning"
+
+      - alert: QuotaExceeded
+        expr: |
+          rate(quota_exceeded_total[5m]) > 0.05
+        for: 5m
+        annotations:
+          summary: "Quota exceeded for {{ $labels.resource }}"
+          description: |
+            Resource quota exceeded: {{ $labels.resource }}
+            Current usage: {{ $value }}% of quota
+          severity: "warning"
+
+      - alert: HighRateLimitUtilization
+        expr: |
+          (rate_limit_requests_current / rate_limit_requests_max) > 0.8
+        for: 5m
+        annotations:
+          summary: "Rate limit approaching ceiling ({{ $value | humanizePercentage }})"
+          description: "Client is at {{ $value | humanizePercentage }} of rate limit"
+          severity: "info"
+
+  # ========== ERROR RATE & RELIABILITY ALERTS ==========
+  - name: error_rate_alerts
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            /
+            sum(rate(http_requests_total[5m])) by (service)
+          ) > 0.05
+        for: 2m
+        annotations:
+          summary: "High error rate in {{ $labels.service }} ({{ $value | humanizePercentage }})"
+          description: |
+            Service {{ $labels.service }} has error rate > 5%.
+            Errors: {{ $value | humanizePercentage }} of requests
+          dashboard: "https://grafana.local/d/errors"
+          runbook: "https://wiki.internal/runbooks/high-error-rate"
+          severity: "critical"
+
+      - alert: ValidationErrorsIncrease
+        expr: |
+          increase(validation_errors_total[5m]) > 20
+        annotations:
+          summary: "Validation errors spiking ({{ $value }} in 5m)"
+          description: |
+            Input validation failures increasing.
+            May indicate malformed client requests or schema changes.
+          severity: "warning"
+
+      - alert: EngineExecutionFailures
+        expr: |
+          rate(engine_execution_failures_total[5m]) > 0.1
+        for: 2m
+        annotations:
+          summary: "{{ $labels.engine }} engine failures ({{ $value | humanize }}/sec)"
+          description: |
+            {{ $labels.engine }} engine experiencing failures.
+            Check engine logs for details.
+          engine: "{{ $labels.engine }}"
+          severity: "critical"
+
+      - alert: DatabaseErrors
+        expr: |
+          rate(database_errors_total[5m]) > 0.5
+        for: 1m
+        annotations:
+          summary: "Database errors spiking ({{ $value | humanize }}/sec)"
+          description: |
+            Database operation failures detected.
+            May indicate connectivity issues or resource exhaustion.
+          severity: "critical"
+
+      - alert: ExternalAPIFailures
+        expr: |
+          rate(external_api_failures_total{api="{{ $labels.api }}"}[5m]) > 0.1
+        for: 2m
+        annotations:
+          summary: "{{ $labels.api }} API failures ({{ $value | humanize }}/sec)"
+          description: |
+            External API {{ $labels.api }} is failing.
+            Check service status and retry logic.
+          severity: "warning"
+
+  # ========== LATENCY & PERFORMANCE ALERTS ==========
+  - name: latency_alerts
+    interval: 30s
+    rules:
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 3m
+        annotations:
+          summary: "High P99 latency: {{ $value | humanizeDuration }}"
+          description: |
+            99th percentile request latency > 5s.
+            Endpoint: {{ $labels.endpoint }}
+          dashboard: "https://grafana.local/d/performance"
+          severity: "warning"
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        annotations:
+          summary: "High P95 latency: {{ $value | humanizeDuration }}"
+          description: "95th percentile request latency > 2s"
+          severity: "info"
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          rate(database_query_duration_seconds_bucket{le="+Inf"}[5m]) 
+          - 
+          rate(database_query_duration_seconds_bucket{le="0.5"}[5m]) > 0.2
+        for: 2m
+        annotations:
+          summary: "Slow database queries ({{ $value | humanize }}/sec > 0.5s)"
+          description: |
+            Database queries taking > 0.5s.
+            Check query performance and indexes.
+          severity: "warning"
+
+      - alert: CacheHitRateLow
+        expr: |
+          (cache_hits_total / (cache_hits_total + cache_misses_total)) < 0.7
+        for: 10m
+        annotations:
+          summary: "Low cache hit rate ({{ $value | humanizePercentage }})"
+          description: |
+            Cache hit rate below 70%.
+            May indicate cache misconfiguration or memory issues.
+          severity: "info"
+
+  # ========== RESOURCE UTILIZATION ALERTS ==========
+  - name: resource_alerts
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: |
+          (process_resident_memory_bytes / (process_resident_memory_bytes + process_virtual_memory_available_bytes)) > 0.85
+        for: 5m
+        annotations:
+          summary: "High memory usage ({{ $value | humanizePercentage }})"
+          description: "Memory usage > 85%. Consider scaling or optimization."
+          severity: "warning"
+
+      - alert: HighCPUUsage
+        expr: |
+          rate(process_cpu_seconds_total[5m]) > 0.8
+        for: 5m
+        annotations:
+          summary: "High CPU usage ({{ $value | humanizePercentage }})"
+          description: "CPU usage > 80% sustained. Consider scaling."
+          severity: "warning"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (disk_available_bytes / disk_total_bytes) < 0.1
+        for: 10m
+        annotations:
+          summary: "Disk space low ({{ $value | humanizePercentage }} free)"
+          description: "Less than 10% disk space available"
+          severity: "critical"
+
+      - alert: ConnectionPoolExhaustion
+        expr: |
+          (database_connections_active / database_connections_max) > 0.9
+        for: 2m
+        annotations:
+          summary: "Database connection pool nearly exhausted ({{ $value | humanizePercentage }})"
+          description: "{{ $labels.database }} connection pool at {{ $value | humanizePercentage }}"
+          severity: "critical"
+
+  # ========== AVAILABILITY & HEALTH ALERTS ==========
+  - name: availability_alerts
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: |
+          up{job=~"preciagro.*"} == 0
+        for: 1m
+        annotations:
+          summary: "{{ $labels.instance }} is down"
+          description: |
+            Service {{ $labels.job }} on {{ $labels.instance }} is not responding.
+            Check service logs and restart if needed.
+          severity: "critical"
+
+      - alert: HealthCheckFailures
+        expr: |
+          rate(healthcheck_failures_total[5m]) > 0
+        for: 2m
+        annotations:
+          summary: "Health check failures on {{ $labels.service }}"
+          description: |
+            Health check endpoint returning errors.
+            Service may be experiencing issues.
+          severity: "critical"
+
+      - alert: DatabaseConnectionFailures
+        expr: |
+          rate(database_connection_failures_total[5m]) > 0.1
+        for: 2m
+        annotations:
+          summary: "Database connection failures ({{ $value | humanize }}/sec)"
+          description: |
+            Unable to establish database connections.
+            Check database availability and credentials.
+          severity: "critical"
+
+      - alert: ServiceStartupFailure
+        expr: |
+          increase(service_startup_failures_total[5m]) > 0
+        annotations:
+          summary: "{{ $labels.service }} startup failed"
+          description: |
+            Service failed to start or initialize.
+            Check logs: `docker logs {{ $labels.service }}`
+          severity: "critical"
+
+  # ========== DATA QUALITY ALERTS ==========
+  - name: data_quality_alerts
+    interval: 60s
+    rules:
+      - alert: StaleDataDetected
+        expr: |
+          (time() - last_data_update_timestamp) / 86400 > 1
+        for: 30m
+        annotations:
+          summary: "Stale data in {{ $labels.source }} ({{ $value | humanize }} days old)"
+          description: |
+            Data from {{ $labels.source }} hasn't been updated.
+            Last update: {{ $value | humanize }} days ago
+          severity: "warning"
+
+      - alert: DataValidationFailures
+        expr: |
+          rate(data_validation_errors_total[5m]) > 0.05
+        for: 5m
+        annotations:
+          summary: "Data validation failures ({{ $value | humanize }}/sec)"
+          description: |
+            Data quality checks failing.
+            May indicate upstream source issues.
+          severity: "warning"
+
+      - alert: MissingRequiredFields
+        expr: |
+          increase(missing_field_errors_total[1h]) > 100
+        annotations:
+          summary: "Missing required fields detected ({{ $value }} in 1h)"
+          description: |
+            Records missing required fields.
+            Check data schema and source configuration.
+          severity: "warning"
+
+  # ========== OBSERVABILITY ALERTS ==========
+  - name: observability_alerts
+    interval: 30s
+    rules:
+      - alert: LoggingSystemDown
+        expr: |
+          up{job="fluent-bit"} == 0
+        for: 2m
+        annotations:
+          summary: "Logging system down"
+          description: "Logs may not be collected. Check Fluent Bit service."
+          severity: "critical"
+
+      - alert: MetricsCollectionFailures
+        expr: |
+          increase(prometheus_scrape_errors_total[5m]) > 5
+        annotations:
+          summary: "Prometheus scrape failures ({{ $value }} in 5m)"
+          description: |
+            Prometheus unable to scrape metrics from endpoints.
+            Check endpoint health and network connectivity.
+          severity: "warning"
+
+      - alert: TracingBackendDown
+        expr: |
+          up{job="jaeger-collector"} == 0
+        for: 2m
+        annotations:
+          summary: "Tracing backend down"
+          description: "Jaeger collector unreachable. Traces may be dropped."
+          severity: "warning"
+
+      - alert: HighMetricCardinality
+        expr: |
+          increase(prometheus_tsdb_metric_chunks_created_total[1h]) > 100000
+        annotations:
+          summary: "High metric cardinality ({{ $value }} chunks/h)"
+          description: |
+            Too many unique metric combinations.
+            Review label usage to reduce cardinality.
+          severity: "warning"
+
+  # ========== SLO & SLA ALERTS ==========
+  - name: slo_alerts
+    interval: 1m
+    rules:
+      - alert: SLOErrorBudgetAtRisk
+        expr: |
+          (slo_error_budget_remaining_percent < 10) and (slo_error_budget_remaining_percent > 0)
+        for: 10m
+        annotations:
+          summary: "{{ $labels.slo }} error budget at {{ $value | humanizePercentage }}"
+          description: |
+            Error budget for {{ $labels.slo }} < 10%.
+            Monitor closely to avoid SLO breach.
+          severity: "warning"
+
+      - alert: SLOBreached
+        expr: |
+          slo_error_budget_remaining_percent <= 0
+        annotations:
+          summary: "{{ $labels.slo }} SLO BREACHED"
+          description: |
+            {{ $labels.slo }} has exceeded error budget for this period.
+            Immediate action required to restore service quality.
+          severity: "critical"
+
+      - alert: SLAAtRisk
+        expr: |
+          (sla_violation_risk_score > 0.5)
+        for: 30m
+        annotations:
+          summary: "{{ $labels.sla }} at risk of violation"
+          description: |
+            {{ $labels.sla }} SLA violation risk: {{ $value | humanizePercentage }}
+          severity: "warning"
