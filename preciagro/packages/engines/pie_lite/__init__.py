@@ -57,3 +57,4 @@ def generate_insights(product_id: str, context: Dict[str, Any]) -> Dict[str, Any
 
 
 
+
