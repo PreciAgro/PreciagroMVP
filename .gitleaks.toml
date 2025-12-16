@@ -1,0 +1,12 @@
+title = "Gitleaks Configuration"
+
+[[rules]]
+id = "jwt"
+description = "JWT token"
+regex = '''eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*'''
+
+  [rules.allowlist]
+  description = "Allow dev/test JWT tokens in test files"
+  paths = [
+    '''preciagro/packages/engines/geo_context/tests/test_api_smoke\.py'''
+  ]

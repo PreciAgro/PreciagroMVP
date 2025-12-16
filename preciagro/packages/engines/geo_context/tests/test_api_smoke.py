@@ -73,6 +73,8 @@ def encode_request(model: FCORequest) -> dict:
     return jsonable_encoder(model, exclude_none=True)
 
 
+# Test token - NOT A REAL SECRET - safe for public repos
+# gitleaks:allow
 DEV_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZXYtdXNlciIsInRlbmFudF9pZCI6ImRldi10ZW5hbnQiLCJzY29wZXMiOlsiKiJdfQ.ZGV2LXNpZ25hdHVyZQ"
 AUTH_HEADERS = {"Authorization": f"Bearer {DEV_TOKEN}"}
 
