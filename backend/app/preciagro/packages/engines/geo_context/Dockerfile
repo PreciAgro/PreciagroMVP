@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r preciagro && useradd -r -g preciagro preciagro
 
 COPY --from=builder /root/.local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY preciagro/ ./preciagro/
+COPY app/preciagro/ ./preciagro/
 RUN chown -R preciagro:preciagro /app
 
 USER preciagro

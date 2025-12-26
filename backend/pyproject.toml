@@ -19,7 +19,7 @@ select = ["E", "F", "I", "W"]
 ignore = ["E203", "E266", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"preciagro/packages/engines/temporal_logic/contracts_old.py" = ["E501"]
+"app/preciagro/packages/engines/temporal_logic/contracts_old.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

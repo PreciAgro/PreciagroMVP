@@ -1,4 +1,4 @@
-﻿# PreciAgro Monorepo
+# PreciAgro Monorepo
 
 PreciAgro bundles multiple engines (data integration, temporal logic, geo context) plus several skeleton engines used for future work. This README summarises prerequisites, bootstrap flows, and the current engine lineup.
 
@@ -47,9 +47,11 @@ Detailed run books live under each engine: `preciagro/packages/engines/<engine>/
 ## Secrets Management
 The project uses `python-dotenv` and `pydantic-settings` for configuration and secret management.
 1.  Copy `.env.example` to `.env`:
-    ```bash
+
+```sh
     cp .env.example .env
-    ```
+```
+
 2.  Update `.env` with your local secrets (API keys, DB credentials).
 3.  **Never commit `.env` to version control.** It is already in `.gitignore`.
 4.  For production (e.g., GitHub Actions, Docker), set these values as environment variables or secrets.

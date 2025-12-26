@@ -11,10 +11,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY preciagro/packages/engines/image_analysis/requirements.txt /tmp/requirements-image-analysis.txt
+COPY app/preciagro/packages/engines/image_analysis/requirements.txt /tmp/requirements-image-analysis.txt
 RUN pip install --upgrade pip && pip install -r /tmp/requirements-image-analysis.txt
 
-COPY . .
+COPY app/preciagro ./preciagro
+COPY scripts ./scripts
 
 RUN chmod +x scripts/entrypoint_image_analysis.sh
 

@@ -13,7 +13,12 @@ RUN apt-get update && apt-get install -y build-essential libpq-dev && rm -rf /va
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-COPY . .
+# Copy only what the runtime needs to keep the image lean
+COPY app/preciagro ./preciagro
+COPY scripts ./scripts
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
+COPY models ./models
 
 RUN chmod +x scripts/entrypoint_cie.sh
 

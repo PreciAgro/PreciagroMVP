@@ -3,8 +3,8 @@ version: "3.9"
 services:
   conversational-nlp:
     build:
-      context: .
-      dockerfile: preciagro/packages/engines/conversational_nlp/Dockerfile
+      context: ./backend
+      dockerfile: app/preciagro/packages/engines/conversational_nlp/Dockerfile
     env_file:
       - .env
     ports:

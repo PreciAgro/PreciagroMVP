@@ -24,10 +24,10 @@ services:
 
   cie:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     env_file:
-      - preciagro/packages/engines/crop_intelligence/.env.example
+      - backend/app/preciagro/packages/engines/crop_intelligence/.env.example
     ports:
       - "8082:8082"
     depends_on:
