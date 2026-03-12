@@ -6,11 +6,21 @@ __pycache__/
 *.pyc
 *.env
 .env
+.env.local
+.env.*.local
+!.env.example
 .venv/
 venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.cache/
 
 # VS Code
 .vscode/
+.idea/
+.claude/settings.local.json
 
 # OS
 .DS_Store
@@ -22,10 +32,24 @@ Thumbs.db
 # Test, coverage, and build
 htmlcov/
 .coverage
+.coverage.*
 .tox/
+site/
 dist/
 build/
 *.egg-info/
+
+# Frontend
+/frontend/.next/
+/frontend/node_modules/
+/frontend/out/
+/frontend/.turbo/
+/frontend/.vercel/
+/frontend/.cache/
+/frontend/coverage/
+/frontend/.env.local
+/frontend/.env.*.local
+/frontend/**/*.tsbuildinfo
 
 # Jupyter
 .ipynb_checkpoints/
