@@ -41,9 +41,9 @@ jobs:
           # Detect affected engines
           ENGINES=""
           ANY_ENGINE="false"
-          for engine_path in preciagro/packages/engines/*/; do
+          for engine_path in backend/app/preciagro/packages/engines/*/; do
             engine_name=$(basename "$engine_path")
-            if echo "$CHANGED" | grep -q "^preciagro/packages/engines/$engine_name/"; then
+            if echo "$CHANGED" | grep -q "^backend/app/preciagro/packages/engines/$engine_name/"; then
               ENGINES="$ENGINES $engine_name"
               ANY_ENGINE="true"
             fi
@@ -51,7 +51,7 @@ jobs:
           
           # Check shared libs
           SHARED="false"
-          if echo "$CHANGED" | grep -q "^preciagro/packages/shared/"; then
+          if echo "$CHANGED" | grep -q "^backend/app/preciagro/packages/shared/"; then
             SHARED="true"
             ANY_ENGINE="true"  # Shared changes affect all engines
           fi
@@ -77,37 +77,53 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     needs: detect-changes
+    env:
+      PYTHONPATH: backend/app
     strategy:
       fail-fast: false
       matrix:
         engine:
           - name: crop_intelligence
-            path: preciagro/packages/engines/crop_intelligence
+            path: backend/app/preciagro/packages/engines/crop_intelligence
           - name: data_integration
-            path: preciagro/packages/engines/data_integration
+            path: backend/app/preciagro/packages/engines/data_integration
           - name: temporal_logic
-            path: preciagro/packages/engines/temporal_logic
+            path: backend/app/preciagro/packages/engines/temporal_logic
           - name: geo_context
-            path: preciagro/packages/engines/geo_context
+            path: backend/app/preciagro/packages/engines/geo_context
           - name: image_analysis
-            path: preciagro/packages/engines/image_analysis
-            extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
+            path: backend/app/preciagro/packages/engines/image_analysis
+            extra_requirements: backend/app/preciagro/packages/engines/image_analysis/requirements.txt
           - name: conversational_nlp
-            path: preciagro/packages/engines/conversational_nlp
+            path: backend/app/preciagro/packages/engines/conversational_nlp
           - name: diagnosis_recommendation
-            path: preciagro/packages/engines/diagnosis_recommendation
+            path: backend/app/preciagro/packages/engines/diagnosis_recommendation
           - name: farm_inventory
-            path: preciagro/packages/engines/farm_inventory
+            path: backend/app/preciagro/packages/engines/farm_inventory
           - name: security_access
-            path: preciagro/packages/engines/security_access
+            path: backend/app/preciagro/packages/engines/security_access
           - name: feedback_learning
-            path: preciagro/packages/engines/feedback_learning
+            path: backend/app/preciagro/packages/engines/feedback_learning
           - name: trust_explainability
-            path: preciagro/packages/engines/trust_explainability
+            path: backend/app/preciagro/packages/engines/trust_explainability
           - name: agro_llm
-            path: preciagro/packages/engines/agro_llm
+            path: backend/app/preciagro/packages/engines/agro_llm
           - name: conversational
-            path: preciagro/packages/engines/conversational
+            path: backend/app/preciagro/packages/engines/conversational
+          - name: data_governance_lineage
+            path: backend/app/preciagro/packages/engines/data_governance_lineage
+          - name: evaluation_benchmarking
+            path: backend/app/preciagro/packages/engines/evaluation_benchmarking
+          - name: farmer_profile
+            path: backend/app/preciagro/packages/engines/farmer_profile
+          - name: inventory
+            path: backend/app/preciagro/packages/engines/inventory
+          - name: model_orchestration
+            path: backend/app/preciagro/packages/engines/model_orchestration
+          - name: pie_lite
+            path: backend/app/preciagro/packages/engines/pie_lite
+          - name: ux_orchestration
+            path: backend/app/preciagro/packages/engines/ux_orchestration
 
     steps:
       - uses: actions/checkout@v4
@@ -150,7 +166,7 @@ jobs:
         if: steps.should-run.outputs.run == 'true'
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
           pip install black isort ruff mypy bandit pip-audit pytest pytest-cov
 
       - name: Install engine extras
@@ -213,35 +229,60 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     needs: [detect-changes, code-quality]
+    env:
+      PYTHONPATH: backend/app
+    env:
+      PYTHONPATH: backend/app
     strategy:
       fail-fast: false
       matrix:
         engine:
           - name: crop_intelligence
-            path: preciagro/packages/engines/crop_intelligence
-            test_path: preciagro/packages/engines/crop_intelligence/tests
+            path: backend/app/preciagro/packages/engines/crop_intelligence
+            test_path: backend/app/preciagro/packages/engines/crop_intelligence/tests
           - name: data_integration
-            path: preciagro/packages/engines/data_integration
-            test_path: preciagro/packages/engines/data_integration/tests
+            path: backend/app/preciagro/packages/engines/data_integration
+            test_path: backend/app/preciagro/packages/engines/data_integration/tests
           - name: temporal_logic
-            path: preciagro/packages/engines/temporal_logic
-            test_path: preciagro/packages/engines/temporal_logic/tests
+            path: backend/app/preciagro/packages/engines/temporal_logic
+            test_path: backend/app/preciagro/packages/engines/temporal_logic/tests
           - name: geo_context
-            path: preciagro/packages/engines/geo_context
-            test_path: preciagro/packages/engines/geo_context/tests
+            path: backend/app/preciagro/packages/engines/geo_context
+            test_path: backend/app/preciagro/packages/engines/geo_context/tests
           - name: image_analysis
-            path: preciagro/packages/engines/image_analysis
-            test_path: preciagro/packages/engines/image_analysis/tests
-            extra_requirements: preciagro/packages/engines/image_analysis/requirements.txt
+            path: backend/app/preciagro/packages/engines/image_analysis
+            test_path: backend/app/preciagro/packages/engines/image_analysis/tests
+            extra_requirements: backend/app/preciagro/packages/engines/image_analysis/requirements.txt
           - name: conversational_nlp
-            path: preciagro/packages/engines/conversational_nlp
-            test_path: preciagro/packages/engines/conversational_nlp/tests
+            path: backend/app/preciagro/packages/engines/conversational_nlp
+            test_path: backend/app/preciagro/packages/engines/conversational_nlp/tests
           - name: feedback_learning
-            path: preciagro/packages/engines/feedback_learning
-            test_path: preciagro/packages/engines/feedback_learning/tests
+            path: backend/app/preciagro/packages/engines/feedback_learning
+            test_path: backend/app/preciagro/packages/engines/feedback_learning/tests
           - name: trust_explainability
-            path: preciagro/packages/engines/trust_explainability
-            test_path: preciagro/packages/engines/trust_explainability/tests
+            path: backend/app/preciagro/packages/engines/trust_explainability
+            test_path: backend/app/preciagro/packages/engines/trust_explainability/tests
+          - name: data_governance_lineage
+            path: backend/app/preciagro/packages/engines/data_governance_lineage
+            test_path: backend/app/preciagro/packages/engines/data_governance_lineage/tests
+          - name: evaluation_benchmarking
+            path: backend/app/preciagro/packages/engines/evaluation_benchmarking
+            test_path: backend/app/preciagro/packages/engines/evaluation_benchmarking/tests
+          - name: farmer_profile
+            path: backend/app/preciagro/packages/engines/farmer_profile
+            test_path: backend/app/preciagro/packages/engines/farmer_profile/tests
+          - name: inventory
+            path: backend/app/preciagro/packages/engines/inventory
+            test_path: backend/app/preciagro/packages/engines/inventory/tests
+          - name: model_orchestration
+            path: backend/app/preciagro/packages/engines/model_orchestration
+            test_path: backend/app/preciagro/packages/engines/model_orchestration/tests
+          - name: pie_lite
+            path: backend/app/preciagro/packages/engines/pie_lite
+            test_path: backend/app/preciagro/packages/engines/pie_lite/tests
+          - name: ux_orchestration
+            path: backend/app/preciagro/packages/engines/ux_orchestration
+            test_path: backend/app/preciagro/packages/engines/ux_orchestration/tests
 
     steps:
       - uses: actions/checkout@v4
@@ -281,7 +322,7 @@ jobs:
         if: steps.check-tests.outputs.has_tests == 'true'
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
           pip install pytest pytest-cov pytest-asyncio
 
       - name: Install engine extras
@@ -336,7 +377,7 @@ jobs:
         id: audit
         continue-on-error: true
         run: |
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
           pip-audit --format=json --output=audit-results.json 2>&1 || true
           
           # Check for critical/high vulnerabilities
@@ -396,7 +437,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     needs: [unit-tests, code-quality]
-    if: github.event_name == 'push' || github.event.pull_request.base.ref == 'main'
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'develop'))
     services:
       postgres:
         image: postgres:15
@@ -434,7 +475,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
           pip install pytest pytest-asyncio httpx
 
       - name: Run Integration Tests
@@ -442,11 +483,12 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/preciagro_test
           REDIS_URL: redis://localhost:6379/0
           ENVIRONMENT: test
+          PYTHONPATH: backend/app
         run: |
-          if [ -d "tests/integration" ]; then
-            pytest tests/integration/ -v --tb=short
-          elif [ -d "tests" ]; then
-            pytest tests/test_integration*.py -v --tb=short || echo "No integration tests found"
+          if [ -d "backend/tests/integration" ]; then
+            pytest backend/tests/integration/ -v --tb=short
+          elif [ -d "backend/tests" ]; then
+            pytest backend/tests/test_integration*.py -v --tb=short || echo "No integration tests found"
           fi
 
   # ============================================================
@@ -464,9 +506,23 @@ jobs:
       matrix:
         engine:
           - name: crop-intelligence
-            context: .
-            dockerfile: preciagro/packages/engines/crop_intelligence/Dockerfile
-          # Add more engines as Dockerfiles are created
+            context: ./backend
+            dockerfile: app/preciagro/packages/engines/crop_intelligence/Dockerfile
+          - name: data-integration
+            context: ./backend
+            dockerfile: app/preciagro/packages/engines/data_integration/Dockerfile
+          - name: geo-context
+            context: ./backend
+            dockerfile: app/preciagro/packages/engines/geo_context/Dockerfile
+          - name: image-analysis
+            context: ./backend
+            dockerfile: app/preciagro/packages/engines/image_analysis/Dockerfile
+          - name: conversational-nlp
+            context: ./backend
+            dockerfile: app/preciagro/packages/engines/conversational_nlp/Dockerfile
+          - name: trust-explainability
+            context: ./backend
+            dockerfile: app/preciagro/packages/engines/trust_explainability/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

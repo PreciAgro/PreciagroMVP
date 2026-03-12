@@ -52,7 +52,7 @@ jobs:
         id: engines
         run: |
           if [ "${{ inputs.engines }}" = "all" ]; then
-            ENGINES='["crop-intelligence","data-integration","temporal-logic","geo-context","image-analysis","trust-explainability","feedback-learning"]'
+            ENGINES='["crop-intelligence","data-integration","geo-context","image-analysis","conversational-nlp","trust-explainability"]'
           else
             # Convert comma-separated to JSON array
             ENGINES=$(echo '["${{ inputs.engines }}"]' | sed 's/,/","/g')

@@ -156,7 +156,7 @@ data/processed/
 pgdata/
 redis-data/
 *.db
-!alembic/versions/*.py
+!backend/alembic/versions/*.py
 
 # -----------------------------------------------------------------------------
 # Terraform & Infrastructure
@@ -235,7 +235,29 @@ temp/
 *.sqlite3
 *.sqlite
 *.db
-!alembic/versions/*.py
+!backend/alembic/versions/*.py
+
+# -----------------------------------------------------------------------------
+# Monorepo layout specifics
+# -----------------------------------------------------------------------------
+# Backend
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+backend/*.egg-info/
+
+# Frontend (when initialized)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.turbo/
+frontend/dist/
 
 # -----------------------------------------------------------------------------
 # Documentation Build
