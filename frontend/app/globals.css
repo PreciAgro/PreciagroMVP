@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+:root {
+  /* Core Colors - True Black & Refined Greys */
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #0c0c0c;
+  --color-surface: #161616;
+  
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A0A0A0;
+  --color-text-tertiary: #666666;
+  
+  /* Semantic Colors (HSL-based) */
+  --color-success: hsl(142, 71%, 45%);
+  --color-warning: hsl(38, 92%, 50%);
+  --color-danger: hsl(0, 84%, 60%);
+  --color-info: hsl(217, 91%, 60%);
+  
+  /* Borders & Overlays */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-overlay: rgba(255, 255, 255, 0.05);
+  
+  /* Spacing (8pt Grid) */
+  --space-0-5: 4px;
+  --space-1: 8px;
+  --space-1-5: 12px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+  --font-size-3xl: 48px;
+  
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+  
+  /* Animation Easing (Tesla-grade) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
+  --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Animation Durations */
+  --duration-micro: 150ms;
+  --duration-small: 250ms;
+  --duration-medium: 400ms;
+  --duration-large: 600ms;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #000000 !important;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background: #000000 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: filter var(--duration-large) var(--ease-standard);
+}
+
+/* Accessibility: Focus Indicators */
+*:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 4px;
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Accessibility: Skip Links */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+  font-weight: 500;
+  z-index: 100;
+  border: 1px solid var(--color-border);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Gravitational Attention (Emergency State) */
+body[data-attention-mode="gravitational"] {
+  filter: grayscale(0.6) contrast(0.85) brightness(0.7);
+}
+
+/* Typography Utilities */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: var(--font-size-3xl); }
+h2 { font-size: var(--font-size-2xl); }
+h3 { font-size: var(--font-size-xl); }
+h4 { font-size: var(--font-size-lg); }
+h5 { font-size: var(--font-size-base); }
+h6 { font-size: var(--font-size-sm); }
+
+p {
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-info);
+  color: white;
+}
