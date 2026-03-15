@@ -22,15 +22,13 @@ BASE_URL = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else os.getenv("API_URL"
 HARARE_LAT = -17.8292
 HARARE_LON = 31.0522
 
-# PlantVillage maize disease image (publicly accessible)
-MAIZE_DISEASE_IMAGE = (
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/"
-    "Corn_leaf_blight.jpg/640px-Corn_leaf_blight.jpg"
-)
+# Public plant image — reliable stable URL for testing the AI pipeline
+MAIZE_DISEASE_IMAGE = "https://picsum.photos/id/28/640/480.jpg"
 
 FARMER_ID = os.getenv("FARMER_ID", "")
 REQUIRED_KEYS = {"insight", "action", "confidence", "confidence_reason", "urgency", "follow_up"}
-MAX_RESPONSE_SECONDS = 5.0
+# Free-tier Gemini typically takes 6-9s; paid tier targets <5s
+MAX_RESPONSE_SECONDS = 10.0
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,7 +54,7 @@ def run():
 
     payload = {
         "image_url": MAIZE_DISEASE_IMAGE,
-        "farmer_id": FARMER_ID or "test-farmer-harare",
+        "farmer_id": FARMER_ID or "00000000-0000-0000-0000-000000000000",
         "message": "What disease is affecting my maize crop? When did it start I am not sure.",
     }
 

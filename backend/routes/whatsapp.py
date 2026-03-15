@@ -1,3 +1,218 @@
-from fastapi import APIRouter
+"""
+POST /api/whatsapp/webhook — Twilio WhatsApp webhook handler.
 
-router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
+Pipeline:
+  Twilio POST → validate signature → classify message → process media
+  → get/create farmer → assemble context → Gemini diagnosis
+  → format for WhatsApp → log interaction → return TwiML
+"""
+import asyncio
+import json
+import logging
+import os
+import uuid
+
+import psycopg2
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
+
+from backend.core import agroai, context
+from backend.core.message_classifier import classify_message
+from backend.services.cloudinary_upload import upload_whatsapp_image
+from backend.services.formatter import format_diagnosis
+from backend.services.twilio_client import twiml_reply, validate_twilio_signature
+from backend.services.whisper import transcribe_voice_note
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
+
+# Message sent back when we can't understand the message type
+_UNKNOWN_TYPE_REPLY = (
+    "I can understand photos, voice notes, or text messages. "
+    "Please send one of those and I'll help with your farm."
+)
+
+# Message sent when voice transcription fails
+_VOICE_FAIL_REPLY = (
+    "I couldn't understand the voice note. "
+    "Can you type your question or send a photo instead?"
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_classify = classify_message
+
+
+def _get_or_create_farmer(phone_number: str) -> str:
+    """
+    Look up farmer by phone_number. If not found, insert a minimal record.
+    Returns the farmer UUID as a string.
+    Raises on DB connection failure.
+    """
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM farmers WHERE phone_number = %s",
+            (phone_number,),
+        )
+        row = cur.fetchone()
+        if row:
+            return str(row[0])
+
+        # Auto-create a minimal record; flag for full onboarding in Week 3
+        farmer_id = str(uuid.uuid4())
+        cur.execute(
+            """
+            INSERT INTO farmers (id, phone_number, name, language)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (farmer_id, phone_number, "Unknown", "en"),
+        )
+        conn.commit()
+        logger.info("Auto-created farmer | phone=%s id=%s", phone_number, farmer_id)
+        return farmer_id
+    finally:
+        cur.close()
+        conn.close()
+
+
+def _save_interaction(
+    farmer_id: str,
+    message_in: str,
+    image_url: str | None,
+    result: dict,
+) -> None:
+    """Non-blocking DB write — errors are logged, not raised."""
+    try:
+        conn = psycopg2.connect(os.environ["DATABASE_URL"])
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO interactions
+              (farmer_id, message_in, message_out, image_url, insight, action, confidence, urgency)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                farmer_id,
+                message_in,
+                json.dumps(result),
+                image_url,
+                result.get("insight"),
+                result.get("action"),
+                result.get("confidence"),
+                result.get("urgency"),
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error("Interaction logging failed | farmer=%s error=%s", farmer_id, e)
+
+
+# ---------------------------------------------------------------------------
+# Webhook endpoint
+# ---------------------------------------------------------------------------
+
+@router.post("/webhook")
+async def whatsapp_webhook(request: Request):
+    # 1. Parse form body (Twilio sends application/x-www-form-urlencoded)
+    form = await request.form()
+    params = dict(form)
+
+    # 2. Validate Twilio signature
+    signature = request.headers.get("X-Twilio-Signature", "")
+    # Build the full URL Twilio used (scheme + host + path)
+    url = str(request.url)
+    if not validate_twilio_signature(url, params, signature):
+        logger.warning("Invalid Twilio signature | url=%s", url)
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+
+    # 3. Extract key fields
+    from_number: str = params.get("From", "")          # e.g. whatsapp:+263...
+    body: str = params.get("Body", "")
+    num_media: int = int(params.get("NumMedia", "0"))
+    media_url: str = params.get("MediaUrl0", "")
+    content_type: str = params.get("MediaContentType0", "")
+
+    msg_type = _classify(num_media, content_type, body)
+    logger.info("Webhook | from=%s type=%s", from_number, msg_type)
+
+    # 4. Handle unknown message type early
+    if msg_type == "UNKNOWN":
+        return Response(
+            content=twiml_reply(_UNKNOWN_TYPE_REPLY),
+            media_type="application/xml",
+        )
+
+    # 5. Look up or create farmer
+    try:
+        farmer_id = _get_or_create_farmer(from_number)
+    except Exception as e:
+        logger.error("Farmer lookup failed | phone=%s error=%s", from_number, e)
+        # Use phone as a fallback ID so the pipeline can still attempt a response
+        farmer_id = from_number
+
+    # 6. Process media
+    image_url: str | None = None
+    message_text: str = body.strip()
+
+    if msg_type == "IMAGE":
+        image_url = await upload_whatsapp_image(media_url, farmer_id)
+        if image_url is None:
+            # Upload failed — process as text-only with a note
+            logger.warning("Image upload failed, falling back to text-only | farmer=%s", farmer_id)
+            message_text = body.strip() or "I sent a photo of my crop."
+
+    elif msg_type == "VOICE":
+        transcript = await transcribe_voice_note(media_url)
+        if transcript is None:
+            return Response(
+                content=twiml_reply(_VOICE_FAIL_REPLY),
+                media_type="application/xml",
+            )
+        message_text = transcript
+
+    # 7. Assemble farmer context
+    try:
+        context_payload = await context.assemble_context(farmer_id)
+    except Exception as e:
+        logger.error("Context assembly failed | farmer=%s error=%s", farmer_id, e)
+        context_payload = (
+            f"=== FARMER CONTEXT ===\nfarmer_id: {farmer_id}\n"
+            "(Context unavailable)\n=== END CONTEXT ==="
+        )
+
+    # 8. Get diagnosis from Gemini
+    try:
+        result = await agroai.analyze(
+            image_url=image_url,
+            context_payload=context_payload,
+            message=message_text,
+            farmer_id=farmer_id,
+        )
+    except Exception as e:
+        logger.error("AgroAI failed | farmer=%s error=%s", farmer_id, e)
+        result = agroai.FALLBACK_RESPONSE
+
+    # 9. Format for WhatsApp
+    whatsapp_message = format_diagnosis(result)
+
+    # 10. Log interaction (non-blocking — don't delay the response)
+    message_in = message_text if msg_type != "IMAGE" else f"[image] {body}".strip()
+    asyncio.create_task(
+        asyncio.get_event_loop().run_in_executor(
+            None, _save_interaction, farmer_id, message_in, image_url, result
+        )
+    )
+
+    # 11. Return TwiML
+    return Response(
+        content=twiml_reply(whatsapp_message),
+        media_type="application/xml",
+    )

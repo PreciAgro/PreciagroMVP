@@ -51,10 +51,10 @@ async def analyze_endpoint(req: AnalyzeRequest):
         context_payload = await context.assemble_context(req.farmer_id)
     except Exception as e:
         logger.error("Context assembly failed for farmer %s: %s", req.farmer_id, e)
-        context_payload = f"=== FARMER CONTEXT ===
-farmer_id: {req.farmer_id}
-(Context unavailable)
-=== END CONTEXT ==="
+        context_payload = (
+            f"=== FARMER CONTEXT ===\nfarmer_id: {req.farmer_id}\n"
+            "(Context unavailable)\n=== END CONTEXT ==="
+        )
 
     try:
         result = await agroai.analyze(

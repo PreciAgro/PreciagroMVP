@@ -1,12 +1,10 @@
--- Enable PostGIS extension for geography types
-CREATE EXTENSION IF NOT EXISTS postgis;
-
 -- farmers
 CREATE TABLE IF NOT EXISTS farmers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone_number VARCHAR UNIQUE NOT NULL,
   name VARCHAR,
-  location GEOGRAPHY(POINT),
+  latitude FLOAT,
+  longitude FLOAT,
   language VARCHAR DEFAULT 'en',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -16,7 +14,6 @@ CREATE TABLE IF NOT EXISTS fields (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   farmer_id UUID REFERENCES farmers(id),
   name VARCHAR,
-  boundary GEOGRAPHY(POLYGON),
   crop_type VARCHAR,
   planting_date DATE,
   area_hectares FLOAT
