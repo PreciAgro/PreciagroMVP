@@ -15,7 +15,7 @@ from google.genai import types as genai_types
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent.parent.parent / "docs" / "system_prompt.md"
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-1.5-flash"
 
 FALLBACK_RESPONSE = {
     "insight": "We received your photo but need a clearer image to give you accurate advice.",

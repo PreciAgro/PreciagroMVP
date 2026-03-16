@@ -22,7 +22,7 @@ async def transcribe_voice_note(media_url: str) -> str | None:
     Applies a 15-second timeout to the transcription call.
     """
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             resp = await client.get(
                 media_url,
                 auth=(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"]),

@@ -20,7 +20,7 @@ async def upload_whatsapp_image(media_url: str, farmer_id: str) -> str | None:
     Returns the Cloudinary secure_url, or None if both attempts fail.
     """
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             resp = await client.get(
                 media_url,
                 auth=(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"]),
