@@ -109,8 +109,11 @@ async def whatsapp_webhook(request: Request):
     params = dict(form)
 
     # 2. Validate Twilio signature
+    # Railway terminates TLS and forwards as http:// internally.
+    # Twilio signs against the https:// URL, so we must reconstruct it.
     signature = request.headers.get("X-Twilio-Signature", "")
-    url = str(request.url)
+    proto = request.headers.get("X-Forwarded-Proto", "https")
+    url = str(request.url).replace("http://", f"{proto}://", 1)
     if not validate_twilio_signature(url, params, signature):
         logger.warning("Invalid Twilio signature | url=%s", url)
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
