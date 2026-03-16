@@ -61,7 +61,7 @@ async def assemble_context(farmer_id: str, field_id: str = None) -> str:
 
     # --- Farmer profile ---
     cur.execute(
-        "SELECT id, phone_number, name, language, ST_AsText(location) AS location FROM farmers WHERE id = %s",
+        "SELECT id, phone_number, name, language FROM farmers WHERE id = %s",
         (farmer_id,),
     )
     farmer = cur.fetchone()
@@ -70,14 +70,8 @@ async def assemble_context(farmer_id: str, field_id: str = None) -> str:
         conn.close()
         return "No farmer record found. Proceed with caution."
 
-    # Parse GPS from PostGIS POINT text: "POINT(lon lat)"
+    # GPS not available for WhatsApp-registered farmers (no PostGIS on Railway)
     lat, lon = None, None
-    if farmer.get("location"):
-        try:
-            coords = farmer["location"].replace("POINT(", "").replace(")", "").split()
-            lon, lat = float(coords[0]), float(coords[1])
-        except (ValueError, IndexError):
-            pass
 
     # --- Active fields ---
     field_query = "SELECT id, name, crop_type, planting_date, area_hectares FROM fields WHERE farmer_id = %s"

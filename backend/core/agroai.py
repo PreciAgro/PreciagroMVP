@@ -78,7 +78,7 @@ async def analyze(
 
     system_prompt = _load_system_prompt()
 
-    prompt_text = genai_types.Part.from_text(
+    prompt_text = (
         f"{context_payload}\n\n"
         f"=== FARMER MESSAGE ===\n{message}\n\n"
         "Please analyse the context above and respond with the JSON structure only."

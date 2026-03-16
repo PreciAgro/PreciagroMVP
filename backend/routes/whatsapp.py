@@ -180,10 +180,8 @@ async def whatsapp_webhook(request: Request):
     whatsapp_message = format_diagnosis(result)
 
     message_in = message_text if msg_type != "IMAGE" else f"[image] {body}".strip()
-    asyncio.create_task(
-        asyncio.get_event_loop().run_in_executor(
-            None, _save_interaction, farmer_id, message_in, image_url, result
-        )
+    asyncio.get_event_loop().run_in_executor(
+        None, _save_interaction, farmer_id, message_in, image_url, result
     )
 
     return Response(content=twiml_reply(whatsapp_message), media_type="application/xml")
