@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl -s https://preciagromvp-production.up.railway.app/health)",
+      "Bash(curl -s -X POST https://preciagromvp-production.up.railway.app/api/whatsapp/webhook -H \"Content-Type: application/x-www-form-urlencoded\" -d \"From=whatsapp%3A%2B1234567890&Body=test&NumMedia=0\" -w \"\\\\nHTTP_STATUS:%{http_code}\")",
+      "Bash(curl -s https://preciagromvp-production.up.railway.app/api/whatsapp/webhook)",
+      "Bash(grep -E \"^d|\\\\.py$|\\\\.sql$\")",
+      "Bash(python -c \":*)",
+      "Bash(source venv/Scripts/activate)"
     ]
   }
 }

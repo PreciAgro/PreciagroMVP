@@ -1,0 +1,76 @@
+{
+  "maize": {
+    "zimbabwe": {
+      "growth_stages": [
+        {"stage": "Germination", "start_day": 0,   "end_day": 10,  "description": "Seedling emergence"},
+        {"stage": "V3",          "start_day": 11,  "end_day": 20,  "description": "3 leaves visible"},
+        {"stage": "V6",          "start_day": 21,  "end_day": 35,  "description": "6 leaves, rapid vegetative growth"},
+        {"stage": "V10",         "start_day": 36,  "end_day": 49,  "description": "10 leaves, stem elongation"},
+        {"stage": "VT",          "start_day": 50,  "end_day": 65,  "description": "Tasseling"},
+        {"stage": "R1",          "start_day": 66,  "end_day": 75,  "description": "Silking"},
+        {"stage": "R3",          "start_day": 86,  "end_day": 95,  "description": "Milk stage"},
+        {"stage": "R6",          "start_day": 120, "end_day": 140, "description": "Physiological maturity"}
+      ],
+      "disease_risk_periods": {
+        "grey_leaf_spot":      {"months": [1, 2, 3],       "risk": "high"},
+        "maize_streak_virus":  {"months": [11, 12, 1],     "risk": "critical"},
+        "fall_armyworm":       {"months": [12, 1, 2, 3],   "risk": "high"},
+        "northern_leaf_blight":{"months": [2, 3, 4],       "risk": "medium"}
+      }
+    }
+  },
+  "tobacco": {
+    "zimbabwe": {
+      "growth_stages": [
+        {"stage": "Seedbed",      "start_day": 0,   "end_day": 45,  "description": "Seedbed nursery phase"},
+        {"stage": "Transplant",   "start_day": 46,  "end_day": 60,  "description": "Transplanting and establishment"},
+        {"stage": "Vegetative",   "start_day": 61,  "end_day": 90,  "description": "Rapid leaf development"},
+        {"stage": "Topping",      "start_day": 91,  "end_day": 100, "description": "Topping and sucker management"},
+        {"stage": "Ripening",     "start_day": 101, "end_day": 130, "description": "Leaf ripening and yellowing"},
+        {"stage": "Harvest",      "start_day": 131, "end_day": 160, "description": "Progressive leaf harvest"}
+      ],
+      "disease_risk_periods": {
+        "tobacco_mosaic_virus": {"months": [10, 11, 12], "risk": "high"},
+        "blue_mould":           {"months": [1, 2, 3],    "risk": "critical"},
+        "alternaria_leaf_spot": {"months": [12, 1, 2],   "risk": "medium"}
+      }
+    }
+  },
+  "soya": {
+    "zimbabwe": {
+      "growth_stages": [
+        {"stage": "VE",  "start_day": 0,   "end_day": 7,   "description": "Emergence"},
+        {"stage": "VC",  "start_day": 8,   "end_day": 14,  "description": "Unifoliate leaves unfolded"},
+        {"stage": "V3",  "start_day": 15,  "end_day": 25,  "description": "3rd trifoliate leaf"},
+        {"stage": "V6",  "start_day": 26,  "end_day": 40,  "description": "6th trifoliate, rapid growth"},
+        {"stage": "R1",  "start_day": 41,  "end_day": 55,  "description": "Beginning bloom"},
+        {"stage": "R3",  "start_day": 56,  "end_day": 70,  "description": "Beginning pod"},
+        {"stage": "R5",  "start_day": 71,  "end_day": 90,  "description": "Beginning seed fill"},
+        {"stage": "R7",  "start_day": 91,  "end_day": 110, "description": "Physiological maturity"}
+      ],
+      "disease_risk_periods": {
+        "soybean_rust":      {"months": [1, 2, 3, 4], "risk": "critical"},
+        "frogeye_leaf_spot": {"months": [1, 2, 3],    "risk": "high"},
+        "stem_canker":       {"months": [12, 1, 2],   "risk": "medium"}
+      }
+    }
+  },
+  "wheat": {
+    "zimbabwe": {
+      "growth_stages": [
+        {"stage": "Germination", "start_day": 0,   "end_day": 10,  "description": "Seedling emergence"},
+        {"stage": "Tillering",   "start_day": 11,  "end_day": 40,  "description": "Tiller formation"},
+        {"stage": "Jointing",    "start_day": 41,  "end_day": 60,  "description": "Stem elongation"},
+        {"stage": "Heading",     "start_day": 61,  "end_day": 75,  "description": "Head emergence"},
+        {"stage": "Flowering",   "start_day": 76,  "end_day": 85,  "description": "Anthesis"},
+        {"stage": "Grain fill",  "start_day": 86,  "end_day": 110, "description": "Grain development"},
+        {"stage": "Ripening",    "start_day": 111, "end_day": 130, "description": "Physiological maturity"}
+      ],
+      "disease_risk_periods": {
+        "wheat_rust":      {"months": [6, 7, 8],  "risk": "high"},
+        "powdery_mildew":  {"months": [5, 6, 7],  "risk": "medium"},
+        "septoria_blotch": {"months": [6, 7, 8],  "risk": "medium"}
+      }
+    }
+  }
+}

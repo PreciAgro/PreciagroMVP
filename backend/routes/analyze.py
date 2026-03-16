@@ -24,11 +24,12 @@ def _save_interaction(req: AnalyzeRequest, result: dict) -> None:
         cur.execute(
             """
             INSERT INTO interactions
-              (farmer_id, message_in, message_out, image_url, insight, action, confidence, urgency)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+              (farmer_id, field_id, message_in, message_out, image_url, insight, action, confidence, urgency)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 req.farmer_id,
+                req.field_id,
                 req.message,
                 json.dumps(result),
                 req.image_url,
@@ -48,7 +49,7 @@ def _save_interaction(req: AnalyzeRequest, result: dict) -> None:
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_endpoint(req: AnalyzeRequest):
     try:
-        context_payload = await context.assemble_context(req.farmer_id)
+        context_payload = await context.assemble_context(req.farmer_id, field_id=req.field_id)
     except Exception as e:
         logger.error("Context assembly failed for farmer %s: %s", req.farmer_id, e)
         context_payload = f"=== FARMER CONTEXT ===\nfarmer_id: {req.farmer_id}\n(Context unavailable)\n=== END CONTEXT ==="
