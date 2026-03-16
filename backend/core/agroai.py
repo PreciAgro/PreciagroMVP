@@ -2,15 +2,15 @@
 AgroAI — single-responsibility module for Gemini API calls.
 Accepts an optional image URL + assembled context, returns a structured diagnosis dict.
 """
-import asyncio
 import json
 import logging
 import os
 import time
 from pathlib import Path
 
-import google.generativeai as genai
 import httpx
+from google import genai
+from google.genai import types as genai_types
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,6 @@ def _load_system_prompt() -> str:
 def _parse_response(text: str) -> dict | None:
     """Extract and validate the JSON object from Gemini's response."""
     text = text.strip()
-    # Strip markdown code fences if the model added them despite instructions
     if text.startswith("```"):
         lines = text.splitlines()
         text = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
@@ -55,24 +54,11 @@ def _parse_response(text: str) -> dict | None:
 
 
 async def _fetch_image_bytes(image_url: str) -> tuple[bytes, str]:
-    """Download image bytes and detect MIME type from Content-Type header."""
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         resp = await client.get(image_url)
         resp.raise_for_status()
         mime = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
         return resp.content, mime
-
-
-def _call_gemini(model, contents) -> str:
-    """Synchronous Gemini call — run this in an executor."""
-    response = model.generate_content(
-        contents,
-        generation_config=genai.GenerationConfig(
-            max_output_tokens=1024,
-            temperature=0.2,
-        ),
-    )
-    return response.text
 
 
 async def analyze(
@@ -85,34 +71,40 @@ async def analyze(
     Calls Gemini with the system prompt, farmer context, optional image, and message.
     Retries once on malformed JSON. Returns fallback on persistent failure.
     """
-    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
-        system_instruction=_load_system_prompt(),
-    )
+    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
     prompt_text = (
         f"{context_payload}\n\n"
         f"=== FARMER MESSAGE ===\n{message}\n\n"
-        "Please analyse the context above and respond with the JSON structure only."
+        "Respond with the JSON structure only."
     )
 
-    contents = [prompt_text]
+    contents: list = [prompt_text]
 
     if image_url:
         try:
             image_bytes, mime_type = await _fetch_image_bytes(image_url)
-            contents.append({"mime_type": mime_type, "data": image_bytes})
+            contents.append(genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
         except Exception as e:
             logger.error("Image fetch failed | farmer=%s url=%s error=%s", farmer_id, image_url, e)
             return FALLBACK_RESPONSE
 
-    loop = asyncio.get_event_loop()
+    config = genai_types.GenerateContentConfig(
+        system_instruction=_load_system_prompt(),
+        max_output_tokens=1024,
+        temperature=0.2,
+    )
+
     start = time.perf_counter()
 
     for attempt in range(2):
         try:
-            raw_text = await loop.run_in_executor(None, _call_gemini, model, contents)
+            response = await client.aio.models.generate_content(
+                model=MODEL_NAME,
+                contents=contents,
+                config=config,
+            )
+            raw_text = response.text
             result = _parse_response(raw_text)
 
             latency = time.perf_counter() - start
