@@ -28,13 +28,7 @@ async def assemble_context(farmer_id: str, field_id: Optional[str] = None) -> st
 
     # --- Farmer profile (with GPS if available) ---
     cur.execute(
-        """
-        SELECT id, phone_number, name, language,
-               ST_Y(location::geometry) AS lat,
-               ST_X(location::geometry) AS lng
-        FROM farmers
-        WHERE id = %s
-        """,
+        "SELECT id, phone_number, name, language, lat, lng FROM farmers WHERE id = %s",
         (farmer_id,),
     )
     farmer = cur.fetchone()

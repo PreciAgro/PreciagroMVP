@@ -4,9 +4,13 @@ Farmer profile and field management endpoints.
 POST /farmer/create              — register a new farmer
 POST /farmer/{farmer_id}/field   — add a field to a farmer
 GET  /farmer/{farmer_id}/profile — fetch farmer + fields + last 5 interactions
+
+Note: Railway PostgreSQL does not have PostGIS. GPS is stored as plain lat/lng
+DOUBLE PRECISION columns. Field boundaries are stored as JSONB.
 """
 import json
 import logging
+import math
 import os
 
 import psycopg2
@@ -26,39 +30,61 @@ def _get_db():
 
 
 # ---------------------------------------------------------------------------
+# Area calculation (Shoelace + Haversine approximation, no PostGIS needed)
+# ---------------------------------------------------------------------------
+
+_EARTH_RADIUS_M = 6_371_000.0
+
+
+def _haversine_area_hectares(boundary: list) -> float:
+    """
+    Approximate polygon area in hectares using the Shoelace formula projected
+    onto a local flat-earth plane (good to ~1% for fields < 10 km across).
+
+    boundary: [[lng, lat], ...] — does not need to be closed.
+    """
+    if len(boundary) < 3:
+        return 0.0
+
+    # Use centroid latitude for the projection
+    avg_lat = sum(p[1] for p in boundary) / len(boundary)
+    lat_rad = math.radians(avg_lat)
+
+    # Convert degrees to approximate metres
+    m_per_deg_lat = math.pi * _EARTH_RADIUS_M / 180.0
+    m_per_deg_lng = m_per_deg_lat * math.cos(lat_rad)
+
+    # Shoelace formula in metre-coordinates
+    total = 0.0
+    n = len(boundary)
+    for i in range(n):
+        x1 = boundary[i][0] * m_per_deg_lng
+        y1 = boundary[i][1] * m_per_deg_lat
+        x2 = boundary[(i + 1) % n][0] * m_per_deg_lng
+        y2 = boundary[(i + 1) % n][1] * m_per_deg_lat
+        total += x1 * y2 - x2 * y1
+
+    area_m2 = abs(total) / 2.0
+    return round(area_m2 / 10_000.0, 4)
+
+
+# ---------------------------------------------------------------------------
 # POST /farmer/create
 # ---------------------------------------------------------------------------
 
 @router.post("/create", status_code=201)
 async def create_farmer(body: FarmerCreate):
-    """Register a new farmer with GPS location."""
+    """Register a new farmer with GPS coordinates (stored as plain lat/lng)."""
     conn = _get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute(
             """
-            INSERT INTO farmers (phone_number, name, location, language)
-            VALUES (
-                %s, %s,
-                ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                %s
-            )
-            RETURNING
-                id,
-                phone_number,
-                name,
-                ST_Y(location::geometry) AS lat,
-                ST_X(location::geometry) AS lng,
-                language,
-                created_at
+            INSERT INTO farmers (phone_number, name, lat, lng, language)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id, phone_number, name, lat, lng, language, created_at
             """,
-            (
-                body.phone_number,
-                body.name,
-                body.longitude,
-                body.latitude,
-                body.language,
-            ),
+            (body.phone_number, body.name, body.latitude, body.longitude, body.language),
         )
         row = dict(cur.fetchone())
         conn.commit()
@@ -68,7 +94,7 @@ async def create_farmer(body: FarmerCreate):
     except Exception as e:
         conn.rollback()
         logger.error("create_farmer failed: %s", e)
-        raise HTTPException(status_code=500, detail="Database error while creating farmer.")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         cur.close()
         conn.close()
@@ -90,18 +116,9 @@ async def create_farmer(body: FarmerCreate):
 # POST /farmer/{farmer_id}/field
 # ---------------------------------------------------------------------------
 
-def _boundary_to_wkt(boundary: list) -> str:
-    """Convert [[lng, lat], ...] to WKT POLYGON string. Auto-closes if needed."""
-    points = list(boundary)
-    if points[0] != points[-1]:
-        points.append(points[0])
-    coords = ", ".join(f"{p[0]} {p[1]}" for p in points)
-    return f"POLYGON(({coords}))"
-
-
 @router.post("/{farmer_id}/field", status_code=201)
 async def create_field(farmer_id: str, body: FieldCreate):
-    """Register a new field for a farmer."""
+    """Register a new field for a farmer (boundary stored as JSONB)."""
     conn = _get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
@@ -110,44 +127,23 @@ async def create_field(farmer_id: str, body: FieldCreate):
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Farmer not found.")
 
-        wkt = _boundary_to_wkt(body.boundary)
+        area = body.area_hectares if body.area_hectares is not None else _haversine_area_hectares(body.boundary)
 
-        if body.area_hectares is not None:
-            cur.execute(
-                """
-                INSERT INTO fields (farmer_id, name, boundary, crop_type, planting_date, area_hectares)
-                VALUES (
-                    %s, %s,
-                    ST_SetSRID(ST_GeomFromText(%s), 4326)::geography,
-                    %s, %s, %s
-                )
-                RETURNING id, farmer_id, name, crop_type, planting_date, area_hectares,
-                          ST_AsGeoJSON(boundary::geometry) AS boundary_geojson,
-                          created_at
-                """,
-                (farmer_id, body.name, wkt, body.crop_type, body.planting_date, body.area_hectares),
-            )
-        else:
-            # Auto-calculate area in hectares from the polygon
-            cur.execute(
-                """
-                INSERT INTO fields (farmer_id, name, boundary, crop_type, planting_date, area_hectares)
-                VALUES (
-                    %s, %s,
-                    ST_SetSRID(ST_GeomFromText(%s), 4326)::geography,
-                    %s, %s,
-                    ROUND(
-                        (ST_Area(ST_SetSRID(ST_GeomFromText(%s), 4326)::geography) / 10000.0)::numeric,
-                        2
-                    )
-                )
-                RETURNING id, farmer_id, name, crop_type, planting_date, area_hectares,
-                          ST_AsGeoJSON(boundary::geometry) AS boundary_geojson,
-                          created_at
-                """,
-                (farmer_id, body.name, wkt, body.crop_type, body.planting_date, wkt),
-            )
-
+        cur.execute(
+            """
+            INSERT INTO fields (farmer_id, name, boundary_json, crop_type, planting_date, area_hectares)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, farmer_id, name, crop_type, planting_date, area_hectares, boundary_json, created_at
+            """,
+            (
+                farmer_id,
+                body.name,
+                json.dumps(body.boundary),
+                body.crop_type,
+                body.planting_date,
+                area,
+            ),
+        )
         row = dict(cur.fetchone())
         conn.commit()
     except HTTPException:
@@ -155,15 +151,12 @@ async def create_field(farmer_id: str, body: FieldCreate):
     except Exception as e:
         conn.rollback()
         logger.error("create_field failed for farmer %s: %s", farmer_id, e)
-        raise HTTPException(status_code=500, detail="Database error while creating field.")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         cur.close()
         conn.close()
 
-    boundary_geojson = json.loads(row["boundary_geojson"]) if row.get("boundary_geojson") else None
-    boundary_coords = (
-        boundary_geojson["coordinates"][0] if boundary_geojson else body.boundary
-    )
+    boundary = row["boundary_json"] if isinstance(row["boundary_json"], list) else json.loads(row["boundary_json"] or "[]")
 
     return JSONResponse(
         status_code=201,
@@ -174,7 +167,7 @@ async def create_field(farmer_id: str, body: FieldCreate):
             "crop_type": row["crop_type"],
             "planting_date": row["planting_date"].isoformat(),
             "area_hectares": float(row["area_hectares"]) if row["area_hectares"] is not None else None,
-            "boundary": boundary_coords,
+            "boundary": boundary,
             "created_at": row["created_at"].isoformat(),
         },
     )
@@ -192,14 +185,7 @@ async def get_farmer_profile(farmer_id: str):
     try:
         # Farmer
         cur.execute(
-            """
-            SELECT
-                id, phone_number, name, language, created_at,
-                ST_Y(location::geometry) AS lat,
-                ST_X(location::geometry) AS lng
-            FROM farmers
-            WHERE id = %s
-            """,
+            "SELECT id, phone_number, name, language, lat, lng, created_at FROM farmers WHERE id = %s",
             (farmer_id,),
         )
         farmer_row = cur.fetchone()
@@ -210,17 +196,14 @@ async def get_farmer_profile(farmer_id: str):
         # Fields
         cur.execute(
             """
-            SELECT
-                id, name, crop_type, planting_date, area_hectares,
-                ST_AsGeoJSON(boundary::geometry) AS boundary_geojson,
-                created_at
+            SELECT id, name, crop_type, planting_date, area_hectares, boundary_json, created_at
             FROM fields
             WHERE farmer_id = %s
             ORDER BY created_at ASC
             """,
             (farmer_id,),
         )
-        field_rows = cur.fetchall()
+        field_rows = [dict(r) for r in cur.fetchall()]
 
         # Last 5 interactions
         cur.execute(
@@ -233,36 +216,33 @@ async def get_farmer_profile(farmer_id: str):
             """,
             (farmer_id,),
         )
-        interaction_rows = cur.fetchall()
+        interaction_rows = [dict(r) for r in cur.fetchall()]
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error("get_farmer_profile failed for %s: %s", farmer_id, e)
-        raise HTTPException(status_code=500, detail="Database error while fetching profile.")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         cur.close()
         conn.close()
 
-    # Serialize fields
     fields = []
     for f in field_rows:
-        f = dict(f)
-        geojson = json.loads(f["boundary_geojson"]) if f.get("boundary_geojson") else None
+        raw_boundary = f.get("boundary_json")
+        boundary = raw_boundary if isinstance(raw_boundary, list) else json.loads(raw_boundary or "[]")
         fields.append({
             "id": str(f["id"]),
             "name": f["name"],
             "crop_type": f["crop_type"],
             "planting_date": f["planting_date"].isoformat(),
             "area_hectares": float(f["area_hectares"]) if f["area_hectares"] is not None else None,
-            "boundary": geojson["coordinates"][0] if geojson else [],
+            "boundary": boundary,
             "created_at": f["created_at"].isoformat(),
         })
 
-    # Serialize interactions
     interactions = []
     for i in interaction_rows:
-        i = dict(i)
         interactions.append({
             "created_at": i["created_at"].isoformat(),
             "insight": i.get("insight"),
@@ -271,15 +251,15 @@ async def get_farmer_profile(farmer_id: str):
             "urgency": i.get("urgency"),
         })
 
+    lat = farmer_row.get("lat")
+    lng = farmer_row.get("lng")
+
     return {
         "farmer": {
             "id": str(farmer_row["id"]),
             "name": farmer_row["name"],
             "phone_number": farmer_row["phone_number"],
-            "location": {
-                "lat": farmer_row["lat"],
-                "lng": farmer_row["lng"],
-            },
+            "location": {"lat": lat, "lng": lng},
             "language": farmer_row["language"],
             "created_at": farmer_row["created_at"].isoformat(),
         },
