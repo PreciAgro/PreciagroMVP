@@ -15,7 +15,7 @@ from google.genai import types as genai_types
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent.parent.parent / "docs" / "system_prompt.md"
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-1.5-flash-latest"
 
 FALLBACK_RESPONSE = {
     "insight": "We received your photo but need a clearer image to give you accurate advice.",
@@ -74,7 +74,10 @@ async def analyze(
     Retries once on malformed JSON. Returns fallback on persistent failure.
     Logs farmer_id, latency, confidence, and urgency for every call.
     """
-    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+    client = genai.Client(
+        api_key=os.environ["GOOGLE_API_KEY"],
+        http_options={"api_version": "v1"},
+    )
 
     system_prompt = _load_system_prompt()
 
