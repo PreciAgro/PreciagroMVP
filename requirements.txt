@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-google-genai
+google-generativeai
 httpx
 psycopg2-binary
 pydantic

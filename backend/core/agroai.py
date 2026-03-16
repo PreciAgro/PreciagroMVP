@@ -2,20 +2,20 @@
 AgroAI — single-responsibility module for Gemini API calls.
 Accepts an optional image URL + assembled context, returns a structured diagnosis dict.
 """
+import asyncio
 import json
 import logging
 import os
 import time
 from pathlib import Path
 
+import google.generativeai as genai
 import httpx
-from google import genai
-from google.genai import types as genai_types
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent.parent.parent / "docs" / "system_prompt.md"
-MODEL_NAME = "gemini-1.5-flash-latest"
+MODEL_NAME = "gemini-1.5-flash"
 
 FALLBACK_RESPONSE = {
     "insight": "We received your photo but need a clearer image to give you accurate advice.",
@@ -56,11 +56,23 @@ def _parse_response(text: str) -> dict | None:
 
 async def _fetch_image_bytes(image_url: str) -> tuple[bytes, str]:
     """Download image bytes and detect MIME type from Content-Type header."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         resp = await client.get(image_url)
         resp.raise_for_status()
         mime = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
         return resp.content, mime
+
+
+def _call_gemini(model, contents) -> str:
+    """Synchronous Gemini call — run this in an executor."""
+    response = model.generate_content(
+        contents,
+        generation_config=genai.GenerationConfig(
+            max_output_tokens=1024,
+            temperature=0.2,
+        ),
+    )
+    return response.text
 
 
 async def analyze(
@@ -72,14 +84,12 @@ async def analyze(
     """
     Calls Gemini with the system prompt, farmer context, optional image, and message.
     Retries once on malformed JSON. Returns fallback on persistent failure.
-    Logs farmer_id, latency, confidence, and urgency for every call.
     """
-    client = genai.Client(
-        api_key=os.environ["GOOGLE_API_KEY"],
-        http_options={"api_version": "v1"},
+    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+    model = genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        system_instruction=_load_system_prompt(),
     )
-
-    system_prompt = _load_system_prompt()
 
     prompt_text = (
         f"{context_payload}\n\n"
@@ -87,63 +97,42 @@ async def analyze(
         "Please analyse the context above and respond with the JSON structure only."
     )
 
-    contents: list = [prompt_text]
+    contents = [prompt_text]
 
     if image_url:
         try:
             image_bytes, mime_type = await _fetch_image_bytes(image_url)
-            image_part = genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
-            contents.append(image_part)
+            contents.append({"mime_type": mime_type, "data": image_bytes})
         except Exception as e:
             logger.error("Image fetch failed | farmer=%s url=%s error=%s", farmer_id, image_url, e)
             return FALLBACK_RESPONSE
 
-    config = genai_types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        max_output_tokens=1024,
-        temperature=0.2,
-        thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
-    )
-
+    loop = asyncio.get_event_loop()
     start = time.perf_counter()
 
     for attempt in range(2):
         try:
-            response = await client.aio.models.generate_content(
-                model=MODEL_NAME,
-                contents=contents,
-                config=config,
-            )
-            raw_text = response.text
+            raw_text = await loop.run_in_executor(None, _call_gemini, model, contents)
             result = _parse_response(raw_text)
 
             latency = time.perf_counter() - start
             if result:
                 logger.info(
                     "analyze ok | farmer=%s attempt=%d latency=%.2fs confidence=%.2f urgency=%s",
-                    farmer_id,
-                    attempt + 1,
-                    latency,
-                    result["confidence"],
-                    result["urgency"],
+                    farmer_id, attempt + 1, latency, result["confidence"], result["urgency"],
                 )
                 return result
             else:
                 logger.warning(
                     "analyze malformed | farmer=%s attempt=%d raw=%s",
-                    farmer_id,
-                    attempt + 1,
-                    raw_text[:200],
+                    farmer_id, attempt + 1, raw_text[:200],
                 )
 
         except Exception as e:
             latency = time.perf_counter() - start
             logger.error(
                 "analyze api_error | farmer=%s attempt=%d latency=%.2fs error=%s",
-                farmer_id,
-                attempt + 1,
-                latency,
-                str(e),
+                farmer_id, attempt + 1, latency, str(e),
             )
             break
 
